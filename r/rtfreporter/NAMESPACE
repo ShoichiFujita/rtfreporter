@@ -1,3 +1,5 @@
 export(hello_rtfreporter)
 export(generate_rtfreport)
+export(rtfplot)
+export(rtftable)
 export(rtfreport)

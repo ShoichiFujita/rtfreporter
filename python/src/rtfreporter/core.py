@@ -452,6 +452,69 @@ class rtfreport:
         return self.add_block(section_index, page_index,
                               {"type": "figure", "path": path, "footer": footer, "metadata": metadata})
 
+    def add_section_from_dataframes(
+        self,
+        data_list: Any,
+        section_header: Optional[dict] = None,
+        section_footer: Optional[dict] = None,
+        page_titles: Optional[list] = None,
+        block_type: str = "table",
+        page_footer_notes: Optional[Any] = None,
+        metadata: Optional[dict] = None,
+    ) -> int:
+        if isinstance(data_list, dict):
+            items = list(data_list.values())
+            default_titles = list(data_list.keys())
+        elif isinstance(data_list, (list, tuple)):
+            items = list(data_list)
+            default_titles = None
+        else:
+            raise ValueError("`data_list` must be a non-empty list-like collection.")
+        if len(items) == 0:
+            raise ValueError("`data_list` must be a non-empty list-like collection.")
+        if block_type not in ("table", "listing"):
+            raise ValueError("`block_type` must be either 'table' or 'listing'.")
+
+        sec_idx = self.add_section(header=section_header, footer=section_footer)
+        n_items = len(items)
+
+        if page_titles is None:
+            if default_titles is not None and len(default_titles) == n_items:
+                page_titles = default_titles
+            else:
+                default_prefix = "Listing" if block_type == "listing" else "Table"
+                page_titles = [f"{default_prefix} {i}" for i in range(1, n_items + 1)]
+        elif isinstance(page_titles, (list, tuple)) and len(page_titles) == 1 and n_items > 1:
+            page_titles = list(page_titles) * n_items
+        elif isinstance(page_titles, (list, tuple)) and len(page_titles) != n_items:
+            raise ValueError("`page_titles` must have length 1 or match `data_list`.")
+        elif not isinstance(page_titles, (list, tuple)) and n_items > 1:
+            page_titles = [page_titles] * n_items
+        elif not isinstance(page_titles, (list, tuple)):
+            page_titles = [page_titles]
+
+        if page_footer_notes is None:
+            page_footer_notes = [None] * n_items
+        elif isinstance(page_footer_notes, (list, tuple)):
+            if len(page_footer_notes) == 1 and n_items > 1:
+                page_footer_notes = page_footer_notes * n_items
+            elif len(page_footer_notes) != n_items:
+                raise ValueError("`page_footer_notes` must have length 1 or match `data_list`.")
+        else:
+            page_footer_notes = [page_footer_notes] * n_items
+
+        for idx, item in enumerate(items, start=1):
+            page_idx = self.add_page(section_index=sec_idx, title=page_titles[idx - 1])
+            self.add_block(
+                section_index=sec_idx,
+                page_index=page_idx,
+                block={"type": block_type, "data": item, "metadata": metadata},
+            )
+            if page_footer_notes[idx - 1] is not None:
+                self.set_page_footer_notes(sec_idx, page_idx, page_footer_notes[idx - 1])
+
+        return sec_idx
+
     # ------------------------------------------------------------------
     # Document defaults
     # ------------------------------------------------------------------

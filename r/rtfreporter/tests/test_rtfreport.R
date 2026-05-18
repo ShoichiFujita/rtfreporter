@@ -266,6 +266,33 @@ stopifnot(grepl("\\\\cellx1200", rtf_meta))
 stopifnot(grepl("\\\\cellx4800", rtf_meta))
 
 # ============================================================================
+# Convenience builder: add_section_from_dataframes()
+# ============================================================================
+report_bundle <- rtfreport$new()
+bundle_sec <- report_bundle$add_section_from_dataframes(
+  data_list = list(
+    `DM page` = DM[1:2, ],
+    `AE page` = AE[1:2, ]
+  ),
+  section_header = list(columns = c(l = "Bundle Section")),
+  page_footer_notes = "bundle note"
+)
+
+stopifnot(bundle_sec == 1L)
+stopifnot(length(report_bundle$sections[[bundle_sec]]$pages) == 2L)
+stopifnot(identical(report_bundle$sections[[bundle_sec]]$pages[[1]]$title, "DM page"))
+stopifnot(identical(report_bundle$sections[[bundle_sec]]$pages[[2]]$title, "AE page"))
+
+outfile_bundle <- file.path(tempdir(), "bundle_section_report.rtf")
+generate_rtfreport(report_bundle, outfile_bundle, overwrite = TRUE)
+
+bundle_txt <- paste(readLines(outfile_bundle, warn = FALSE), collapse = "\n")
+stopifnot(grepl("Bundle Section", bundle_txt, fixed = TRUE))
+stopifnot(grepl("DM page", bundle_txt, fixed = TRUE))
+stopifnot(grepl("AE page", bundle_txt, fixed = TRUE))
+stopifnot(grepl("bundle note", bundle_txt, fixed = TRUE))
+
+# ============================================================================
 # rtftable: border="tfl" – header gets top+bottom, last row gets bottom
 # ============================================================================
 small_df <- data.frame(A = c("a1", "a2"), B = c("b1", "b2"), stringsAsFactors = FALSE)

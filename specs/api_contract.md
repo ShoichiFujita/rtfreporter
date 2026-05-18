@@ -117,6 +117,38 @@ Defaults are resolved with this order (lowest to highest):
 `generate_rtfreport(report, file_path, ...)` converts one `rtfreport` object
 to one RTF file.
 
+### Convenience builder specification
+
+`add_section_from_dataframes(...)` creates one section and appends one page per
+data frame in a list.
+
+#### Shared signature
+
+- R
+  - `rtfreport$new()` returns an object exposing
+    `add_section_from_dataframes(data_list, section_header = NULL,
+    section_footer = NULL, page_titles = NULL, block_type = "table",
+    page_footer_notes = NULL, metadata = NULL)`
+- Python
+  - `rtfreport()` returns an object exposing
+    `add_section_from_dataframes(data_list, section_header=None,
+    section_footer=None, page_titles=None, block_type="table",
+    page_footer_notes=None, metadata=None)`
+
+#### Required behavior
+
+- `data_list` must be a non-empty list-like collection of data-frame objects.
+- The method must create one section.
+- The method must create one page per element of `data_list` in order.
+- Each page must contain one block of type `table` or `listing`.
+- If `page_titles` is omitted, titles should be derived from names/labels when
+  available, otherwise a simple ordinal title may be used.
+- If `page_footer_notes` is supplied as a single value, it should be reused for
+  all pages; if supplied as a list/vector, values should be matched by position.
+- `metadata`, when supplied, should be applied to each created block unless a
+  future implementation supports per-page metadata lists.
+- The method must return the created section index.
+
 #### Required behavior
 
 - Validate object structure before writing.

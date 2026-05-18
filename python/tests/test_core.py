@@ -112,6 +112,31 @@ def test_manual_builder(tmp_path: "pytest.TempPathFactory") -> None:
     assert "clbrdrt" in rtf_txt
 
 
+def test_add_section_from_dataframes(tmp_path: "pytest.TempPathFactory") -> None:
+    report = rtfreport()
+    sec = report.add_section_from_dataframes(
+        data_list={"DM page": DM.head(2), "AE page": AE.head(2)},
+        section_header={"columns": {"l": "Bundle Section"}},
+        page_footer_notes="bundle note",
+    )
+
+    assert sec == 1
+    assert len(report.sections[sec - 1]["pages"]) == 2
+    assert report.sections[sec - 1]["pages"][0]["title"] == "DM page"
+    assert report.sections[sec - 1]["pages"][1]["title"] == "AE page"
+
+    outfile = str(tmp_path / "bundle_section_report.rtf")
+    generate_rtfreport(report, outfile, overwrite=True)
+
+    assert os.path.exists(outfile)
+    rtf_txt = open(outfile, encoding="ascii", errors="replace").read()
+
+    assert "Bundle Section" in rtf_txt
+    assert "DM page" in rtf_txt
+    assert "AE page" in rtf_txt
+    assert "bundle note" in rtf_txt
+
+
 # ---------------------------------------------------------------------------
 # Multi-page + multi-section (cohort) test
 # ---------------------------------------------------------------------------

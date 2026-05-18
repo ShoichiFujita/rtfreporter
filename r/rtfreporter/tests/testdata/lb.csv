@@ -1,0 +1,10 @@
+USUBJID,ARM,VISIT,LBTEST,LBSTRESN,LBSTRESU,LBNRLO,LBNRHI,LBNRIND
+101-001,Placebo,Baseline,Hemoglobin,13.8,g/dL,12.0,16.0,N
+101-002,Placebo,Baseline,Hemoglobin,11.9,g/dL,12.0,16.0,L
+101-003,Low Dose,Baseline,Hemoglobin,14.2,g/dL,12.0,16.0,N
+101-001,Placebo,Baseline,ALT,21,U/L,0,35,N
+101-002,Placebo,Baseline,ALT,46,U/L,0,35,H
+101-003,Low Dose,Baseline,ALT,33,U/L,0,35,N
+101-001,Placebo,Baseline,AST,23,U/L,0,35,N
+101-002,Placebo,Baseline,AST,38,U/L,0,35,H
+101-003,Low Dose,Baseline,AST,27,U/L,0,35,N

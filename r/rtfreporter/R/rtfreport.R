@@ -193,6 +193,68 @@ rtfreport <- R6::R6Class(
       self$add_block(section_index = section_index, page_index = page_index, block = block)
     },
 
+    add_section_from_dataframes = function(
+      data_list,
+      section_header = NULL,
+      section_footer = NULL,
+      page_titles = NULL,
+      block_type = "table",
+      page_footer_notes = NULL,
+      metadata = NULL
+    ) {
+      if (!is.list(data_list) || length(data_list) == 0L) {
+        stop("`data_list` must be a non-empty list.", call. = FALSE)
+      }
+      if (!block_type %in% c("table", "listing")) {
+        stop("`block_type` must be either 'table' or 'listing'.", call. = FALSE)
+      }
+
+      sec_idx <- self$add_section(header = section_header, footer = section_footer)
+      n_items <- length(data_list)
+
+      if (is.null(page_titles)) {
+        nm <- names(data_list)
+        if (!is.null(nm) && length(nm) == n_items && any(nzchar(nm))) {
+          page_titles <- nm
+        } else {
+          default_prefix <- if (block_type == "listing") "Listing" else "Table"
+          page_titles <- paste0(default_prefix, " ", seq_len(n_items))
+        }
+      } else if (length(page_titles) == 1L && n_items > 1L) {
+        page_titles <- rep(page_titles, n_items)
+      } else if (length(page_titles) != n_items) {
+        stop("`page_titles` must have length 1 or match `data_list`.", call. = FALSE)
+      }
+
+      if (is.null(page_footer_notes)) {
+        page_footer_notes <- rep(list(NULL), n_items)
+      } else if (is.list(page_footer_notes)) {
+        if (length(page_footer_notes) == 1L && n_items > 1L) {
+          page_footer_notes <- rep(page_footer_notes, n_items)
+        } else if (length(page_footer_notes) != n_items) {
+          stop("`page_footer_notes` must have length 1 or match `data_list`.", call. = FALSE)
+        }
+      } else if (length(page_footer_notes) == 1L && n_items > 1L) {
+        page_footer_notes <- rep(page_footer_notes, n_items)
+      } else if (length(page_footer_notes) != n_items) {
+        stop("`page_footer_notes` must have length 1 or match `data_list`.", call. = FALSE)
+      }
+
+      for (i in seq_len(n_items)) {
+        page_idx <- self$add_page(section_index = sec_idx, title = page_titles[[i]])
+        self$add_block(
+          section_index = sec_idx,
+          page_index = page_idx,
+          block = list(type = block_type, data = data_list[[i]], metadata = metadata)
+        )
+        if (!is.null(page_footer_notes[[i]])) {
+          self$set_page_footer_notes(sec_idx, page_idx, page_footer_notes[[i]])
+        }
+      }
+
+      sec_idx
+    },
+
     set_document_defaults = function(
       font_table = NULL,
       color_table = NULL,

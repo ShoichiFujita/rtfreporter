@@ -1,12 +1,16 @@
 Package: rtfreporter
 Type: Package
-Title: Cross-Language RTF Reporting Toolkit
-Version: 0.0.1
+Title: Clinical RTF Reporting Toolkit
+Version: 0.0.2-alpha
 Authors@R: person("ichirio", email = "ichirio@example.com", role = c("aut", "cre"))
-Description: Minimal R package scaffold for rtfreporter.
+Description: RTF reporting toolkit specialized for clinical tables and listings. It is not a general-purpose RTF library.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Imports: 
 	R6
+Suggests: 
+	knitr,
+	rmarkdown
+VignetteBuilder: knitr
 RoxygenNote: 7.3.2
