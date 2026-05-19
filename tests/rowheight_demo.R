@@ -48,24 +48,16 @@ r <- rtfreport$new(
     margin_right_twips  = .in_to_twips(1.0)
   )
 )
-r$set_document_defaults(
-  default_header = list(
-    rows = list(
-      c(
-        l = "rtfreporter Row Height Demo — Courier 9pt, 9-inch table",
-        r = "Page {PAGE} of {TOTAL_PAGES}"
-      )
-    )
-  ),
-  default_footer = list(
-    rows = list(c(
-      l = "Note: trrh positive = minimum height; negative = exact height"
-    )),
+s <- r$add_section(
+  header = list(rows = list(
+    c(l = "rtfreporter Row Height Demo — Courier 9pt, 9-inch table",
+      r = "Page {AUTO_PAGE} of {TOTAL_PAGES}")
+  )),
+  footer = list(
+    rows = list(c(l = "Note: trrh positive = minimum height; negative = exact height")),
     top_border = TRUE
   )
 )
-
-s <- r$add_section()
 
 # 比較テーブル一覧
 tables_content <- lapply(seq_along(heights), function(i) {

@@ -111,47 +111,66 @@ rtfreporter/                        ← repo root = R package root (CRAN-ready l
 
 ## Key API rules (summary — see specs for full detail)
 
-### Header/Footer row format
+### Header/Footer constructors
 
-**Section-level** header/footer → plain named vector (R) / plain dict (Python):
+Use `rtf_header()` / `rtf_footer()` for multi-row or border-controlled headers:
 ```r
-# R
+hdr <- rtf_header(
+  rows = list(
+    c(l = "Protocol: RTF-101", r = "HOGE company"),
+    c(l = "Study Title",       r = "Page {AUTO_PAGE} of {TOTAL_PAGES}")
+  )
+)
+ftr <- rtf_footer(c(l = "Confidential"))  # top_border = TRUE by default
+report$add_section(header = hdr, footer = ftr)
+```
+
+Shorthand (single row, no border/width control):
+```r
 report$add_section(
-  header = c(l = "Protocol: RTF-101", r = "Page {PAGE} of {TOTAL_PAGES}"),
+  header = c(l = "Protocol: RTF-101", r = "Page {AUTO_PAGE} of {TOTAL_PAGES}"),
   footer = c(l = "Confidential")
 )
 ```
-```python
-# Python
-report.add_section(
-    header={"l": "Protocol: RTF-101", "r": "Page {PAGE} of {TOTAL_PAGES}"},
-    footer={"l": "Confidential"},
-)
+
+### Header/Footer get/set methods
+
+```r
+# Set (after section creation)
+report$set_section_header(sec_idx, hdr)
+report$set_section_footer(sec_idx, ftr)
+
+# Get
+hdr <- report$get_section_header(sec_idx)
+ftr <- report$get_section_footer(sec_idx)
 ```
 
-**Document-level default** header/footer → `list(rows = list(...))` / `{"rows": [...]}`:
-```r
-# R
-report$set_default_header(list(
-  rows = list(
-    c(l = "Protocol", r = "Page {PAGE} of {TOTAL_PAGES}"),
-    c(l = "Study Title", r = "Company")
-  )
-))
-```
+### Header/Footer row format
 
 Named keys: `l` = left, `r` = right, `c` = center.
+
+**Column-count rules:**
+- Only `l` / `c` / `r` → 1 column
+- `l` + `r` (no `c`) → 2 columns
+- `c` with `l` or `r`, or all three → 3 columns (missing keys fill with `""`)
+
 Legacy `list(columns = c(...))` is accepted for backward compatibility but
 **must not be written in new code**.
 
 ### Page tokens
 
-- `{PAGE}` → `\chpgn` (RTF dynamic field, updated per page by the viewer)
-- `{TOTAL_PAGES}` → static integer count computed at render time
+| Token | Behavior |
+|-------|----------|
+| `{AUTO_PAGE}` | `\chpgn` — dynamic page number (recommended) |
+| `{PAGE}` | Alias for `{AUTO_PAGE}` |
+| `{TOTAL_PAGES}` | Static total page count at render time |
+| `{AUTO_TOTAL_PAGES}` | Alias for `{TOTAL_PAGES}` |
 
-Tests must **not** assert literal `"1 of 2"` strings. Instead:
+Recommended: `"Page {AUTO_PAGE} of {TOTAL_PAGES}"`.
+
+Tests must **not** assert literal page numbers. Instead:
 ```r
-stopifnot(grepl("\\chpgn",  rtf_txt, fixed = TRUE))  # {PAGE}
+stopifnot(grepl("\\chpgn",  rtf_txt, fixed = TRUE))  # {AUTO_PAGE}
 stopifnot(grepl(" of 2",    rtf_txt, fixed = TRUE))  # {TOTAL_PAGES}
 ```
 

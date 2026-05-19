@@ -486,21 +486,13 @@ run_test("COMP-a: Clinical AE listing (全機能組み合わせ)", {
   )
 
   r <- rtfreport$new()
-  r$set_document_defaults(
-    default_header = list(
-      rows = list(
-        c(l = "Sponsor: Example Corp",
-                         r = "Study: EX-2026-001"),
-        c(l = "Table 14.3.1: Adverse Events",
-                         r = "Page {PAGE} of {TOTAL_PAGES}")
-      )
-    ),
-    default_footer = list(
-      rows      = list(c(l = "Confidential")),
-      top_border = TRUE
-    )
+  s <- r$add_section(
+    header = list(rows = list(
+      c(l = "Sponsor: Example Corp",       r = "Study: EX-2026-001"),
+      c(l = "Table 14.3.1: Adverse Events", r = "Page {AUTO_PAGE} of {TOTAL_PAGES}")
+    )),
+    footer = list(rows = list(c(l = "Confidential")), top_border = TRUE)
   )
-  s <- r$add_section()
   r$add_page(
     section_index = s,
     title         = "Table 14.3.1 — Adverse Events by Subject",
@@ -781,22 +773,14 @@ run_test("TFL-DEMO: Demographics Summary Table (TFL style)", {
     cell_padding_left_twips = 108L,
     cell_padding_right_twips = 108L
   )
-
   r <- rtfreport$new()
-  r$set_document_defaults(
-    default_header = list(
-      rows = list(
-        c(
-          l = "Sponsor: Example Corp          Study: EX-2026-001",
-          r = "Page {PAGE} of {TOTAL_PAGES}"
-        ),
-        c(
-          l = "Table 14.1.1: Demographic and Baseline Characteristics",
-          r = ""
-        )
-      )
-    ),
-    default_footer = list(
+  s <- r$add_section(
+    header = list(rows = list(
+      c(l = "Sponsor: Example Corp          Study: EX-2026-001",
+        r = "Page {AUTO_PAGE} of {TOTAL_PAGES}"),
+      c(l = "Table 14.1.1: Demographic and Baseline Characteristics", r = "")
+    )),
+    footer = list(
       rows = list(
         c(l = "Note: Values are n (%) unless otherwise specified."),
         c(l = "Source: ADSL dataset. Data cut-off: 2026-01-01.")
@@ -804,8 +788,6 @@ run_test("TFL-DEMO: Demographics Summary Table (TFL style)", {
       top_border = TRUE
     )
   )
-
-  s <- r$add_section()
   r$add_page(
     section_index = s,
     title   = "Table 14.1.1 — Demographic and Baseline Characteristics",
@@ -856,25 +838,17 @@ tbl_summary <- rtftable$new(
   row_height_twips = 300L,
   cell_padding_left_twips = 108L
 )
-
 r_summary <- rtfreport$new()
-r_summary$set_document_defaults(
-  default_header = list(
-    rows = list(
-      c(
-        l = "rtfreporter Feature Test Report",
-        r = paste0("Run: ", format(Sys.time(), "%Y-%m-%d %H:%M"))
-      )
-    )
-  ),
-  default_footer = list(
-    rows = list(c(
-      l = sprintf("PASS: %d / FAIL: %d / TOTAL: %d", n_pass, n_fail, n_pass + n_fail)
-    )),
+s_sum <- r_summary$add_section(
+  header = list(rows = list(
+    c(l = "rtfreporter Feature Test Report",
+      r = paste0("Run: ", format(Sys.time(), "%Y-%m-%d %H:%M")))
+  )),
+  footer = list(
+    rows = list(c(l = sprintf("PASS: %d / FAIL: %d / TOTAL: %d", n_pass, n_fail, n_pass + n_fail))),
     top_border = TRUE
   )
 )
-s_sum <- r_summary$add_section()
 r_summary$add_page(
   section_index = s_sum,
   title         = sprintf("Feature Test Summary  —  PASS: %d  /  FAIL: %d  /  TOTAL: %d",

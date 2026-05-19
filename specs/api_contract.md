@@ -52,10 +52,6 @@ and output behavior.
     - bottom: 0.75 in
     - left: 0.50 in
     - right: 0.50 in
-- `default_header`
-  - Used when section header is not set
-- `default_footer`
-  - Used when section footer is not set
 - `default_format`
   - Common default formatting for header/footer/content tables
   - Must allow global settings with lower-level override
@@ -80,66 +76,114 @@ Defaults are resolved with this order (lowest to highest):
 #### Header/Footer structure
 
 - Both header and footer are table-like containers.
-- Column count: 1 to 3.
+- Column count: 1 to 3, determined by which keys are present in each row.
 - Layout: equal-width columns only.
-- Width default: full writable width (between margins).
-- Alignment default by column count:
-  - 1 column: center (header) / left (footer)
-  - 2 columns: left / right
-  - 3 columns: left / center / right
+- Width default: full writable width (between margins). Absolute width can be
+  specified in twips; percentage-based width is not supported.
+- Alignment determined by column key:
+
+| Key | Column | Alignment |
+|-----|--------|-----------|
+| `l` | left column | left |
+| `c` | center column | center |
+| `r` | right column | right |
+
+**Column count rules:**
+- Only `l` → 1 column (left)
+- Only `c` → 1 column (center)
+- Only `r` → 1 column (right)
+- `l` + `r` (no `c`) → 2 columns (left, right)
+- `c` present with `l` or `r` → **3 columns** (l, c, r); missing keys default to `""`
+- `l` + `c` + `r` → 3 columns
+
+- Unnamed elements: column count and alignment determined by count (1=center/left, 2=left/right, 3=left/center/right).
+
+**Border defaults:**
+- Header: no borders
+- Footer: top border on the first row only (default `top_border = TRUE`)
+
+**Row height:** One configurable value for all header/footer rows, set in
+`inst/resources/rtf_commands.R` under `defaults$header_footer_row_height_twips`.
 
 #### Header/Footer row representation
 
-A header or footer passed directly to `add_section(header=)`, `set_section_header()`,
-or `set_section_footer()` is **a plain named character vector**:
+Section-level header/footer is specified in `add_section(header=, footer=)`,
+`set_section_header()`, or `set_section_footer()` in one of these forms:
 
+**Single-row shorthand** (plain named character vector):
 ```r
-# Single section header/footer — plain named vector
-add_section(header = c(l = "Protocol: RTF-101", r = "Page {PAGE} of {TOTAL_PAGES}"))
+add_section(header = c(l = "Protocol: RTF-101", r = "Page {AUTO_PAGE} of {TOTAL_PAGES}"))
 set_section_footer(sec, c(l = "Confidential"))
 ```
 
-A document-level default header/footer (`set_default_header()`, `set_default_footer()`)
-uses a **list with a `rows` element** whose values are plain named vectors — one vector
-per row:
-
+**Multi-row** (list with `rows` element):
 ```r
-# Multi-row document-wide header
-set_default_header(list(
-  rows = list(
-    c(l = "Protocol: RTF-101", r = "Page {PAGE} of {TOTAL_PAGES}"),
-    c(l = "Study Title",       r = "For Clinical Study Use Only")
+add_section(
+  header = list(
+    rows = list(
+      c(l = "Protocol: RTF-101",  r = "HOGE company"),
+      c(l = "Study Title",        r = "Page {AUTO_PAGE} of {TOTAL_PAGES}"),
+      c(c = "Table 14.1.1 Demographic Summary"),
+      c(l = "Cohort: Cohort 1")
+    )
+  ),
+  footer = list(
+    rows = list(c(l = "Confidential"))
   )
-))
-
-# Document-wide footer with top border
-set_default_footer(list(
-  rows = list(c(l = "Confidential - Internal Use Only")),
-  top_border = TRUE
-))
+)
 ```
 
-**Named vector keys and their alignment mapping**:
+**Document-wide default header/footer has been removed.** Every section must
+explicitly specify its header and footer. If a section is created without
+specifying header or footer, it inherits the header/footer from the
+immediately preceding section. If no previous section exists, no header/footer
+is rendered for that section.
 
-| Key | Alignment |
-|-----|-----------|
-| `l` | left      |
-| `r` | right     |
-| `c` | center    |
-| (unnamed) | determined by column count (see defaults above) |
+**Backward compatibility**: The legacy form `list(columns = c(...))` per row is
+still accepted by the renderer but must not be used in new code.
 
-**Backward compatibility**: The legacy form `list(columns = c(...))` per row is still
-accepted by the renderer but must not be used in new code.
+#### Header/Footer object constructors
 
-#### Header/Footer dynamic fields
+`rtf_header()` and `rtf_footer()` provide explicit control over borders, width,
+and row height. Both return a plain list and are accepted wherever a plain
+named vector is accepted.
 
-- Must support page tokens:
-  - current page in section
-  - total pages in section
-  - current page in whole document
-  - total pages in whole document
-- Must support section-specific grouped header text (example: lab test name).
-- Section break behavior must be supported for per-section header changes.
+```r
+rtf_header(
+  rows,                       # named vector (single row) or list of named vectors
+  width_twips    = NULL,      # NULL = full writable width
+  top_border     = FALSE,     # header default: no border
+  row_height_twips = NULL     # NULL = read from rtfreporter_defaults.R
+)
+
+rtf_footer(
+  rows,
+  width_twips    = NULL,
+  top_border     = TRUE,      # footer default: top border on first row
+  row_height_twips = NULL
+)
+```
+
+**Set/get methods on `rtfreport`:**
+- `set_section_header(section_index, header)` — set or replace after creation
+- `get_section_header(section_index)` — retrieve the stored header (may be `NULL`)
+- `set_section_footer(section_index, footer)` — set or replace after creation
+- `get_section_footer(section_index)` — retrieve the stored footer (may be `NULL`)
+
+#### Header/Footer page tokens
+
+| Token | Type | Behavior |
+|-------|------|----------|
+| `{AUTO_PAGE}` | Dynamic | Replaced with RTF `\chpgn` — page number updated per page by the RTF viewer |
+| `{AUTO_TOTAL_PAGES}` | Dynamic | Replaced with RTF `NUMPAGES` field — total pages updated by the RTF viewer |
+| `{PAGE}` | Static | Replaced with the first page number of the section at render time |
+| `{TOTAL_PAGES}` | Static | Replaced with the total page count of the document at render time |
+
+Prefer `{AUTO_PAGE}` and `{TOTAL_PAGES}` for typical clinical report headers:
+`"Page {AUTO_PAGE} of {TOTAL_PAGES}"`.
+
+`{AUTO_PAGE}` uses `\chpgn` (viewer-rendered dynamic field). `{TOTAL_PAGES}` uses
+a static count computed when `generate_rtfreport()` is called.
 
 ### Page-level specification
 

@@ -8,36 +8,32 @@ LB <- read.csv(file.path("tests", "testdata", "lb.csv"), stringsAsFactors = FALS
 
 dir.create(file.path("tests", "output"), recursive = TRUE, showWarnings = FALSE)
 
-make_common_header <- function(study_title) {
-  list(
-    rows = list(
-      c(l = "Protocol: RTF-101", r = "Page {PAGE} of {TOTAL_PAGES}"),
-      c(l = study_title, r = "For Clinical Study Use Only")
-    )
+make_section_header <- function(study_title, section_label = NULL) {
+  rows <- list(
+    c(l = "Protocol: RTF-101", r = "Page {AUTO_PAGE} of {TOTAL_PAGES}"),
+    c(l = study_title, r = "For Clinical Study Use Only")
   )
+  if (!is.null(section_label)) rows <- c(rows, list(section_label))
+  list(rows = rows)
 }
 
-make_common_footer <- function() {
-  list(
-    rows = list(
-      c(l = "Confidential - Internal Use Only")
-    )
-  )
+make_section_footer <- function() {
+  list(rows = list(c(l = "Confidential - Internal Use Only")), top_border = TRUE)
 }
 
 # ---------------------------------------------------------------------------
 # 1) One-page DM report
 # ---------------------------------------------------------------------------
 dm_report <- rtfreport$new()
-dm_report$set_default_header(make_common_header("Table 14.1.1 Demographics"))
-dm_report$set_default_footer(make_common_footer())
 
 dm_sec <- dm_report$add_section(
-  header = c(l = "Demographics (Screened Population)", r = "Safety Set")
+  header = make_section_header("Table 14.1.1 Demographics",
+                               c(l = "Demographics (Screened Population)", r = "Safety Set")),
+  footer = make_section_footer()
 )
 dm_page <- dm_report$add_page(
   section_index = dm_sec,
-  title = "Table 14.1.1 Demographics by Treatment Arm"
+  title = "Table 14.1.1 — Demographic and Baseline Characteristics"
 )
 
 dm_disp <- data.frame(
@@ -64,20 +60,22 @@ generate_rtfreport(dm_report, dm_out, overwrite = TRUE)
 # 2) Lab report with one section per analyte
 # ---------------------------------------------------------------------------
 lb_report <- rtfreport$new()
-lb_report$set_default_header(make_common_header("Table 14.2.1 Clinical Laboratory Summary"))
-lb_report$set_default_footer(make_common_footer())
 
 lb_tests <- unique(LB$LBTEST)
 for (test_name in lb_tests) {
   sec <- lb_report$add_section(
-    header = c(l = paste0("Clinical Laboratory: ", test_name), r = "Page {PAGE} of {TOTAL_PAGES}")
+    header = make_section_header("Table 14.2.1 Clinical Laboratory Summary",
+                                 c(l = paste0("Clinical Laboratory: ", test_name),
+                                   r = "Page {AUTO_PAGE} of {TOTAL_PAGES}")),
+    footer = make_section_footer()
   )
   page <- lb_report$add_page(
     section_index = sec,
     title = paste0(test_name, " by Subject")
   )
 
-  test_df <- subset(LB, LBTEST == test_name, select = c(USUBJID, ARM, VISIT, LBSTRESN, LBSTRESU, LBNRLO, LBNRHI, LBNRIND))
+  test_df <- subset(LB, LBTEST == test_name,
+                    select = c(USUBJID, ARM, VISIT, LBSTRESN, LBSTRESU, LBNRLO, LBNRHI, LBNRIND))
   names(test_df) <- c("Subject ID", "Treatment Arm", "Visit", "Result", "Unit", "Ref Low", "Ref High", "Flag")
 
   test_tbl <- rtftable$new(

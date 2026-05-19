@@ -19,7 +19,9 @@
     )
     pkg_resource_dir <- system.file("resources", package = "rtfreporter")
     if (nzchar(pkg_resource_dir)) {
-      resource_candidates <- c(file.path(pkg_resource_dir, "rtf_commands.R"), resource_candidates)
+      # Append installed-package path AFTER local paths so that source-tree runs
+      # always pick up the local (possibly newer) resource file first.
+      resource_candidates <- c(resource_candidates, file.path(pkg_resource_dir, "rtf_commands.R"))
     }
 
     resource_path <- resource_candidates[file.exists(resource_candidates)][1]
@@ -33,6 +35,38 @@
       stop("`rtf_commands` not defined in resource file.", call. = FALSE)
     }
     cache <<- get("rtf_commands", envir = env, inherits = FALSE)
+    cache
+  }
+})
+
+.load_rtfreporter_defaults <- local({
+  cache <- NULL
+  function() {
+    if (!is.null(cache)) {
+      return(cache)
+    }
+
+    resource_candidates <- c(
+      file.path(getwd(), "inst", "resources", "rtfreporter_defaults.R"),
+      file.path(getwd(), "r", "rtfreporter", "inst", "resources", "rtfreporter_defaults.R")
+    )
+    pkg_resource_dir <- system.file("resources", package = "rtfreporter")
+    if (nzchar(pkg_resource_dir)) {
+      resource_candidates <- c(file.path(pkg_resource_dir, "rtfreporter_defaults.R"), resource_candidates)
+    }
+
+    resource_path <- resource_candidates[file.exists(resource_candidates)][1]
+    if (is.na(resource_path)) {
+      cache <<- list(header_footer_row_height_twips = 360L)
+      return(cache)
+    }
+
+    env <- new.env(parent = baseenv())
+    sys.source(resource_path, envir = env)
+    if (!exists("rtfreporter_defaults", envir = env, inherits = FALSE)) {
+      stop("`rtfreporter_defaults` not defined in resource file.", call. = FALSE)
+    }
+    cache <<- get("rtfreporter_defaults", envir = env, inherits = FALSE)
     cache
   }
 })
@@ -147,17 +181,36 @@
 }
 
 # Replace page tokens, then RTF-escape.
-# {PAGE} is replaced with the RTF dynamic field \chpgn (updated per page by the RTF reader).
-# {TOTAL_PAGES} is replaced with a static count known at render time.
+# Token reference:
+#   {AUTO_PAGE}        -> RTF \chpgn field (dynamic, updated per page by the viewer)
+#   {AUTO_TOTAL_PAGES} -> RTF NUMPAGES field (dynamic total, with static fallback)
+#   {PAGE}             -> static first-page number of the section (integer)
+#   {TOTAL_PAGES}      -> static total page count of the document (integer)
+.replace_token <- function(x, token, replacement) {
+  # Append a rare sentinel so strsplit never drops a trailing empty string
+  # (R's strsplit silently drops trailing "" when the match is at end-of-string).
+  sentinel <- "\x01RTFTOK_END\x01"
+  parts <- strsplit(paste0(x, sentinel), token, fixed = TRUE)[[1L]]
+  # Remove the sentinel from the last element.
+  parts[length(parts)] <- sub(sentinel, "", parts[length(parts)], fixed = TRUE)
+  paste(parts, collapse = replacement)
+}
+
+# Replace page tokens, then RTF-escape.
+# {PAGE} and {AUTO_PAGE}               → \chpgn (RTF dynamic page number field)
+# {TOTAL_PAGES} and {AUTO_TOTAL_PAGES} → static total page count
 # NOTE: current_page is retained for signature compatibility but is no longer used.
 .render_tokens <- function(x, current_page = NULL, total_pages = NULL) {
   if (is.null(x)) return("")
   # Escape first; after escaping, { becomes \{ and } becomes \}, so
   # the token {PAGE} appears as \{PAGE\} and can be substituted safely.
   out <- .rtf_escape(x)
-  out <- gsub("\\{PAGE\\}",         "\\chpgn ",              out, fixed = TRUE)
-  if (!is.null(total_pages))
-    out <- gsub("\\{TOTAL_PAGES\\}", as.character(total_pages), out, fixed = TRUE)
+  out <- gsub("\\{PAGE\\}",             "\\chpgn ",              out, fixed = TRUE)
+  out <- gsub("\\{AUTO_PAGE\\}",        "\\chpgn ",              out, fixed = TRUE)
+  if (!is.null(total_pages)) {
+    out <- gsub("\\{TOTAL_PAGES\\}",      as.character(total_pages), out, fixed = TRUE)
+    out <- gsub("\\{AUTO_TOTAL_PAGES\\}", as.character(total_pages), out, fixed = TRUE)
+  }
   out
 }
 
@@ -498,8 +551,20 @@
 
 # ── Header / footer renderer (unchanged from original) ────────────────────────
 
+# Normalize a section header/footer value to list(rows=list(...), width_twips=NULL).
+# Accepts: NULL | plain named vector (single row) | list(rows=list(...)) | list(columns=c(...)) (legacy).
+.normalize_hf <- function(hf) {
+  if (is.null(hf)) return(NULL)
+  # Already multi-row form
+  if (is.list(hf) && !is.null(hf$rows)) return(hf)
+  # Legacy single-row list(columns = c(...))
+  if (is.list(hf) && !is.null(hf$columns)) return(list(rows = list(hf), width_twips = NULL))
+  # Plain named vector — single row
+  list(rows = list(hf), width_twips = NULL)
+}
+
 .render_header_footer <- function(hf, writable_width_twips, is_footer = FALSE,
-                                   total_pages = NULL) {
+                                   current_page = NULL, total_pages = NULL) {
   if (is.null(hf) || length(hf$rows) == 0L) {
     return(character())
   }
@@ -510,6 +575,11 @@
   cmds <- .load_rtf_commands()
   table_cmd <- cmds$table
   align_cmd <- cmds$alignment
+
+  defaults <- .load_rtfreporter_defaults()
+  rh_value <- hf$row_height_twips %||% defaults$header_footer_row_height_twips
+  rh_str   <- .cmd_fmt(table_cmd$row_height_template,
+                        list(row_height_twips = rh_value))
 
   out_rows <- character()
   for (row_idx in seq_along(rows)) {
@@ -527,18 +597,31 @@
     has_r <- "r" %in% col_names
     has_c <- "c" %in% col_names
 
-    if (has_c) {
-      n_cols <- 1L; aligns <- "center"
-      cols_display <- c(cols_vec[col_names == "c"])
+    # Column count rules:
+    # - c present with l or r -> 3 columns (fill missing with "")
+    # - l + r (no c)          -> 2 columns
+    # - single key only       -> 1 column
+    # - unnamed               -> count-based defaults
+    if (has_c && (has_l || has_r)) {
+      n_cols <- 3L
+      aligns <- c("left", "center", "right")
+      cols_display <- c(
+        if (has_l) cols_vec[col_names == "l"][[1L]] else "",
+        cols_vec[col_names == "c"][[1L]],
+        if (has_r) cols_vec[col_names == "r"][[1L]] else ""
+      )
     } else if (has_l && has_r) {
       n_cols <- 2L; aligns <- c("left", "right")
-      cols_display <- c(cols_vec[col_names == "l"], cols_vec[col_names == "r"])
+      cols_display <- c(cols_vec[col_names == "l"][[1L]], cols_vec[col_names == "r"][[1L]])
+    } else if (has_c) {
+      n_cols <- 1L; aligns <- "center"
+      cols_display <- c(cols_vec[col_names == "c"][[1L]])
     } else if (has_l) {
       n_cols <- 1L; aligns <- "left"
-      cols_display <- c(cols_vec[col_names == "l"])
+      cols_display <- c(cols_vec[col_names == "l"][[1L]])
     } else if (has_r) {
       n_cols <- 1L; aligns <- "right"
-      cols_display <- c(cols_vec[col_names == "r"])
+      cols_display <- c(cols_vec[col_names == "r"][[1L]])
     } else {
       n_cols <- length(cols_vec)
       if (n_cols > 3L) stop("Header/footer supports up to 3 columns per row.", call. = FALSE)
@@ -553,6 +636,7 @@
     apply_border <- top_border && row_idx == 1L
 
     row <- table_cmd$row_start
+    row <- paste0(row, rh_str)
     for (cx in cellx) {
       if (apply_border) {
         row <- paste0(row, .cmd_fmt(table_cmd$cell_boundary_top_border_template, list(cx = cx)))
@@ -563,7 +647,7 @@
     for (i in seq_len(n_cols)) {
       at <- switch(aligns[i], left = align_cmd$left, right = align_cmd$right,
                    center = align_cmd$center, align_cmd$default)
-      txt <- .render_tokens(cols_display[i], total_pages = total_pages)
+      txt <- .render_tokens(cols_display[i], current_page = current_page, total_pages = total_pages)
       row <- paste0(row, .cmd_fmt(table_cmd$cell_text_aligned_template, list(align = at, text = txt)))
     }
     row <- paste0(row, table_cmd$row_end)
@@ -638,42 +722,35 @@ generate_rtfreport <- function(report, file_path, overwrite = FALSE) {
   )
 
   global_page_num <- 1L
+  prev_header_hf  <- NULL
+  prev_footer_hf  <- NULL
 
   for (s_idx in seq_along(report$sections)) {
     sec <- report$sections[[s_idx]]
 
-    # Combine document-wide and section-specific header rows.
-    # When sec$header is present, automatically insert an empty spacer row
-    # above it so the section title is visually separated from the common rows.
-    sec_header_extra <- if (!is.null(sec$header)) {
-      list(c(l = ""), sec$header)
-    } else {
-      list()
-    }
-    header_rows <- c(
-      if (!is.null(doc$default_header$rows)) doc$default_header$rows else list(),
-      sec_header_extra
-    )
-    header_hf <- list(rows = header_rows, width_twips = doc$default_header$width_twips)
+    # Resolve header: normalize current section's header, or inherit from previous.
+    cur_header_hf <- .normalize_hf(sec$header)
+    if (is.null(cur_header_hf)) cur_header_hf <- prev_header_hf
+    prev_header_hf <- cur_header_hf
 
-    footer_rows <- c(
-      if (!is.null(doc$default_footer$rows)) doc$default_footer$rows else list(),
-      if (!is.null(sec$footer)) list(sec$footer) else list()
-    )
-    footer_hf <- list(
-      rows       = footer_rows,
-      width_twips = doc$default_footer$width_twips,
-      top_border  = isTRUE(doc$default_footer$top_border)
-    )
+    # Resolve footer: normalize current section's footer, or inherit from previous.
+    cur_footer_hf <- .normalize_hf(sec$footer)
+    if (is.null(cur_footer_hf)) cur_footer_hf <- prev_footer_hf
+    # Apply footer top_border default (TRUE) if not explicitly set.
+    if (!is.null(cur_footer_hf) && is.null(cur_footer_hf$top_border)) {
+      cur_footer_hf$top_border <- TRUE
+    }
+    prev_footer_hf <- cur_footer_hf
 
     lines <- c(lines, doc_cmd$section_defaults)
 
     # Emit {\header} and {\footer} ONCE per section (RTF spec: header/footer
     # applies to all pages in the section; re-emitting per page is incorrect).
-    header_rtf <- .render_header_footer(header_hf, writable_width, is_footer = FALSE,
-                                        total_pages = total_pages)
-    footer_rtf <- .render_header_footer(footer_hf, writable_width, is_footer = TRUE,
-                                        total_pages = total_pages)
+    sec_first_page <- global_page_num
+    header_rtf <- .render_header_footer(cur_header_hf, writable_width, is_footer = FALSE,
+                                        current_page = sec_first_page, total_pages = total_pages)
+    footer_rtf <- .render_header_footer(cur_footer_hf, writable_width, is_footer = TRUE,
+                                        current_page = sec_first_page, total_pages = total_pages)
 
     if (length(header_rtf) > 0L) {
       lines <- c(lines, .cmd_fmt(doc_cmd$header_wrapper, list(content = paste(header_rtf, collapse = ""))))

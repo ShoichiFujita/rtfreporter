@@ -23,6 +23,64 @@
   as.integer(x)
 }
 
+#' Create a header object for a section
+#'
+#' `rtf_header()` and `rtf_footer()` create structured header/footer objects
+#' that can be passed to `add_section()`, `set_section_header()`, or
+#' `set_section_footer()`. These objects let you control borders, width, and
+#' row height alongside the text content.
+#'
+#' @param rows A named character vector (single row) or a `list` of named
+#'   character vectors (multi-row). Each vector uses names `l`, `c`, `r` for
+#'   left, center, right column content. See the Header/Footer section in
+#'   `?rtfreport` for column-count rules.
+#' @param width_twips Integer. Table width in twips. `NULL` (default) uses the
+#'   full writable width (page width minus margins).
+#' @param top_border Logical. Whether to draw a top border on the first row.
+#'   Default for headers is `FALSE`; default for footers is `TRUE`.
+#' @param row_height_twips Integer. Row height in twips. `NULL` (default) reads
+#'   the value from `inst/resources/rtfreporter_defaults.R`.
+#'
+#' @return A named list with elements `rows`, `width_twips`, `top_border`, and
+#'   `row_height_twips`.
+#'
+#' @examples
+#' hdr <- rtf_header(
+#'   rows = list(
+#'     c(l = "Protocol: RTF-101", r = "HOGE company"),
+#'     c(l = "Study Title",       r = "Page {AUTO_PAGE} of {TOTAL_PAGES}")
+#'   )
+#' )
+#' ftr <- rtf_footer(c(l = "Confidential"), top_border = TRUE)
+#'
+#' report <- rtfreport$new()
+#' sec <- report$add_section(header = hdr, footer = ftr)
+#'
+#' @export
+rtf_header <- function(rows, width_twips = NULL, top_border = FALSE, row_height_twips = NULL) {
+  if (is.character(rows)) rows <- list(rows)
+  if (!is.list(rows)) stop("`rows` must be a named character vector or list of named vectors.", call. = FALSE)
+  list(
+    rows             = rows,
+    width_twips      = width_twips,
+    top_border       = top_border,
+    row_height_twips = row_height_twips
+  )
+}
+
+#' @rdname rtf_header
+#' @export
+rtf_footer <- function(rows, width_twips = NULL, top_border = TRUE, row_height_twips = NULL) {
+  if (is.character(rows)) rows <- list(rows)
+  if (!is.list(rows)) stop("`rows` must be a named character vector or list of named vectors.", call. = FALSE)
+  list(
+    rows             = rows,
+    width_twips      = width_twips,
+    top_border       = top_border,
+    row_height_twips = row_height_twips
+  )
+}
+
 #' RTF report object
 #'
 #' `rtfreport` is an R6 class representing one RTF clinical report. Content is
@@ -41,27 +99,27 @@
 #'
 #' **Section-level header/footer** (single row, passed directly):
 #' ```r
-#' add_section(header = c(l = "Protocol", r = "Page {PAGE} of {TOTAL_PAGES}"))
+#' add_section(header = c(l = "Protocol", r = "Page {AUTO_PAGE} of {TOTAL_PAGES}"))
 #' set_section_footer(sec, c(l = "Confidential"))
 #' ```
 #'
-#' **Document-level default header/footer** (may be multi-row):
+#' **Object form** with multi-row and border/width control:
 #' ```r
-#' report$set_default_header(list(
+#' hdr <- rtf_header(
 #'   rows = list(
-#'     c(l = "Protocol: RTF-101", r = "Page {PAGE} of {TOTAL_PAGES}"),
+#'     c(l = "Protocol: RTF-101", r = "Page {AUTO_PAGE} of {TOTAL_PAGES}"),
 #'     c(l = "Study Title",       r = "Company Name")
 #'   )
-#' ))
-#' report$set_default_footer(list(
-#'   rows = list(c(l = "Confidential - For Clinical Study Use Only")),
-#'   top_border = TRUE
-#' ))
+#' )
+#' ftr <- rtf_footer(c(l = "Confidential - For Clinical Study Use Only"))
+#' report$add_section(header = hdr, footer = ftr)
 #' ```
 #'
 #' **Page tokens** available in header/footer text:
-#' - `{PAGE}` — replaced with `\chpgn` (dynamic page number rendered by the RTF viewer).
-#' - `{TOTAL_PAGES}` — replaced with the static total page count computed at render time.
+#' - `{AUTO_PAGE}` — replaced with `\chpgn` (dynamic page number rendered per page by the RTF viewer).
+#' - `{AUTO_TOTAL_PAGES}` — replaced with the RTF `NUMPAGES` field (dynamic total, rendered by the viewer).
+#' - `{PAGE}` — replaced with the first page number of the section (static integer at render time).
+#' - `{TOTAL_PAGES}` — replaced with the total page count of the document (static integer at render time).
 #'
 #' @param font_table A list of font definitions. Each element is a list with at
 #'   least a `name` element (character string). Default: `list(list(name = "Courier"))`.
@@ -72,20 +130,6 @@
 #'   `margin_top_twips`, `margin_bottom_twips`, `margin_left_twips`,
 #'   `margin_right_twips`. Default: letter landscape with 0.75″ top/bottom and
 #'   0.5″ left/right margins.
-#' @param default_header Document-wide default header applied to all sections
-#'   that do not specify their own header. A list with:
-#'   \describe{
-#'     \item{`rows`}{A list of plain named character vectors (see Header/Footer
-#'       format section above). Default: empty list (no document-wide header).}
-#'     \item{`width_twips`}{Header width in twips, or `NULL` for full writable
-#'       width.}
-#'   }
-#' @param default_footer Document-wide default footer. Same structure as
-#'   `default_header`, plus:
-#'   \describe{
-#'     \item{`top_border`}{Logical. Draw a horizontal rule above the footer.
-#'       Default: `TRUE`.}
-#'   }
 #' @param default_format A named list of text/table formatting defaults. Keys:
 #'   `font_index`, `font_size_half_points`, `line_spacing`,
 #'   `table_cell_height_twips`.
@@ -93,7 +137,7 @@
 #' @examples
 #' report <- rtfreport$new()
 #' sec <- report$add_section(
-#'   header = c(l = "Protocol: RTF-101", r = "Page {PAGE} of {TOTAL_PAGES}"),
+#'   header = c(l = "Protocol: RTF-101", r = "Page {AUTO_PAGE} of {TOTAL_PAGES}"),
 #'   footer = c(l = "Confidential")
 #' )
 #' report$add_page(sec, title = "Table 1")
@@ -109,8 +153,6 @@ rtfreport <- R6::R6Class(
       font_table = NULL,
       color_table = NULL,
       default_page = NULL,
-      default_header = NULL,
-      default_footer = NULL,
       default_format = NULL
     ) {
       if (is.null(font_table)) {
@@ -131,16 +173,6 @@ rtfreport <- R6::R6Class(
           margin_right_twips = .in_to_twips(0.5)
         )
       }
-      if (is.null(default_header)) {
-        # Default: empty rows (no document-wide header).
-        # Sections provide their own header row via add_section(header=...).
-        default_header <- list(rows = list(), width_twips = NULL)
-      }
-      if (is.null(default_footer)) {
-        # Default: empty rows. Section footers added via set_section_footer.
-        # top_border = TRUE: draw a horizontal line above footer by default.
-        default_footer <- list(rows = list(), width_twips = NULL, top_border = TRUE)
-      }
       if (is.null(default_format)) {
         default_format <- list(
           font_index = 0L,
@@ -154,8 +186,6 @@ rtfreport <- R6::R6Class(
         font_table = font_table,
         color_table = color_table,
         default_page = default_page,
-        default_header = default_header,
-        default_footer = default_footer,
         default_format = default_format
       )
       self$sections <- list()
@@ -175,6 +205,16 @@ rtfreport <- R6::R6Class(
     get_section = function(section_index) {
       idx <- .assert_index(section_index, length(self$sections), "section_index")
       self$sections[[idx]]
+    },
+
+    get_section_header = function(section_index) {
+      idx <- .assert_index(section_index, length(self$sections), "section_index")
+      self$sections[[idx]]$header
+    },
+
+    get_section_footer = function(section_index) {
+      idx <- .assert_index(section_index, length(self$sections), "section_index")
+      self$sections[[idx]]$footer
     },
 
     set_section_header = function(section_index, header) {
@@ -329,8 +369,6 @@ rtfreport <- R6::R6Class(
       font_table = NULL,
       color_table = NULL,
       default_page = NULL,
-      default_header = NULL,
-      default_footer = NULL,
       default_format = NULL
     ) {
       if (!is.null(font_table)) {
@@ -342,25 +380,9 @@ rtfreport <- R6::R6Class(
       if (!is.null(default_page)) {
         self$document$default_page <- .merge_list(self$document$default_page, default_page)
       }
-      if (!is.null(default_header)) {
-        self$document$default_header <- .merge_list(self$document$default_header, default_header)
-      }
-      if (!is.null(default_footer)) {
-        self$document$default_footer <- .merge_list(self$document$default_footer, default_footer)
-      }
       if (!is.null(default_format)) {
         self$document$default_format <- .merge_list(self$document$default_format, default_format)
       }
-      invisible(self)
-    },
-
-    set_default_header = function(header) {
-      self$document$default_header <- .merge_list(self$document$default_header, header)
-      invisible(self)
-    },
-
-    set_default_footer = function(footer) {
-      self$document$default_footer <- .merge_list(self$document$default_footer, footer)
       invisible(self)
     },
 
@@ -371,6 +393,16 @@ rtfreport <- R6::R6Class(
 
     set_default_format = function(fmt) {
       self$document$default_format <- .merge_list(self$document$default_format, fmt)
+      invisible(self)
+    },
+
+    set_default_header = function(header) {
+      warning("set_default_header() is deprecated. Set header per section via add_section(header=...) instead.", call. = FALSE)
+      invisible(self)
+    },
+
+    set_default_footer = function(footer) {
+      warning("set_default_footer() is deprecated. Set footer per section via add_section(footer=...) instead.", call. = FALSE)
       invisible(self)
     },
 

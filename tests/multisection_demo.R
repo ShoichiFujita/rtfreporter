@@ -96,31 +96,18 @@ plt_p2 <- data.frame(
 # ── レポート構築 ───────────────────────────────────────────────────────────────
 r <- rtfreport$new()
 
-# 文書共通: スポンサー行 + 動的ページ番号 ({PAGE} → \chpgn, {TOTAL_PAGES} → 5)
-r$set_document_defaults(
-  default_header = list(
-    rows = list(
-      c(
-        l = "Sponsor: Example Corp          Study: LAB-2026-001",
-        r = "Page {PAGE} of {TOTAL_PAGES}"
-      )
-    )
-  ),
-  default_footer = list(
-    rows = list(
-      c(
-        l = "CONFIDENTIAL — For internal use only",
-        r = "Data cut-off: 2026-01-01"
-      )
-    ),
+# 各セクション共通ヘッダー: スポンサー行 + 動的ページ番号 ({AUTO_PAGE} → \\chpgn)
+# ── Section 1: Hemoglobin (2 pages) ──────────────────────────────────────────
+s1 <- r$add_section(
+  header = list(rows = list(
+    c(l = "Sponsor: Example Corp          Study: LAB-2026-001",
+      r = "Page {AUTO_PAGE} of {TOTAL_PAGES}"),
+    c(l = "Lab Test: Hemoglobin (g/dL)")
+  )),
+  footer = list(
+    rows = list(c(l = "CONFIDENTIAL — For internal use only", r = "Data cut-off: 2026-01-01")),
     top_border = TRUE
   )
-)
-
-# ── Section 1: Hemoglobin (2 pages) ──────────────────────────────────────────
-# sec$header はヘッダー最下行に追加。空白スペーサー行は自動挿入。
-s1 <- r$add_section(
-  header = c(l = "Lab Test: Hemoglobin (g/dL)")
 )
 r$add_page(
   section_index = s1,
@@ -128,7 +115,7 @@ r$add_page(
     type   = "table",
     data   = {
       tbl <- make_lab_tbl(hgb_p1)
-      tbl$blank_rows <- c(0L, 5L)   # blank before row 1 and after row 5
+      tbl$blank_rows <- c(0L, 5L)
       tbl
     },
     footer = "[a] Values are mean (SD) unless otherwise stated."
@@ -151,7 +138,15 @@ r$add_page(
 
 # ── Section 2: White Blood Cells (1 page) ────────────────────────────────────
 s2 <- r$add_section(
-  header = c(l = "Lab Test: White Blood Cells (10^{3}/\u03bcL)")
+  header = list(rows = list(
+    c(l = "Sponsor: Example Corp          Study: LAB-2026-001",
+      r = "Page {AUTO_PAGE} of {TOTAL_PAGES}"),
+    c(l = "Lab Test: White Blood Cells (10^{3}/\u03bcL)")
+  )),
+  footer = list(
+    rows = list(c(l = "CONFIDENTIAL — For internal use only", r = "Data cut-off: 2026-01-01")),
+    top_border = TRUE
+  )
 )
 r$add_page(
   section_index = s2,
@@ -167,9 +162,16 @@ r$add_page(
   footer_notes = "Source: ADLB; PARAM = WBC"
 )
 
-# ── Section 3: Platelets (2 pages) ───────────────────────────────────────────
 s3 <- r$add_section(
-  header = c(l = "Lab Test: Platelets (10^{3}/\u03bcL)")
+  header = list(rows = list(
+    c(l = "Sponsor: Example Corp          Study: LAB-2026-001",
+      r = "Page {AUTO_PAGE} of {TOTAL_PAGES}"),
+    c(l = "Lab Test: Platelets (10^{3}/\u03bcL)")
+  )),
+  footer = list(
+    rows = list(c(l = "CONFIDENTIAL — For internal use only", r = "Data cut-off: 2026-01-01")),
+    top_border = TRUE
+  )
 )
 r$add_page(
   section_index = s3,
@@ -210,6 +212,6 @@ stopifnot("header_wrapper found"    = grepl("{\\header",  txt, fixed = TRUE))
 
 cat("OK: multisection_demo.rtf\n")
 cat("  - 3 Lab test sections, 5 pages total\n")
-cat("  - Header: common sponsor/page row + auto-spacer + section lab test name\n")
+cat("  - Header: common sponsor/page row + section lab test name\n")
 cat("  - Page field: RTF \\chpgn (dynamic, not static substitution)\n")
 cat(sprintf("出力: %s\n", out))

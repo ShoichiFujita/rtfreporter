@@ -68,5 +68,20 @@ rtf_commands <- list(
   picture = list(
     png_template  = "\\pard{align}{\\pict\\pngblip\\picw{picw}\\pich{pich}\\picwgoal{picwgoal}\\pichgoal{pichgoal}\n{hex}\n}\\par",
     jpeg_template = "\\pard{align}{\\pict\\jpegblip\\picw{picw}\\pich{pich}\\picwgoal{picwgoal}\\pichgoal{pichgoal}\n{hex}\n}\\par"
+  ),
+  # RTF dynamic field templates.
+  fields = list(
+    # Dynamic page number — updated per page by the RTF viewer (\chpgn).
+    auto_page        = "\\chpgn ",
+    # Dynamic total-pages field — updated by the RTF viewer (NUMPAGES).
+    # {total_pages} is substituted with the static fallback count.
+    auto_total_pages = "{\\field{\\*\\fldinst NUMPAGES}{\\fldrslt {total_pages}}}"
+  ),
+  # Package-wide configurable defaults.
+  # Adjust these values to tune the visual appearance without touching renderer code.
+  defaults = list(
+    # Row height for header/footer table rows, in twips (1 inch = 1440 twips).
+    # 288 twips ≈ 0.2 inch (suitable for 9 pt font).
+    header_footer_row_height_twips = 288L
   )
 )
