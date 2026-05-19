@@ -190,3 +190,27 @@ python -m pytest tests/
 
 All tests in `tests/test_rtfreport.R` must pass before any PR or release.
 
+---
+
+## Vignette rendering (pre-built HTML)
+
+Vignettes must be **pre-rendered to HTML** before release so that users on
+CRAN/GitHub can read them without re-running the code.
+
+**When to render:**  Run this whenever `vignettes/rtfreporter-quickstart.Rmd`
+changes, and always before tagging a release.
+
+```powershell
+# from repo root
+cd c:\Yrepo\rtfreporter
+Rscript -e "rmarkdown::render('vignettes/rtfreporter-quickstart.Rmd', output_dir = 'inst/doc')"
+```
+
+The generated `inst/doc/rtfreporter-quickstart.html` (and `.R` sidecar) must be
+committed alongside the `.Rmd` source.
+
+**Checklist before release:**
+1. Update `vignettes/rtfreporter-quickstart.Rmd` if API changed.
+2. Run the render command above and confirm no errors.
+3. `git add inst/doc/` and commit together with other release changes.
+4. Bump version in `DESCRIPTION`, commit, tag, push.
