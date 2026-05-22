@@ -1,5 +1,5 @@
 ---
-title: "Tidyverse Pipe-Based API for rtfreporter"
+title: "Pipe-Based API"
 author: "ichirio"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
