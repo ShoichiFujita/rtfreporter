@@ -1,0 +1,334 @@
+## ----setup, include=FALSE-----------------------------------------------------
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                      eval = FALSE)   # set TRUE locally to regenerate outputs
+library(rtfreporter)
+
+## ----minimal------------------------------------------------------------------
+# report <- rtfreport()
+# 
+# sec <- add_section(report,
+#   header = rtf_header(rows = list(
+#     c(l = "Protocol: RTF-101",          r = "ACME Pharma"),
+#     c(l = "Table 14.1.1 Demographics",  r = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}")
+#   )),
+#   footer = rtf_footer(rows = list(
+#     c(l = "Source: DM domain.", r = "CONFIDENTIAL")
+#   ))
+# )
+# 
+# df <- data.frame(
+#   Subject = c("001", "002", "003"),
+#   Arm     = c("Active", "Placebo", "Active"),
+#   Age     = c(34L, 45L, 28L),
+#   Sex     = c("M", "F", "M"),
+#   stringsAsFactors = FALSE
+# )
+# 
+# add_page(report,
+#   section_index = sec,
+#   content = list(
+#     rtftable(df,
+#       col_rel_width    = c(2, 2, 1, 1),
+#       row_height_twips = 280L)
+#   ),
+#   footer_notes = "Source: DM domain. One row per subject."
+# )
+# 
+# generate_rtfreport(report, tempfile(fileext = ".rtf"), overwrite = TRUE)
+
+## ----shift-table--------------------------------------------------------------
+# library(rtfreporter)
+# 
+# # --- synthetic shift-count data ----------------------------------------------
+# make_shift_df <- function(a_low, a_norm, a_high, b_low, b_norm, b_high) {
+#   data.frame(
+#     Baseline = c("Low", "Normal", "High"),
+#     A_Low    = a_low,  A_Normal = a_norm,  A_High = a_high,
+#     B_Low    = b_low,  B_Normal = b_norm,  B_High = b_high,
+#     stringsAsFactors = FALSE, check.names = FALSE
+#   )
+# }
+# 
+# lab_data <- list(
+#   list(label = "ALT (Alanine Aminotransferase)",
+#        df    = make_shift_df(c(4,0,0), c(1,13,1), c(0,2,3),
+#                              c(3,0,0), c(1,14,0), c(0,1,4))),
+#   list(label = "AST (Aspartate Aminotransferase)",
+#        df    = make_shift_df(c(5,0,0), c(0,11,2), c(0,1,5),
+#                              c(4,0,0), c(1,12,1), c(0,2,4))),
+#   list(label = "HGB (Hemoglobin)",
+#        df    = make_shift_df(c(2,1,0), c(1,16,1), c(0,1,2),
+#                              c(3,0,0), c(0,15,2), c(0,2,2)))
+# )
+# 
+# # --- shared table structure --------------------------------------------------
+# spanning_hdr <- list(
+#   list(from = 2L, to = 4L, label = "Treatment A  (N=24)", underline = TRUE),
+#   list(from = 5L, to = 7L, label = "Treatment B  (N=24)", underline = TRUE)
+# )
+# col_hdr    <- c("Baseline", "Low", "Normal", "High", "Low", "Normal", "High")
+# col_widths <- c(2160L, 900L, 900L, 900L, 900L, 900L, 900L)
+# 
+# col_spec_shift <- lapply(seq_len(7L), function(j)
+#   list(col = j, align = if (j == 1L) "left" else "center"))
+# 
+# make_shift_table <- function(df) {
+#   rtftable(
+#     data                = df,
+#     col_header          = col_hdr,
+#     spanning_header     = spanning_hdr,
+#     col_spec            = col_spec_shift,
+#     column_widths_twips = col_widths,
+#     border              = "tfl",
+#     row_height_twips    = 280L
+#   )
+# }
+# 
+# # --- common footer (same for all sections) -----------------------------------
+# common_footer <- rtf_footer(
+#   rows = list(
+#     c(l = paste0("ALT=Alanine Aminotransferase; ",
+#                  "AST=Aspartate Aminotransferase; HGB=Hemoglobin")),
+#     c(l = "Low/Normal/High: site reference range categories.  n = number of subjects.",
+#       r = "CONFIDENTIAL")
+#   )
+# )
+# 
+# # --- build report: one section per analyte -----------------------------------
+# report <- rtfreport()
+# 
+# for (item in lab_data) {
+#   sec_header <- rtf_header(
+#     rows = list(
+#       c(l = "Protocol: LAB-001",                           r = "ACME Pharma"),
+#       c(l = "Study Title: Phase III Safety Lab Assessment", r = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}"),
+#       c(c = "Table 14.3.1  Laboratory Shift Table (Safety Population)"),
+#       c(l = item$label)       # ← analyte name: bottom-left, unique per section
+#     )
+#   )
+# 
+#   sec <- add_section(report, header = sec_header, footer = common_footer)
+#   add_page(report,
+#     section_index = sec,
+#     content       = list(make_shift_table(item$df)),
+#     footer_notes  = paste0("Source: LB domain.  ",
+#       "Subjects with both a baseline and at least one post-baseline assessment included.")
+#   )
+# }
+# 
+# generate_rtfreport(report, tempfile(fileext = ".rtf"), overwrite = TRUE)
+
+## ----figure-------------------------------------------------------------------
+# library(ggplot2)
+# 
+# # --- build a ggplot and save to a temp PNG -----------------------------------
+# p <- ggplot(
+#   data.frame(x = 1:10, y = (1:10)^2 + rnorm(10, sd = 3)),
+#   aes(x = x, y = y)) +
+#   geom_point(size = 3, colour = "#2166AC") +
+#   geom_smooth(method = "lm", se = FALSE, colour = "#D6604D") +
+#   labs(title = "Lab value vs. Visit (simulated)", x = "Visit", y = "Lab value") +
+#   theme_bw(base_size = 11)
+# 
+# png_path <- tempfile(fileext = ".png")
+# ggsave(png_path, plot = p, width = 7, height = 4.5, dpi = 150)
+# 
+# # --- embed in RTF ------------------------------------------------------------
+# plot_obj <- rtfplot(
+#   path        = png_path,
+#   width_twips = 9000L   # ~6.25 in; height computed from aspect ratio
+# )
+# 
+# report <- rtfreport()
+# sec <- add_section(report,
+#   header = rtf_header(rows = list(
+#     c(l = "Protocol: FIG-001",           r = "ACME Pharma"),
+#     c(l = "Figure 14.1.1  Lab Value vs. Visit (Safety Population)")
+#   )),
+#   footer = rtf_footer(rows = list(c(l = "Source: LB domain.")))
+# )
+# add_page(report, sec, content = list(plot_obj))
+# 
+# generate_rtfreport(report, tempfile(fileext = ".rtf"), overwrite = TRUE)
+
+## ----fig-plus-table-----------------------------------------------------------
+# tbl_summary <- rtftable(
+#   data.frame(
+#     Statistic = c("n", "Mean", "SD"),
+#     Value     = c("30", "42.7", "8.4"),
+#     stringsAsFactors = FALSE
+#   ),
+#   table_width_pct  = 40,     # 40 % of writable width
+#   table_align      = "left",
+#   row_height_twips = 280L
+# )
+# 
+# report2 <- rtfreport()
+# sec2 <- add_section(report2,
+#   header = rtf_header(rows = list(
+#     c(l = "Protocol: FIG-001", r = "ACME Pharma"),
+#     c(l = "Figure + Summary Table")
+#   )),
+#   footer = rtf_footer(rows = list(c(l = "Source: LB domain.", r = "CONFIDENTIAL")))
+# )
+# add_page(report2,
+#   section_index = sec2,
+#   content = list(
+#     rtfplot(png_path, width_twips = 7200L),
+#     tbl_summary
+#   )
+# )
+# generate_rtfreport(report2, tempfile(fileext = ".rtf"), overwrite = TRUE)
+
+## ----table-sizing-------------------------------------------------------------
+# df <- data.frame(A = 1:3, B = letters[1:3], C = c(1.1, 2.2, 3.3))
+# 
+# # 70 % of writable width, left-aligned (default)
+# tbl_left <- rtftable(df, table_width_pct = 70)
+# 
+# # Absolute width, centered
+# tbl_center <- rtftable(df,
+#   table_width_twips = 9000L,
+#   table_align       = "center")
+# 
+# # Absolute width, right-aligned, with relative column widths 3:1:1
+# tbl_right <- rtftable(df,
+#   table_width_twips = 7200L,
+#   table_align       = "right",
+#   col_rel_width     = c(3, 1, 1))
+# 
+# # Full writable width (100 %)
+# tbl_full  <- rtftable(df, table_width_pct = 100)
+
+## ----col-widths---------------------------------------------------------------
+# # Absolute column widths (twips)
+# tbl_abs <- rtftable(df,
+#   column_widths_twips = c(4320L, 2160L, 2160L))
+# 
+# # Relative widths 2:1:1 within a 7-inch table
+# tbl_rel <- rtftable(df,
+#   col_rel_width     = c(2, 1, 1),
+#   table_width_twips = 10080L)
+# 
+# # Auto-sizing: widths computed from the widest cell in each column
+# w <- auto_col_widths(df, table_width_twips = 14400L)
+# tbl_auto <- rtftable(df, column_widths_twips = w)
+
+## ----hf-layout----------------------------------------------------------------
+# # Single row, two columns
+# sec_hf1 <- rtf_header(rows = list(
+#   c(l = "Protocol: RTF-101", r = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}")
+# ))
+# 
+# # Multi-row header
+# sec_hf2 <- rtf_header(rows = list(
+#   c(l = "Protocol: RTF-101",    r = "ACME Pharma"),
+#   c(l = "Phase III Safety Study", r = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}"),
+#   c(c = "Table 14.3.1  Shift Table (Safety Population)"),
+#   c(l = "ALT (Alanine Aminotransferase)")   # bottom-left: analyte name
+# ))
+# 
+# # Footer with two rows; top border on row 1 only (default)
+# sec_ftr <- rtf_footer(rows = list(
+#   c(l = "ALT=Alanine Aminotransferase",     r = "CONFIDENTIAL"),
+#   c(l = "Low/Normal/High: site reference range categories.")
+# ))
+# 
+# # Single unnamed row → center (default)
+# ftr_center <- rtf_footer(rows = list(c("Confidential — Internal Use Only")))
+
+## ----spanning-----------------------------------------------------------------
+# df_shift <- data.frame(
+#   Baseline = c("Low", "Normal", "High"),
+#   A_Low = c(4L, 0L, 0L), A_Norm = c(1L, 13L, 1L), A_High = c(0L, 2L, 3L),
+#   B_Low = c(3L, 0L, 0L), B_Norm = c(1L, 14L, 0L), B_High = c(0L, 1L, 4L)
+# )
+# 
+# tbl_span <- rtftable(
+#   data = df_shift,
+#   col_header = c("Baseline", "Low", "Normal", "High", "Low", "Normal", "High"),
+#   spanning_header = list(
+#     list(from = 2L, to = 4L, label = "Treatment A  (N=24)", underline = TRUE),
+#     list(from = 5L, to = 7L, label = "Treatment B  (N=24)", underline = TRUE)
+#   ),
+#   column_widths_twips = c(2160L, 900L, 900L, 900L, 900L, 900L, 900L),
+#   col_spec = lapply(seq_len(7L), function(j)
+#     list(col = j, align = if (j == 1L) "left" else "center")),
+#   border           = "tfl",
+#   row_height_twips = 280L
+# )
+
+## ----multi-df-----------------------------------------------------------------
+# df_a <- data.frame(Label = c("Low", "Normal", "High"), n = c(4L, 13L, 3L))
+# df_b <- data.frame(Label = c("Low", "Normal", "High"), n = c(3L, 14L, 4L))
+# 
+# tbl_multi <- rtftable(
+#   data       = list(df_a, df_b),
+#   col_header = list(
+#     c("Baseline", "Arm A"),   # header for df_a
+#     c("Baseline", "Arm B")    # header for df_b
+#   ),
+#   column_widths_twips = c(3600L, 2160L),
+#   border              = "tfl",
+#   row_height_twips    = 280L
+# )
+
+## ----borders------------------------------------------------------------------
+# # TFL clinical preset (default): header top+bottom, last-row bottom
+# tbl_tfl <- rtftable(df, border = "tfl")
+# 
+# # Custom per-zone
+# tbl_custom <- rtftable(df,
+#   border = rtf_table_border(
+#     header   = rtf_border(top = rtf_border_side(), bottom = rtf_border_side()),
+#     last_row = rtf_border(bottom = rtf_border_side("double", 10L))
+#   )
+# )
+# 
+# # Header with bottom divider, footer with thick blue top border
+# hdr_bordered <- rtf_header(
+#   rows   = list(c(c = "Study Title")),
+#   border = rtf_border(bottom = rtf_border_side("single"))
+# )
+# ftr_blue <- rtf_footer(
+#   rows   = list(c(l = "Confidential")),
+#   border = rtf_border_top(style = "thick", width = 20L, color = "#003366")
+# )
+
+## ----assemble-----------------------------------------------------------------
+# make_rtf <- function(df, hdr_text, path) {
+#   r <- rtfreport()
+#   sec <- add_section(r,
+#     header = c(l = hdr_text, r = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}"),
+#     footer = c(l = "CONFIDENTIAL")
+#   )
+#   add_page(r, section_index = sec, content = list(df))
+#   generate_rtfreport(r, path, overwrite = TRUE)
+# }
+# 
+# f1 <- tempfile(fileext = ".rtf"); make_rtf(mtcars[1:3, ], "Table 14.1 DM", f1)
+# f2 <- tempfile(fileext = ".rtf"); make_rtf(mtcars[4:6, ], "Table 14.2 AE", f2)
+# 
+# assembled <- tempfile(fileext = ".rtf")
+# assemble_rtf(c(f1, f2), assembled, overwrite = TRUE)
+
+## ----auto-widths--------------------------------------------------------------
+# df_ae <- data.frame(
+#   USUBJID  = c("001-001", "001-002"),
+#   AETERM   = c("Headache", "Nausea"),
+#   AESTDTC  = c("2024-01-15", "2024-02-03"),
+#   AESER    = c("N", "N"),
+#   stringsAsFactors = FALSE
+# )
+# 
+# # Scale to full writable width (14400 twips = 10 in landscape letter)
+# w <- auto_col_widths(df_ae,
+#   col_header        = "Subject ID | AE Term | Start Date | Serious",
+#   table_width_twips = 14400L)
+# 
+# tbl_ae <- rtftable(df_ae,
+#   col_header          = c("Subject ID", "AE Term", "Start Date", "Serious"),
+#   column_widths_twips = w,
+#   border              = "tfl",
+#   row_height_twips    = 280L)
+
