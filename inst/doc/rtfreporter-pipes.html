@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="ichirio" />
+
+<meta name="date" content="2026-05-22" />
+
+<title>Pipe-Based API</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Pipe-Based API</h1>
+<h4 class="author">ichirio</h4>
+<h4 class="date">2026-05-22</h4>
+
+
+
+<div id="overview" class="section level2">
+<h2>Overview</h2>
+<p>The rtfreporter package provides two complementary APIs for building
+RTF reports:</p>
+<ol style="list-style-type: decimal">
+<li><strong>S3 Methods API</strong> (v0.0.6): Mutable object
+manipulation with <code>add_section()</code>, <code>add_page()</code>,
+etc.</li>
+<li><strong>Tidyverse Pipe API</strong> (v0.0.6+): Immutable functional
+composition with <code>%&gt;%</code> pipes</li>
+</ol>
+<p>This vignette demonstrates the <strong>Tidyverse Pipe API</strong>,
+which is inspired by ggplot2 and dplyr, providing a clean, composable
+interface for building complex RTF reports.</p>
+</div>
+<div id="quick-start" class="section level2">
+<h2>Quick Start</h2>
+<p>The basic workflow is:</p>
+<ol style="list-style-type: decimal">
+<li>Initialize a document with <code>rtf_document()</code></li>
+<li>Configure document settings with <code>rtf_config()</code>
+(optional)</li>
+<li>Add content (tables/figures) with <code>rtf_tables()</code> and
+<code>rtf_figures()</code></li>
+<li>Define sections with <code>rtf_section()</code></li>
+<li>Apply formatting with <code>rtf_table_format()</code>,
+<code>rtf_header_format()</code>, etc.</li>
+<li>Generate RTF with <code>generate_rtfreport()</code></li>
+</ol>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(rtfreporter)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="co"># Create a simple report</span></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>doc <span class="ot">&lt;-</span> <span class="fu">rtf_document</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>  <span class="fu">rtf_tables</span>(<span class="fu">list</span>(mtcars)) <span class="sc">%&gt;%</span></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>  <span class="fu">rtf_section</span>(<span class="at">page =</span> <span class="dv">1</span>, <span class="at">secinfo =</span> <span class="fu">list</span>(<span class="at">header =</span> <span class="cn">NULL</span>, <span class="at">footer =</span> <span class="cn">NULL</span>))</span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="co"># Generate RTF file</span></span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a><span class="fu">generate_rtfreport</span>(doc, <span class="st">&quot;report.rtf&quot;</span>)</span></code></pre></div>
+</div>
+<div id="api-functions" class="section level2">
+<h2>API Functions</h2>
+<div id="initialization-and-configuration" class="section level3">
+<h3>Initialization and Configuration</h3>
+<div id="rtf_document" class="section level4">
+<h4><code>rtf_document()</code></h4>
+<p>Creates a new RTF document object with clinical trial defaults.</p>
+<p><strong>Defaults:</strong> - Page: Landscape letter (11” × 8.5”) -
+Margins: 0.75” top/bottom, 0.5” left/right - Font: Courier - Colors:
+Black</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>doc <span class="ot">&lt;-</span> <span class="fu">rtf_document</span>()</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="co"># With custom defaults</span></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>doc <span class="ot">&lt;-</span> <span class="fu">rtf_document</span>(</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="at">font_table =</span> <span class="fu">list</span>(<span class="fu">list</span>(<span class="at">name =</span> <span class="st">&quot;Arial&quot;</span>)),</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  <span class="at">page =</span> <span class="fu">list</span>(</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>    <span class="at">orientation =</span> <span class="st">&quot;portrait&quot;</span>,</span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>    <span class="at">width_in =</span> <span class="fl">8.5</span>,</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>    <span class="at">height_in =</span> <span class="dv">11</span></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>  )</span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="rtf_config" class="section level4">
+<h4><code>rtf_config()</code></h4>
+<p>Update document-level settings. Typically called once after creating
+a document.</p>
+<p><strong>Parameters:</strong> - <code>font_table</code>: Override font
+table - <code>color_table</code>: Override color table -
+<code>page</code>: Override page settings - <code>default_format</code>:
+Override default formatting</p>
+<p>All parameters are <strong>optional</strong> (NULL = no change),
+making it safe for repeated calls:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>doc <span class="ot">&lt;-</span> <span class="fu">rtf_document</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  <span class="fu">rtf_config</span>(<span class="at">page =</span> <span class="fu">list</span>(<span class="at">orientation =</span> <span class="st">&quot;portrait&quot;</span>))</span></code></pre></div>
+</div>
+</div>
+<div id="content-addition" class="section level3">
+<h3>Content Addition</h3>
+<div id="rtf_tables" class="section level4">
+<h4><code>rtf_tables()</code></h4>
+<p>Add one or more data.frames as content pages. Pages are
+auto-numbered.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co"># Single table per page</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>doc <span class="ot">&lt;-</span> <span class="fu">rtf_document</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="fu">rtf_tables</span>(<span class="fu">list</span>(df1, df2, df3))</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="co"># Multiple tables on one page</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>doc <span class="ot">&lt;-</span> <span class="fu">rtf_document</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>  <span class="fu">rtf_tables</span>(<span class="fu">list</span>(df1, <span class="fu">list</span>(df2a, df2b), df3))</span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="co"># Results in: df1 on page 1, df2a+df2b on page 2, df3 on page 3</span></span></code></pre></div>
+</div>
+<div id="rtf_figures" class="section level4">
+<h4><code>rtf_figures()</code></h4>
+<p>Add image files as figure pages. Each image creates one new page.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>doc <span class="ot">&lt;-</span> <span class="fu">rtf_document</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  <span class="fu">rtf_figures</span>(<span class="fu">list</span>(<span class="st">&quot;plot1.png&quot;</span>, <span class="st">&quot;plot2.png&quot;</span>))</span></code></pre></div>
+</div>
+</div>
+<div id="structure-definition" class="section level3">
+<h3>Structure Definition</h3>
+<div id="rtf_section" class="section level4">
+<h4><code>rtf_section()</code></h4>
+<p>Map page numbers to sections with headers and footers.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co"># Single section starting at page 1</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>doc <span class="ot">&lt;-</span> <span class="fu">rtf_document</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="fu">rtf_tables</span>(<span class="fu">list</span>(df1, df2, df3)) <span class="sc">%&gt;%</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="fu">rtf_section</span>(<span class="at">page =</span> <span class="dv">1</span>, <span class="at">secinfo =</span> <span class="fu">list</span>(</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>    <span class="at">header =</span> <span class="fu">rtf_header</span>(<span class="at">rows =</span> <span class="fu">list</span>(<span class="at">l =</span> <span class="st">&quot;Analysis&quot;</span>, <span class="at">r =</span> <span class="st">&quot;Table 1&quot;</span>)),</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>    <span class="at">footer =</span> <span class="fu">rtf_footer</span>(<span class="at">rows =</span> <span class="fu">list</span>(<span class="at">c =</span> <span class="st">&quot;Page {CURRENT_PAGE}&quot;</span>))</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>  ))</span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co"># Multiple sections</span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a>doc <span class="ot">&lt;-</span> <span class="fu">rtf_document</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a>  <span class="fu">rtf_tables</span>(<span class="fu">list</span>(df1, df2, df3)) <span class="sc">%&gt;%</span></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a>  <span class="fu">rtf_section</span>(</span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a>    <span class="at">page =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">3</span>),</span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a>    <span class="at">secinfo =</span> <span class="fu">list</span>(</span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a>      <span class="fu">list</span>(<span class="at">header =</span> h1, <span class="at">footer =</span> f1),  <span class="co"># Section 1 (pages 1-2)</span></span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a>      <span class="fu">list</span>(<span class="at">header =</span> h2, <span class="at">footer =</span> f2)   <span class="co"># Section 2 (pages 3+)</span></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a>    )</span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a>  )</span></code></pre></div>
+</div>
+</div>
+<div id="formatting" class="section level3">
+<h3>Formatting</h3>
+<p>All format functions follow the same pattern: - Accept
+<code>pages</code> parameter: <code>&quot;all&quot;</code> or
+<code>c(1, 3, 5)</code> for specific pages - All other parameters are
+<strong>optional</strong> (NULL = no change) - Safe for multiple calls -
+later calls override only the specified parameters</p>
+<div id="rtf_table_format" class="section level4">
+<h4><code>rtf_table_format()</code></h4>
+<p>Format table content across pages.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>doc <span class="ot">&lt;-</span> <span class="fu">rtf_document</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  <span class="fu">rtf_tables</span>(<span class="fu">list</span>(df1, df2, df3)) <span class="sc">%&gt;%</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  <span class="fu">rtf_table_format</span>(<span class="at">pages =</span> <span class="st">&quot;all&quot;</span>, <span class="at">border =</span> <span class="st">&quot;tfl&quot;</span>, <span class="at">row_height_twips =</span> <span class="dv">280</span><span class="dt">L</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>  <span class="fu">rtf_table_format</span>(<span class="at">pages =</span> <span class="dv">1</span>, <span class="at">border =</span> <span class="st">&quot;none&quot;</span>)  <span class="co"># Override page 1</span></span></code></pre></div>
+</div>
+<div id="rtf_header_format-and-rtf_footer_format" class="section level4">
+<h4><code>rtf_header_format()</code> and
+<code>rtf_footer_format()</code></h4>
+<p>Format table headers and footers.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>doc <span class="ot">&lt;-</span> doc <span class="sc">%&gt;%</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="fu">rtf_header_format</span>(<span class="at">pages =</span> <span class="st">&quot;all&quot;</span>, <span class="at">border =</span> <span class="st">&quot;top&quot;</span>, <span class="at">row_height_twips =</span> <span class="dv">280</span><span class="dt">L</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  <span class="fu">rtf_footer_format</span>(<span class="at">pages =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">3</span>), <span class="at">border =</span> <span class="st">&quot;top&quot;</span>)</span></code></pre></div>
+</div>
+<div id="rtf_figure_format" class="section level4">
+<h4><code>rtf_figure_format()</code></h4>
+<p>Format figure content.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>doc <span class="ot">&lt;-</span> doc <span class="sc">%&gt;%</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  <span class="fu">rtf_figure_format</span>(<span class="at">pages =</span> <span class="st">&quot;all&quot;</span>, <span class="at">width_twips =</span> <span class="dv">8000</span><span class="dt">L</span>, <span class="at">height_twips =</span> <span class="dv">6000</span><span class="dt">L</span>)</span></code></pre></div>
+</div>
+</div>
+</div>
+<div id="complete-example" class="section level2">
+<h2>Complete Example</h2>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">library</span>(rtfreporter)</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="fu">library</span>(magrittr)  <span class="co"># For %&gt;% pipe</span></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a><span class="co"># Prepare data</span></span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>df_safety <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>  <span class="at">Event =</span> <span class="fu">c</span>(<span class="st">&quot;Headache&quot;</span>, <span class="st">&quot;Nausea&quot;</span>, <span class="st">&quot;Dizziness&quot;</span>),</span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>  <span class="at">Mild =</span> <span class="fu">c</span>(<span class="dv">5</span>, <span class="dv">3</span>, <span class="dv">2</span>),</span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a>  <span class="at">Moderate =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">1</span>, <span class="dv">1</span>),</span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a>  <span class="at">Severe =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a>)</span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a></span>
+<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a>df_efficacy <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb10-13"><a href="#cb10-13" tabindex="-1"></a>  <span class="at">Response =</span> <span class="fu">c</span>(<span class="st">&quot;Complete&quot;</span>, <span class="st">&quot;Partial&quot;</span>, <span class="st">&quot;No Response&quot;</span>),</span>
+<span id="cb10-14"><a href="#cb10-14" tabindex="-1"></a>  <span class="at">Count =</span> <span class="fu">c</span>(<span class="dv">25</span>, <span class="dv">15</span>, <span class="dv">10</span>),</span>
+<span id="cb10-15"><a href="#cb10-15" tabindex="-1"></a>  <span class="at">Percent =</span> <span class="fu">c</span>(<span class="st">&quot;50%&quot;</span>, <span class="st">&quot;30%&quot;</span>, <span class="st">&quot;20%&quot;</span>)</span>
+<span id="cb10-16"><a href="#cb10-16" tabindex="-1"></a>)</span>
+<span id="cb10-17"><a href="#cb10-17" tabindex="-1"></a></span>
+<span id="cb10-18"><a href="#cb10-18" tabindex="-1"></a><span class="co"># Create report</span></span>
+<span id="cb10-19"><a href="#cb10-19" tabindex="-1"></a>report <span class="ot">&lt;-</span> <span class="fu">rtf_document</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb10-20"><a href="#cb10-20" tabindex="-1"></a>  <span class="co"># Configure document (one-time)</span></span>
+<span id="cb10-21"><a href="#cb10-21" tabindex="-1"></a>  <span class="fu">rtf_config</span>(<span class="at">page =</span> <span class="fu">list</span>(</span>
+<span id="cb10-22"><a href="#cb10-22" tabindex="-1"></a>    <span class="at">orientation =</span> <span class="st">&quot;landscape&quot;</span>,</span>
+<span id="cb10-23"><a href="#cb10-23" tabindex="-1"></a>    <span class="at">width_in =</span> <span class="dv">11</span>,</span>
+<span id="cb10-24"><a href="#cb10-24" tabindex="-1"></a>    <span class="at">height_in =</span> <span class="fl">8.5</span></span>
+<span id="cb10-25"><a href="#cb10-25" tabindex="-1"></a>  )) <span class="sc">%&gt;%</span></span>
+<span id="cb10-26"><a href="#cb10-26" tabindex="-1"></a>  <span class="co"># Add content</span></span>
+<span id="cb10-27"><a href="#cb10-27" tabindex="-1"></a>  <span class="fu">rtf_tables</span>(<span class="fu">list</span>(df_safety, df_efficacy)) <span class="sc">%&gt;%</span></span>
+<span id="cb10-28"><a href="#cb10-28" tabindex="-1"></a>  <span class="co"># Define sections with headers/footers</span></span>
+<span id="cb10-29"><a href="#cb10-29" tabindex="-1"></a>  <span class="fu">rtf_section</span>(<span class="at">page =</span> <span class="dv">1</span>, <span class="at">secinfo =</span> <span class="fu">list</span>(</span>
+<span id="cb10-30"><a href="#cb10-30" tabindex="-1"></a>    <span class="at">header =</span> <span class="fu">rtf_header</span>(<span class="at">rows =</span> <span class="fu">list</span>(</span>
+<span id="cb10-31"><a href="#cb10-31" tabindex="-1"></a>      <span class="at">l =</span> <span class="st">&quot;Clinical Study Report&quot;</span>,</span>
+<span id="cb10-32"><a href="#cb10-32" tabindex="-1"></a>      <span class="at">r =</span> <span class="st">&quot;Safety Analysis&quot;</span></span>
+<span id="cb10-33"><a href="#cb10-33" tabindex="-1"></a>    )),</span>
+<span id="cb10-34"><a href="#cb10-34" tabindex="-1"></a>    <span class="at">footer =</span> <span class="fu">rtf_footer</span>(<span class="at">rows =</span> <span class="fu">list</span>(</span>
+<span id="cb10-35"><a href="#cb10-35" tabindex="-1"></a>      <span class="at">c =</span> <span class="st">&quot;Page {CURRENT_PAGE} of {AUTO_TOTAL_PAGES}&quot;</span></span>
+<span id="cb10-36"><a href="#cb10-36" tabindex="-1"></a>    ))</span>
+<span id="cb10-37"><a href="#cb10-37" tabindex="-1"></a>  )) <span class="sc">%&gt;%</span></span>
+<span id="cb10-38"><a href="#cb10-38" tabindex="-1"></a>  <span class="fu">rtf_section</span>(<span class="at">page =</span> <span class="dv">2</span>, <span class="at">secinfo =</span> <span class="fu">list</span>(</span>
+<span id="cb10-39"><a href="#cb10-39" tabindex="-1"></a>    <span class="at">header =</span> <span class="fu">rtf_header</span>(<span class="at">rows =</span> <span class="fu">list</span>(</span>
+<span id="cb10-40"><a href="#cb10-40" tabindex="-1"></a>      <span class="at">l =</span> <span class="st">&quot;Clinical Study Report&quot;</span>,</span>
+<span id="cb10-41"><a href="#cb10-41" tabindex="-1"></a>      <span class="at">r =</span> <span class="st">&quot;Efficacy Analysis&quot;</span></span>
+<span id="cb10-42"><a href="#cb10-42" tabindex="-1"></a>    )),</span>
+<span id="cb10-43"><a href="#cb10-43" tabindex="-1"></a>    <span class="at">footer =</span> <span class="fu">rtf_footer</span>(<span class="at">rows =</span> <span class="fu">list</span>(</span>
+<span id="cb10-44"><a href="#cb10-44" tabindex="-1"></a>      <span class="at">c =</span> <span class="st">&quot;Page {CURRENT_PAGE} of {AUTO_TOTAL_PAGES}&quot;</span></span>
+<span id="cb10-45"><a href="#cb10-45" tabindex="-1"></a>    ))</span>
+<span id="cb10-46"><a href="#cb10-46" tabindex="-1"></a>  )) <span class="sc">%&gt;%</span></span>
+<span id="cb10-47"><a href="#cb10-47" tabindex="-1"></a>  <span class="co"># Apply formatting (multiple calls safe, later ones override)</span></span>
+<span id="cb10-48"><a href="#cb10-48" tabindex="-1"></a>  <span class="fu">rtf_table_format</span>(<span class="at">pages =</span> <span class="st">&quot;all&quot;</span>, <span class="at">border =</span> <span class="st">&quot;tfl&quot;</span>, <span class="at">row_height_twips =</span> <span class="dv">280</span><span class="dt">L</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb10-49"><a href="#cb10-49" tabindex="-1"></a>  <span class="fu">rtf_header_format</span>(<span class="at">pages =</span> <span class="st">&quot;all&quot;</span>, <span class="at">border =</span> <span class="st">&quot;top&quot;</span>, <span class="at">row_height_twips =</span> <span class="dv">300</span><span class="dt">L</span>)</span>
+<span id="cb10-50"><a href="#cb10-50" tabindex="-1"></a></span>
+<span id="cb10-51"><a href="#cb10-51" tabindex="-1"></a><span class="co"># Generate RTF file</span></span>
+<span id="cb10-52"><a href="#cb10-52" tabindex="-1"></a><span class="fu">generate_rtfreport</span>(report, <span class="st">&quot;clinical_report.rtf&quot;</span>, <span class="at">overwrite =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+</div>
+<div id="pipe-vs.-methods-api" class="section level2">
+<h2>Pipe vs. Methods API</h2>
+<div id="using-pipes-recommended" class="section level3">
+<h3>Using Pipes (Recommended)</h3>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>report <span class="ot">&lt;-</span> <span class="fu">rtf_document</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>  <span class="fu">rtf_tables</span>(<span class="fu">list</span>(df1, df2)) <span class="sc">%&gt;%</span></span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>  <span class="fu">rtf_section</span>(<span class="at">page =</span> <span class="dv">1</span>, <span class="at">secinfo =</span> sec_info) <span class="sc">%&gt;%</span></span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>  <span class="fu">rtf_table_format</span>(<span class="at">pages =</span> <span class="st">&quot;all&quot;</span>, <span class="at">border =</span> <span class="st">&quot;tfl&quot;</span>)</span></code></pre></div>
+</div>
+<div id="using-methods-v0.0.6" class="section level3">
+<h3>Using Methods (v0.0.6)</h3>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>report <span class="ot">&lt;-</span> <span class="fu">rtfreport</span>()</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>sec <span class="ot">&lt;-</span> report<span class="sc">$</span><span class="fu">add_section</span>(<span class="at">header =</span> h1, <span class="at">footer =</span> f1)</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>report<span class="sc">$</span><span class="fu">add_page</span>(<span class="at">section_index =</span> sec, <span class="at">content =</span> <span class="fu">list</span>(<span class="fu">rtftable</span>(df1)))</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>report<span class="sc">$</span><span class="fu">add_page</span>(<span class="at">section_index =</span> sec, <span class="at">content =</span> <span class="fu">list</span>(<span class="fu">rtftable</span>(df2)))</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>report<span class="sc">$</span><span class="fu">set_default_page</span>(...)</span></code></pre></div>
+<p>Both APIs work and produce identical RTF output. Choose based on your
+preference: - <strong>Pipes</strong>: Functional style, easier to
+compose, modern R idiom - <strong>Methods</strong>: Direct object
+manipulation, more explicit control</p>
+</div>
+</div>
+<div id="safe-parameter-defaults" class="section level2">
+<h2>Safe Parameter Defaults</h2>
+<p>The pipe API uses <strong>NULL-safe parameters</strong> to prevent
+unintended overwrites:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="co"># This is safe - only updates page 1</span></span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>doc <span class="ot">&lt;-</span> doc <span class="sc">%&gt;%</span></span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>  <span class="fu">rtf_table_format</span>(<span class="at">pages =</span> <span class="dv">1</span>, <span class="at">border =</span> <span class="st">&quot;none&quot;</span>)</span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a></span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a><span class="co"># Later call doesn&#39;t overwrite - NULL means &quot;no change&quot;</span></span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>doc <span class="ot">&lt;-</span> doc <span class="sc">%&gt;%</span></span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a>  <span class="fu">rtf_table_format</span>(<span class="at">pages =</span> <span class="st">&quot;all&quot;</span>, <span class="at">row_height_twips =</span> <span class="dv">300</span><span class="dt">L</span>)</span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a><span class="co"># Result: page 1 has border=&quot;none&quot;, row_height=300L</span></span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a><span class="co">#         other pages have border=&quot;tfl&quot;, row_height=300L</span></span></code></pre></div>
+</div>
+<div id="object-structure" class="section level2">
+<h2>Object Structure</h2>
+<p>The S3 <code>rtf_document</code> object contains:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="fu">list</span>(</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>  <span class="at">document =</span> <span class="fu">list</span>(</span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>    <span class="at">font_table =</span> ...,</span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>    <span class="at">color_table =</span> ...,</span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>    <span class="at">page =</span> <span class="fu">list</span>(orientation, width_in, height_in, margins),</span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a>    <span class="at">default_format =</span> ...</span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a>  ),</span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>  <span class="at">contents =</span> <span class="fu">list</span>(...),          <span class="co"># Pages (data.frames or file paths)</span></span>
+<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a>  <span class="at">sections =</span> <span class="fu">list</span>(...),          <span class="co"># Page → section info mapping</span></span>
+<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a>  <span class="at">table_formats =</span> <span class="fu">list</span>(...),     <span class="co"># Format specs by page</span></span>
+<span id="cb14-11"><a href="#cb14-11" tabindex="-1"></a>  <span class="at">header_formats =</span> <span class="fu">list</span>(...),</span>
+<span id="cb14-12"><a href="#cb14-12" tabindex="-1"></a>  <span class="at">footer_formats =</span> <span class="fu">list</span>(...),</span>
+<span id="cb14-13"><a href="#cb14-13" tabindex="-1"></a>  <span class="at">figure_formats =</span> <span class="fu">list</span>(...)</span>
+<span id="cb14-14"><a href="#cb14-14" tabindex="-1"></a>)</span></code></pre></div>
+<p>Each function returns a modified copy, enabling immutable
+composition.</p>
+</div>
+<div id="see-also" class="section level2">
+<h2>See Also</h2>
+<ul>
+<li><code>vignette(&quot;rtfreporter-quickstart&quot;)</code> - S3 Methods API
+(v0.0.6)</li>
+<li><code>help(rtf_document)</code> - Detailed function
+documentation</li>
+<li><code>generate_rtfreport()</code> - Render document to RTF file</li>
+</ul>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

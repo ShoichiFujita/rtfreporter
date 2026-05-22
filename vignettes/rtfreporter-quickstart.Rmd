@@ -1,5 +1,5 @@
 ---
-title: "rtfreporter - Clinical RTF Reporting"
+title: "Clinical RTF Reporting with rtfreporter"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Clinical RTF Reporting with rtfreporter}
