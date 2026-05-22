@@ -197,50 +197,91 @@
 }
 
 # Replace page tokens, then RTF-escape.
-# {PAGE} and {AUTO_PAGE}               → \chpgn (RTF dynamic page number field)
-# {TOTAL_PAGES} and {AUTO_TOTAL_PAGES} → static total page count
+#
+# Token reference (after escaping, braces appear as \{ and \}):
+#   \{PAGE\} / \{AUTO_PAGE\}         → \chpgn  (RTF dynamic per-page number)
+#   \{AUTO_TOTAL_PAGES\}             → RTF NUMPAGES field  (dynamic, viewer-rendered)
+#   \{SECTION_PAGES\}                → RTF SECTIONPAGES field (dynamic, viewer-rendered)
+#   \{TOTAL_PAGES\}                  → static integer at render time (total pages in doc)
+#
 # NOTE: current_page is retained for signature compatibility but is no longer used.
 .render_tokens <- function(x, current_page = NULL, total_pages = NULL) {
   if (is.null(x)) return("")
   # Escape first; after escaping, { becomes \{ and } becomes \}, so
   # the token {PAGE} appears as \{PAGE\} and can be substituted safely.
   out <- .rtf_escape(x)
-  out <- gsub("\\{PAGE\\}",             "\\chpgn ",              out, fixed = TRUE)
-  out <- gsub("\\{AUTO_PAGE\\}",        "\\chpgn ",              out, fixed = TRUE)
+
+  # Dynamic tokens — rendered per-page by the RTF viewer.
+  out <- gsub("\\{PAGE\\}",      "\\chpgn ", out, fixed = TRUE)
+  out <- gsub("\\{AUTO_PAGE\\}", "\\chpgn ", out, fixed = TRUE)
+
+  # Dynamic total-pages: RTF NUMPAGES field with static fallback count.
+  fallback <- if (!is.null(total_pages)) as.character(total_pages) else "?"
+  cmds <- .load_rtf_commands()
+  numpages_rtf <- .cmd_fmt(cmds$fields$auto_total_pages, list(total_pages = fallback))
+  out <- gsub("\\{AUTO_TOTAL_PAGES\\}", numpages_rtf, out, fixed = TRUE)
+
+  # Dynamic section-pages: RTF SECTIONPAGES field.
+  out <- gsub("\\{SECTION_PAGES\\}", cmds$fields$section_pages, out, fixed = TRUE)
+
+  # Static total-pages: integer resolved at render time.
   if (!is.null(total_pages)) {
-    out <- gsub("\\{TOTAL_PAGES\\}",      as.character(total_pages), out, fixed = TRUE)
-    out <- gsub("\\{AUTO_TOTAL_PAGES\\}", as.character(total_pages), out, fixed = TRUE)
+    out <- gsub("\\{TOTAL_PAGES\\}", as.character(total_pages), out, fixed = TRUE)
   }
+
   out
 }
 
 # ── Border helpers ─────────────────────────────────────────────────────────────
 
 # Build RTF border commands for all four sides of a single cell.
-# border_spec: list with keys top/bottom/left/right (type string or "none"/NULL)
-#              and optional width (integer twips, default 15).
+# border_spec: rtf_border object (new style), OR
+#              plain list with keys top/bottom/left/right (type string or "none"/NULL)
+#              and optional width (integer twips, default 15) (old style).
+# color_index_map: named list mapping "#RRGGBB" -> integer color-table index.
 # Returns "" when border_spec is NULL (no borders).
-.build_border_commands <- function(border_spec) {
+.build_border_commands <- function(border_spec, color_index_map = NULL) {
   if (is.null(border_spec)) return("")
-  width <- as.integer(border_spec$width %||% 15L)
-  cmds  <- .load_rtf_commands()
+  cmds     <- .load_rtf_commands()
   prefixes <- cmds$border$side_prefix
   styles   <- cmds$border$style
 
-  .side <- function(side) {
-    type <- border_spec[[side]]
-    if (is.null(type) || type %in% c("none", "")) return("")
-    s <- styles[[type]]
-    if (is.null(s)) stop(sprintf("Unknown border type: '%s'", type), call. = FALSE)
-    paste0(prefixes[[side]], s, "\\brdrw", width)
+  if (inherits(border_spec, "rtf_border")) {
+    # New-style: rtf_border with rtf_border_side elements.
+    .side <- function(side) {
+      b <- border_spec[[side]]
+      if (is.null(b)) return("")
+      s <- styles[[b$style]]
+      if (is.null(s)) stop(sprintf("Unknown border style: '%s'", b$style), call. = FALSE)
+      color_cmd <- ""
+      if (!is.null(b$color) && !is.null(color_index_map)) {
+        idx <- color_index_map[[b$color]]
+        if (!is.null(idx)) color_cmd <- paste0("\\brdrcf", idx)
+      }
+      paste0(prefixes[[side]], s, "\\brdrw", b$width, color_cmd)
+    }
+  } else {
+    # Old-style: plain list with top/bottom/left/right as strings + width.
+    width <- as.integer(border_spec$width %||% 15L)
+    .side <- function(side) {
+      type <- border_spec[[side]]
+      if (is.null(type) || type %in% c("none", "")) return("")
+      s <- styles[[type]]
+      if (is.null(s)) stop(sprintf("Unknown border type: '%s'", type), call. = FALSE)
+      paste0(prefixes[[side]], s, "\\brdrw", width)
+    }
   }
   paste0(.side("top"), .side("bottom"), .side("left"), .side("right"))
 }
 
 # Merge first_row / last_row overrides into a base body border spec.
+# Handles both rtf_border objects (new style) and plain lists (old style).
 .effective_row_border <- function(base_border, override) {
   if (is.null(base_border)) return(NULL)
-  if (length(override) == 0L) return(base_border)
+  if (is.null(override) || length(override) == 0L) return(base_border)
+  if (inherits(base_border, "rtf_border")) {
+    return(.merge_rtf_border(base_border, override))
+  }
   .merge_list(base_border, override)
 }
 
@@ -312,10 +353,11 @@
 # cell_defs:    character vector – one border+valign+\cellx string per column.
 # cell_contents: character vector – one \q..\li..\ri.. text\cell string per column.
 # row_height_twips: integer or NULL.
-.build_row <- function(cell_defs, cell_contents, row_height_twips = NULL) {
+.build_row <- function(cell_defs, cell_contents, row_height_twips = NULL, table_align = "left") {
   rh <- if (!is.null(row_height_twips) && as.integer(row_height_twips) != 0L)
     paste0("\\trrh", as.integer(row_height_twips)) else ""
-  paste0("\\trowd", rh, paste(cell_defs, collapse = ""), paste(cell_contents, collapse = ""), "\\row")
+  align_cmd <- switch(table_align, center = "\\trqc", right = "\\trqr", "")
+  paste0("\\trowd", rh, align_cmd, paste(cell_defs, collapse = ""), paste(cell_contents, collapse = ""), "\\row")
 }
 
 # Build cell definition strings (border + valign + \cellx) for all columns.
@@ -327,7 +369,8 @@
 # Render spanning-header row(s).
 # spanning_header: list of list(from, to, label, underline).
 .render_spanning_rows <- function(spanning_header, cellx, border_spec,
-                                   row_height_twips, pad_l, pad_r, valign_cmd) {
+                                   row_height_twips, pad_l, pad_r, valign_cmd,
+                                   table_align = "left") {
   if (is.null(spanning_header) || length(spanning_header) == 0L) return(character())
   ncols <- length(cellx)
 
@@ -376,12 +419,13 @@
     }
   }
 
-  .build_row(cell_defs, cell_contents, row_height_twips)
+  .build_row(cell_defs, cell_contents, row_height_twips, table_align)
 }
 
 # Render one column-header row.
 .render_header_row <- function(hdr_labels, cellx, border_spec, row_height_twips,
-                                pad_l, pad_r, valign_cmd, col_spec) {
+                                pad_l, pad_r, valign_cmd, col_spec,
+                                table_align = "left") {
   ncols <- length(cellx)
   cell_defs     <- .build_cell_defs(cellx, border_spec, valign_cmd)
   cell_contents <- vapply(seq_len(ncols), function(j) {
@@ -392,12 +436,13 @@
     align <- spec$header_align %||% "center"
     .build_cell_content(text, align, bold, itl, FALSE, 0L, pad_l, pad_r)
   }, character(1L))
-  .build_row(cell_defs, cell_contents, row_height_twips)
+  .build_row(cell_defs, cell_contents, row_height_twips, table_align)
 }
 
 # Render one data row.
 .render_data_row <- function(vals, cellx, border_spec, row_height_twips,
-                              pad_l, pad_r, valign_cmd, col_spec) {
+                              pad_l, pad_r, valign_cmd, col_spec,
+                              table_align = "left") {
   ncols <- length(cellx)
   cell_defs     <- .build_cell_defs(cellx, border_spec, valign_cmd)
   cell_contents <- vapply(seq_len(ncols), function(j) {
@@ -411,7 +456,7 @@
     indent      <- as.integer(spec$indent_twips %||% 0L)
     .build_cell_content(text, align, bold, itl, ul, indent, pad_l, pad_r)
   }, character(1L))
-  .build_row(cell_defs, cell_contents, row_height_twips)
+  .build_row(cell_defs, cell_contents, row_height_twips, table_align)
 }
 
 # ── rtftable renderer ──────────────────────────────────────────────────────────
@@ -431,79 +476,143 @@
   )
 }
 
+# Render one data.frame section of an rtftable (headers + data rows).
+# Used by both single-DF and multi-DF render paths.
+.render_rtftable_section <- function(
+    df, col_headers, cellx, border, col_spec,
+    hdr_h, data_h, blank_h, blank_set,
+    pad_l, pad_r, valign_cmd,
+    spanning_header, table_align = "left") {
+
+  ncols <- length(cellx)
+  nrows <- nrow(df)
+  lines <- character()
+
+  # Spanning-header rows (repeated per DF in multi-DF mode).
+  if (!is.null(spanning_header)) {
+    lines <- c(lines, .render_spanning_rows(
+      spanning_header, cellx,
+      border$spanning, hdr_h, pad_l, pad_r, valign_cmd, table_align
+    ))
+  }
+
+  # Column-header rows.
+  hdr_border <- border$header
+  for (hdr_row in col_headers) {
+    lines <- c(lines, .render_header_row(
+      hdr_row, cellx, hdr_border, hdr_h, pad_l, pad_r, valign_cmd, col_spec, table_align
+    ))
+  }
+
+  align_cmd <- switch(table_align, center = "\\trqc", right = "\\trqr", "")
+  .blank_row_rtf <- function() {
+    total_w <- cellx[ncols]
+    paste0("\\trowd\\trgaph0\\trleft0\\trrh", blank_h,
+           align_cmd, "\\clvertalb\\cellx", total_w,
+           " \\cell\\row")
+  }
+
+  # Data rows, with blank separator rows spliced in.
+  if (0L %in% blank_set) lines <- c(lines, .blank_row_rtf())
+
+  for (i in seq_len(nrows)) {
+    row_border <- .effective_row_border(
+      border$body,
+      if (i == 1L) border$first_row else if (i == nrows) border$last_row else NULL
+    )
+    lines <- c(lines, .render_data_row(
+      as.list(df[i, , drop = FALSE]),
+      cellx, row_border, data_h, pad_l, pad_r, valign_cmd, col_spec, table_align
+    ))
+    if (i %in% blank_set) lines <- c(lines, .blank_row_rtf())
+  }
+
+  lines
+}
+
 # Render an rtftable object to a character vector of RTF row strings.
+# Handles both single-DF and multi-DF modes transparently.
 .render_rtftable <- function(tbl, writable_width_twips) {
-  df      <- tbl$data
-  ncols   <- ncol(df)
-  nrows   <- nrow(df)
-  border  <- tbl$border
-  col_spec <- tbl$col_spec  # already normalized list of length ncols
-  pad_l   <- tbl$cell_padding_left_twips
-  pad_r   <- tbl$cell_padding_right_twips
+  border   <- tbl$border
+  col_spec <- tbl$col_spec
+  pad_l    <- tbl$cell_padding_left_twips
+  pad_r    <- tbl$cell_padding_right_twips
 
   cmds       <- .load_rtf_commands()
   valign_cmd <- cmds$cell_valign[[tbl$cell_valign]] %||% "\\clvertalb"
 
+  # Determine column count from whichever mode is active.
+  ref_df <- if (!is.null(tbl$data_list)) tbl$data_list[[1L]] else tbl$data
+  ncols  <- ncol(ref_df)
+
   if (ncols == 0L) return(cmds$paragraph$empty_table)
 
-  cellx      <- .compute_cellx(ncols, writable_width_twips, tbl)
+  cellx <- .compute_cellx(ncols, writable_width_twips, tbl)
 
-  # Apply row_height_exact flag: negate to signal \trrh exact height.
+  # Apply row_height_exact flag: negate twips value to signal \trrh exact height.
   .apply_exact <- function(h) {
     if (isTRUE(tbl$row_height_exact) && !is.null(h) && as.integer(h) > 0L)
       -as.integer(h)
     else
       h
   }
-  hdr_h  <- .apply_exact(tbl$header_row_height_twips %||% tbl$row_height_twips)
-  data_h <- .apply_exact(tbl$row_height_twips)
-
-  lines <- character()
-
-  # 1. Spanning-header rows.
-  if (!is.null(tbl$spanning_header)) {
-    lines <- c(lines, .render_spanning_rows(
-      tbl$spanning_header, cellx,
-      border$spanning, hdr_h, pad_l, pad_r, valign_cmd
-    ))
-  }
-
-  # 2. Column-header rows.
-  col_headers <- tbl$col_header %||% list(names(df))
-  hdr_border  <- border$header
-  for (hdr_row in col_headers) {
-    lines <- c(lines, .render_header_row(
-      hdr_row, cellx, hdr_border, hdr_h, pad_l, pad_r, valign_cmd, col_spec
-    ))
-  }
-
-  # Blank separator row RTF builder. Default height = data row height.
+  hdr_h   <- .apply_exact(tbl$header_row_height_twips %||% tbl$row_height_twips)
+  data_h  <- .apply_exact(tbl$row_height_twips)
   blank_h <- .apply_exact(tbl$blank_row_height_twips %||% tbl$row_height_twips)
-  .blank_row_rtf <- function() {
-    total_w <- cellx[ncols]
-    paste0("\\trowd\\trgaph0\\trleft0\\trrh", blank_h,
-           "\\clvertalb\\cellx", total_w,
-           " \\cell\\row")
-  }
 
   blank_set <- if (!is.null(tbl$blank_rows)) tbl$blank_rows else integer(0)
 
-  # 3. Data rows, with blank separator rows spliced in.
-  if (0L %in% blank_set) lines <- c(lines, .blank_row_rtf())
+  table_align <- tbl$table_align %||% "left"
 
-  for (i in seq_len(nrows)) {
-    row_border <- .effective_row_border(
-      border$body,
-      if (i == 1L) border$first_row else if (i == nrows) border$last_row else list()
-    )
-    lines <- c(lines, .render_data_row(
-      as.list(df[i, , drop = FALSE]),
-      cellx, row_border, data_h, pad_l, pad_r, valign_cmd, col_spec
-    ))
-    if (i %in% blank_set) lines <- c(lines, .blank_row_rtf())
+  if (!is.null(tbl$data_list)) {
+    # ── Multi-DF mode ──────────────────────────────────────────────────────────
+    lines <- character()
+    for (df_i in seq_along(tbl$data_list)) {
+      df      <- tbl$data_list[[df_i]]
+      # Per-DF header (NULL → use column names of this DF).
+      hdr_spec    <- tbl$col_header_list[[df_i]]
+      col_headers <- hdr_spec %||% list(names(df))
+
+      lines <- c(lines, .render_rtftable_section(
+        df          = df,
+        col_headers = col_headers,
+        cellx       = cellx,
+        border      = border,
+        col_spec    = col_spec,
+        hdr_h       = hdr_h,
+        data_h      = data_h,
+        blank_h     = blank_h,
+        blank_set   = blank_set,
+        pad_l       = pad_l,
+        pad_r       = pad_r,
+        valign_cmd  = valign_cmd,
+        spanning_header = tbl$spanning_header,
+        table_align     = table_align
+      ))
+    }
+    return(lines)
   }
 
-  lines
+  # ── Single-DF mode (existing behaviour) ────────────────────────────────────
+  df          <- tbl$data
+  col_headers <- tbl$col_header %||% list(names(df))
+
+  .render_rtftable_section(
+    df          = df,
+    col_headers = col_headers,
+    cellx       = cellx,
+    border      = border,
+    col_spec    = col_spec,
+    hdr_h       = hdr_h,
+    data_h      = data_h,
+    blank_h     = blank_h,
+    blank_set   = blank_set,
+    pad_l       = pad_l,
+    pad_r       = pad_r,
+    valign_cmd  = valign_cmd,
+    spanning_header = tbl$spanning_header,
+    table_align     = table_align
+  )
 }
 
 # ── rtfplot renderer ───────────────────────────────────────────────────────────
@@ -564,14 +673,15 @@
 }
 
 .render_header_footer <- function(hf, writable_width_twips, is_footer = FALSE,
-                                   current_page = NULL, total_pages = NULL) {
+                                   current_page = NULL, total_pages = NULL,
+                                   color_index_map = NULL) {
   if (is.null(hf) || length(hf$rows) == 0L) {
     return(character())
   }
 
-  rows       <- hf$rows
-  top_border <- isTRUE(hf$top_border)
-  width      <- if (!is.null(hf$width_twips)) hf$width_twips else writable_width_twips
+  rows        <- hf$rows
+  hf_border   <- hf$border   # rtf_border or NULL
+  width       <- if (!is.null(hf$width_twips)) hf$width_twips else writable_width_twips
   cmds <- .load_rtf_commands()
   table_cmd <- cmds$table
   align_cmd <- cmds$alignment
@@ -626,20 +736,21 @@
       n_cols <- length(cols_vec)
       if (n_cols > 3L) stop("Header/footer supports up to 3 columns per row.", call. = FALSE)
       aligns <- if (n_cols == 1L) {
-        if (is_footer) "left" else "center"
+        "center"
       } else if (n_cols == 2L) c("left", "right") else c("left", "center", "right")
       cols_display <- cols_vec
     }
 
     cell_w <- floor(width / n_cols)
     cellx  <- cumsum(rep(cell_w, n_cols))
-    apply_border <- top_border && row_idx == 1L
+    # Border applies only to the first row of the header/footer block.
+    row_border_cmds <- if (row_idx == 1L) .build_border_commands(hf_border, color_index_map) else ""
 
     row <- table_cmd$row_start
     row <- paste0(row, rh_str)
     for (cx in cellx) {
-      if (apply_border) {
-        row <- paste0(row, .cmd_fmt(table_cmd$cell_boundary_top_border_template, list(cx = cx)))
+      if (nzchar(row_border_cmds)) {
+        row <- paste0(row, row_border_cmds, "\\cellx", cx)
       } else {
         row <- paste0(row, .cmd_fmt(table_cmd$cell_boundary_template, list(cx = cx)))
       }
@@ -673,7 +784,69 @@
   out
 }
 
-# ── Public API ─────────────────────────────────────────────────────────────────
+# ── Color table helpers ────────────────────────────────────────────────────────
+
+# Collect all unique hex color strings used in border specs across the report.
+# Returns a character vector of unique "#RRGGBB" strings (may be empty).
+.collect_report_colors <- function(report) {
+  cols <- character(0)
+
+  .hf_colors <- function(hf) {
+    if (is.null(hf)) return(character(0))
+    b <- hf$border
+    if (is.null(b) || !inherits(b, "rtf_border")) return(character(0))
+    .collect_border_colors(b)
+  }
+
+  .tbl_colors <- function(tbl) {
+    if (!inherits(tbl, "rtftable")) return(character(0))
+    tb <- tbl$border
+    if (is.null(tb)) return(character(0))
+    if (inherits(tb, "rtf_table_border")) {
+      return(.collect_table_border_colors(tb))
+    }
+    # Old plain-list format — no color support.
+    character(0)
+  }
+
+  for (sec in report$sections) {
+    cols <- c(cols, .hf_colors(.normalize_hf(sec$header)))
+    cols <- c(cols, .hf_colors(.normalize_hf(sec$footer)))
+    for (pg in sec$pages) {
+      for (blk in pg$content) {
+        if (inherits(blk$data, "rtftable")) cols <- c(cols, .tbl_colors(blk$data))
+      }
+    }
+  }
+  unique(cols)
+}
+
+# Build the RTF color table string from a character vector of hex colors.
+# Returns the RTF {\colortbl ...} string.
+# Color indices: 1 = first entry (after the implicit auto-color entry).
+.build_color_table_rtf <- function(hex_colors) {
+  if (length(hex_colors) == 0L) {
+    return("{\\colortbl;\\red0\\green0\\blue0;}")
+  }
+  entries <- vapply(hex_colors, function(h) {
+    h <- sub("^#", "", h)
+    r <- strtoi(substr(h, 1L, 2L), 16L)
+    g <- strtoi(substr(h, 3L, 4L), 16L)
+    b <- strtoi(substr(h, 5L, 6L), 16L)
+    sprintf("\\red%d\\green%d\\blue%d;", r, g, b)
+  }, character(1L))
+  paste0("{\\colortbl;\\red0\\green0\\blue0;", paste(entries, collapse = ""), "}")
+}
+
+# Build a named list mapping "#RRGGBB" -> integer color-table index (1-based).
+# Index 1 = black (auto), so user colors start at 2.
+.build_color_index_map <- function(hex_colors) {
+  if (length(hex_colors) == 0L) return(list())
+  idx <- seq_along(hex_colors) + 1L   # +1 because index 1 = black
+  stats::setNames(as.list(idx), hex_colors)
+}
+
+
 
 #' Generate an RTF file from an rtfreport object
 #'
@@ -706,10 +879,15 @@ generate_rtfreport <- function(report, file_path, overwrite = FALSE) {
   # Count total pages.
   total_pages <- sum(vapply(report$sections, function(s) length(s$pages), integer(1L)))
 
+  # Build dynamic color table from all border colors in the report.
+  doc_colors       <- .collect_report_colors(report)
+  color_table_str  <- .build_color_table_rtf(doc_colors)
+  color_index_map  <- .build_color_index_map(doc_colors)
+
   lines <- c(
     doc_cmd$rtf_header_open,
     .cmd_fmt(doc_cmd$font_table_template, list(font_name = .rtf_escape(primary_font))),
-    doc_cmd$color_table_default,
+    color_table_str,
     .cmd_fmt(doc_cmd$page_settings_template, list(
       width_twips           = page_defaults$width_twips,
       height_twips          = page_defaults$height_twips,
@@ -736,10 +914,6 @@ generate_rtfreport <- function(report, file_path, overwrite = FALSE) {
     # Resolve footer: normalize current section's footer, or inherit from previous.
     cur_footer_hf <- .normalize_hf(sec$footer)
     if (is.null(cur_footer_hf)) cur_footer_hf <- prev_footer_hf
-    # Apply footer top_border default (TRUE) if not explicitly set.
-    if (!is.null(cur_footer_hf) && is.null(cur_footer_hf$top_border)) {
-      cur_footer_hf$top_border <- TRUE
-    }
     prev_footer_hf <- cur_footer_hf
 
     lines <- c(lines, doc_cmd$section_defaults)
@@ -748,9 +922,11 @@ generate_rtfreport <- function(report, file_path, overwrite = FALSE) {
     # applies to all pages in the section; re-emitting per page is incorrect).
     sec_first_page <- global_page_num
     header_rtf <- .render_header_footer(cur_header_hf, writable_width, is_footer = FALSE,
-                                        current_page = sec_first_page, total_pages = total_pages)
+                                        current_page = sec_first_page, total_pages = total_pages,
+                                        color_index_map = color_index_map)
     footer_rtf <- .render_header_footer(cur_footer_hf, writable_width, is_footer = TRUE,
-                                        current_page = sec_first_page, total_pages = total_pages)
+                                        current_page = sec_first_page, total_pages = total_pages,
+                                        color_index_map = color_index_map)
 
     if (length(header_rtf) > 0L) {
       lines <- c(lines, .cmd_fmt(doc_cmd$header_wrapper, list(content = paste(header_rtf, collapse = ""))))
@@ -807,7 +983,7 @@ generate_rtfreport <- function(report, file_path, overwrite = FALSE) {
         lines <- c(lines, .cmd_fmt(para_cmd$left_template, list(text = .rtf_escape(page$footer_notes))))
       }
 
-      if (p_idx < length(sec$pages) || s_idx < length(report$sections)) {
+      if (p_idx < length(sec$pages)) {
         lines <- c(lines, doc_cmd$page_break)
       }
 

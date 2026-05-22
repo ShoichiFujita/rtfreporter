@@ -23,7 +23,7 @@
   as.integer(x)
 }
 
-#' Create a header object for a section
+#' Create a header or footer object for a section
 #'
 #' `rtf_header()` and `rtf_footer()` create structured header/footer objects
 #' that can be passed to `add_section()`, `set_section_header()`, or
@@ -34,14 +34,18 @@
 #'   character vectors (multi-row). Each vector uses names `l`, `c`, `r` for
 #'   left, center, right column content. See the Header/Footer section in
 #'   `?rtfreport` for column-count rules.
+#' @param border An [rtf_border()] object controlling the border applied to
+#'   all rows of the header/footer table.  `NULL` = no border (default for
+#'   header).  Use [rtf_border_top()] for a horizontal dividing line (default
+#'   for footer).
 #' @param width_twips Integer. Table width in twips. `NULL` (default) uses the
 #'   full writable width (page width minus margins).
-#' @param top_border Logical. Whether to draw a top border on the first row.
-#'   Default for headers is `FALSE`; default for footers is `TRUE`.
 #' @param row_height_twips Integer. Row height in twips. `NULL` (default) reads
 #'   the value from `inst/resources/rtfreporter_defaults.R`.
+#' @param top_border **Deprecated.** Use `border = rtf_border_top()` or
+#'   `border = NULL` instead.  Kept for backward compatibility with a warning.
 #'
-#' @return A named list with elements `rows`, `width_twips`, `top_border`, and
+#' @return A named list with elements `rows`, `border`, `width_twips`, and
 #'   `row_height_twips`.
 #'
 #' @examples
@@ -51,32 +55,64 @@
 #'     c(l = "Study Title",       r = "Page {AUTO_PAGE} of {TOTAL_PAGES}")
 #'   )
 #' )
-#' ftr <- rtf_footer(c(l = "Confidential"), top_border = TRUE)
+#' ftr <- rtf_footer(c(l = "Confidential"))  # top border by default
 #'
 #' report <- rtfreport$new()
 #' sec <- report$add_section(header = hdr, footer = ftr)
 #'
 #' @export
-rtf_header <- function(rows, width_twips = NULL, top_border = FALSE, row_height_twips = NULL) {
+rtf_header <- function(rows,
+                        border           = NULL,
+                        width_twips      = NULL,
+                        row_height_twips = NULL,
+                        top_border       = NULL) {
+  if (!is.null(top_border)) {
+    warning("`top_border` is deprecated in rtf_header(). ",
+            "Use `border = rtf_border_top()` or `border = NULL` instead.",
+            call. = FALSE)
+    if (is.null(border)) {
+      border <- if (isTRUE(top_border)) rtf_border_top() else NULL
+    }
+  }
+  if (!is.null(border) && !inherits(border, "rtf_border")) {
+    stop("`border` must be NULL or an rtf_border object (see rtf_border()).", call. = FALSE)
+  }
   if (is.character(rows)) rows <- list(rows)
   if (!is.list(rows)) stop("`rows` must be a named character vector or list of named vectors.", call. = FALSE)
   list(
     rows             = rows,
+    border           = border,
     width_twips      = width_twips,
-    top_border       = top_border,
     row_height_twips = row_height_twips
   )
 }
 
 #' @rdname rtf_header
 #' @export
-rtf_footer <- function(rows, width_twips = NULL, top_border = TRUE, row_height_twips = NULL) {
+rtf_footer <- function(rows,
+                        border           = rtf_border_top(),
+                        width_twips      = NULL,
+                        row_height_twips = NULL,
+                        top_border       = NULL) {
+  if (!is.null(top_border)) {
+    warning("`top_border` is deprecated in rtf_footer(). ",
+            "Use `border = rtf_border_top()` or `border = NULL` instead.",
+            call. = FALSE)
+    if (!missing(border) && identical(border, rtf_border_top())) {
+      border <- if (isTRUE(top_border)) rtf_border_top() else NULL
+    } else if (missing(border)) {
+      border <- if (isTRUE(top_border)) rtf_border_top() else NULL
+    }
+  }
+  if (!is.null(border) && !inherits(border, "rtf_border")) {
+    stop("`border` must be NULL or an rtf_border object (see rtf_border()).", call. = FALSE)
+  }
   if (is.character(rows)) rows <- list(rows)
   if (!is.list(rows)) stop("`rows` must be a named character vector or list of named vectors.", call. = FALSE)
   list(
     rows             = rows,
+    border           = border,
     width_twips      = width_twips,
-    top_border       = top_border,
     row_height_twips = row_height_twips
   )
 }
@@ -116,10 +152,13 @@ rtf_footer <- function(rows, width_twips = NULL, top_border = TRUE, row_height_t
 #' ```
 #'
 #' **Page tokens** available in header/footer text:
-#' - `{AUTO_PAGE}` — replaced with `\chpgn` (dynamic page number rendered per page by the RTF viewer).
-#' - `{AUTO_TOTAL_PAGES}` — replaced with the RTF `NUMPAGES` field (dynamic total, rendered by the viewer).
-#' - `{PAGE}` — replaced with the first page number of the section (static integer at render time).
-#' - `{TOTAL_PAGES}` — replaced with the total page count of the document (static integer at render time).
+#' - `{AUTO_PAGE}` — dynamic page number per page (`\chpgn`, rendered by the RTF viewer).
+#' - `{AUTO_TOTAL_PAGES}` — dynamic total-page count (`NUMPAGES` RTF field, rendered by the viewer).
+#'   This is the recommended token when using `assemble_rtf()`, as the viewer updates the count
+#'   across all assembled files.
+#' - `{SECTION_PAGES}` — dynamic page count for the current section (`SECTIONPAGES` RTF field).
+#' - `{PAGE}` — same as `{AUTO_PAGE}` (dynamic `\chpgn`).
+#' - `{TOTAL_PAGES}` — static total page count resolved at render time (integer).
 #'
 #' @param font_table A list of font definitions. Each element is a list with at
 #'   least a `name` element (character string). Default: `list(list(name = "Courier"))`.
