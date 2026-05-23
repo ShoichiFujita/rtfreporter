@@ -1,8 +1,8 @@
 # Pipe Composition API for rtfreporter
 # S3-based immutable composition interface for building RTF reports with pipes (%>%)
 #
-# This module provides an alternative to the S3 methods API (add_section, add_page, etc.)
-# with a focus on functional composition and pipeline building.
+# This is the primary public API. Build a document by piping rtf_document()
+# through rtf_tables(), rtf_section(), format functions, then generate_rtfreport().
 
 # ============================================================================
 # Utility: NULL-coalescing operator
@@ -135,16 +135,27 @@ rtf_config <- function(doc, font_table = NULL, color_table = NULL, page = NULL,
 # Content Addition: rtf_tables() and rtf_figures()
 # ============================================================================
 
-#' Add table content to document
+#' Add content pages to document
 #'
-#' Append one or more data.frames as content pages.
-#' Automatically numbers pages based on content order.
+#' Append one or more content items as pages. Each top-level list element
+#' becomes one page. Accepts data.frames, `rtftable()` objects, `rtfplot()`
+#' objects, or a list of those (multiple items on one page).
 #'
 #' @param doc An rtf_document object.
-#' @param tables A list of content items:
-#'   - data.frame: treated as a single table on one page
-#'   - list of data.frames: multiple tables on one page
-#'   Example: list(df1, df2, list(df3a, df3b)) creates 3 pages
+#' @param tables A list where each element is one page's content:
+#'   - `data.frame`: simple table with default formatting
+#'   - `rtftable_r6` object (from `rtftable()`): table with full formatting
+#'   - `rtfplot_r6` object (from `rtfplot()`): embedded figure
+#'   - `list` of the above: multiple items on one page
+#'
+#'   Examples:
+#'   ```r
+#'   # Three pages
+#'   rtf_tables(list(df1, rtftable(df2, border="tfl"), rtfplot("fig.png")))
+#'
+#'   # Page 2 has a figure + table
+#'   rtf_tables(list(df1, list(rtfplot("fig.png"), rtftable(df2))))
+#'   ```
 #'
 #' @return Modified rtf_document with appended contents.
 #'
@@ -158,31 +169,30 @@ rtf_tables <- function(doc, tables) {
     stop("`tables` must be a list", call. = FALSE)
   }
 
-  # Validate each item
+  .is_content_item <- function(x) {
+    is.data.frame(x) ||
+      inherits(x, "rtftable_r6") ||
+      inherits(x, "rtfplot_r6")
+  }
+
+  # Validate each page-level item
   for (i in seq_along(tables)) {
     item <- tables[[i]]
 
-    # Check if it's a single data.frame
-    if (is.data.frame(item)) {
-      # OK - single table
-      next
+    if (.is_content_item(item)) {
+      next  # OK - single content item
     }
 
-    # Check if it's a list of data.frames
+    # Check if it's a list of content items (multiple items on one page)
     if (is.list(item)) {
-      if (length(item) > 0) {
-        # Check all items in list are data.frames
-        if (!all(sapply(item, is.data.frame))) {
-          stop("Item ", i, " in tables must contain only data.frames",
-               call. = FALSE)
-        }
+      if (length(item) > 0 && !all(vapply(item, .is_content_item, logical(1L)))) {
+        stop("Item ", i, " contains invalid content: each element must be a ",
+             "data.frame, rtftable(), or rtfplot() object", call. = FALSE)
       }
-      # OK - list of tables (possibly empty)
-      next
+      next  # OK - list of content items
     }
 
-    # If we get here, it's invalid
-    stop("Item ", i, " in tables must be a data.frame or list of data.frames",
+    stop("Item ", i, " must be a data.frame, rtftable(), rtfplot(), or a list of those",
          call. = FALSE)
   }
 

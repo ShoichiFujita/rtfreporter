@@ -2,22 +2,33 @@
 % Please edit documentation in r/pipe-composition.R
 \name{rtf_tables}
 \alias{rtf_tables}
-\title{Add table content to document}
+\title{Add content pages to document}
 \usage{
 rtf_tables(doc, tables)
 }
 \arguments{
 \item{doc}{An rtf_document object.}
 
-\item{tables}{A list of content items:
-- data.frame: treated as a single table on one page
-- list of data.frames: multiple tables on one page
-Example: list(df1, df2, list(df3a, df3b)) creates 3 pages}
+\item{tables}{A list where each element is one page's content:
+  - `data.frame`: simple table with default formatting
+  - `rtftable_r6` object (from `rtftable()`): table with full formatting
+  - `rtfplot_r6` object (from `rtfplot()`): embedded figure
+  - `list` of the above: multiple items on one page
+
+  Examples:
+  ```r
+  # Three pages
+  rtf_tables(list(df1, rtftable(df2, border="tfl"), rtfplot("fig.png")))
+
+  # Page 2 has a figure + table
+  rtf_tables(list(df1, list(rtfplot("fig.png"), rtftable(df2))))
+  ```}
 }
 \value{
 Modified rtf_document with appended contents.
 }
 \description{
-Append one or more data.frames as content pages.
-Automatically numbers pages based on content order.
+Append one or more content items as pages. Each top-level list element
+becomes one page. Accepts data.frames, `rtftable()` objects, `rtfplot()`
+objects, or a list of those (multiple items on one page).
 }
