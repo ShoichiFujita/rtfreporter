@@ -24,12 +24,11 @@ rtf_footer(
 \arguments{
 \item{rows}{A named character vector (single row) or a `list` of named
 character vectors (multi-row). Each vector uses names `l`, `c`, `r` for
-left, center, right column content. See the Header/Footer section in
-`?rtfreport` for column-count rules.}
+left, center, right column content.}
 
 \item{border}{An [rtf_border()] object controlling the border applied to
-all rows of the header/footer table.  `NULL` = no border (default for
-header).  Use [rtf_border_top()] for a horizontal dividing line (default
+all rows of the header/footer table. `NULL` = no border (default for
+header). Use [rtf_border_top()] for a horizontal dividing line (default
 for footer).}
 
 \item{width_twips}{Integer. Table width in twips. `NULL` (default) uses the
@@ -39,7 +38,7 @@ full writable width (page width minus margins).}
 the value from `inst/resources/rtfreporter_defaults.R`.}
 
 \item{top_border}{**Deprecated.** Use `border = rtf_border_top()` or
-`border = NULL` instead.  Kept for backward compatibility with a warning.}
+`border = NULL` instead.}
 }
 \value{
 A named list with elements `rows`, `border`, `width_twips`, and
@@ -47,20 +46,19 @@ A named list with elements `rows`, `border`, `width_twips`, and
 }
 \description{
 `rtf_header()` and `rtf_footer()` create structured header/footer objects
-that can be passed to `add_section()`, `set_section_header()`, or
-`set_section_footer()`. These objects let you control borders, width, and
-row height alongside the text content.
+that can be passed to `rtf_section()`. Use [update_header_row()] /
+[update_footer_row()] to add or replace individual rows after creation.
 }
 \examples{
 hdr <- rtf_header(
   rows = list(
-    c(l = "Protocol: RTF-101", r = "HOGE company"),
-    c(l = "Study Title",       r = "Page {AUTO_PAGE} of {TOTAL_PAGES}")
+    c(l = "Protocol: RTF-101", r = "ACME Pharma"),
+    c(l = "Table 14.1.1",     r = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}")
   )
 )
-ftr <- rtf_footer(c(l = "Confidential"))  # top border by default
+ftr <- rtf_footer(c(l = "Confidential"))
 
-report <- rtfreport$new()
-sec <- report$add_section(header = hdr, footer = ftr)
+# Add a third row later
+hdr <- update_header_row(hdr, row = 3, content = c(c = "Draft"))
 
 }

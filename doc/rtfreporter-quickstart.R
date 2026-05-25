@@ -147,12 +147,13 @@ library(magrittr)
 #   rtf_section(page = 1, secinfo = list(
 #     header = rtf_header(rows = list(
 #       c(l = "Protocol: FIG-001", r = "ACME Pharma"),
-#       c(l = "Figure + Summary Table")
+#       c(l = "Figure and Summary Table")
 #     )),
 #     footer = rtf_footer(rows = list(c(l = "Source: LB domain.", r = "CONFIDENTIAL")))
 #   )) %>%
 #   rtf_tables(list(
-#     list(rtfplot(png_path, width_twips = 7200L), tbl_summary)  # both on page 1
+#     rtfplot(png_path, width_twips = 7200L),  # page 1: figure
+#     tbl_summary                              # page 2: summary table
 #   ))
 # 
 # generate_rtfreport(doc, tempfile(fileext = ".rtf"), overwrite = TRUE)

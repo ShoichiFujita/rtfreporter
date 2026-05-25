@@ -46,12 +46,18 @@ format:
 | ドキュメント | `rtf_document()`, `rtf_config()` |
 | コンテンツ追加 | `rtf_tables()`, `rtf_figures()` |
 | セクション定義 | `rtf_section()` |
-| 書式設定 | `rtf_table_format()`, `rtf_header_format()`, `rtf_footer_format()`, `rtf_figure_format()` |
 | コンテンツ構築 | `rtftable()`, `rtfplot()` |
 | ヘッダー/フッター | `rtf_header()`, `rtf_footer()` |
 | 罫線 | `rtf_border_side()`, `rtf_border()`, `rtf_border_none()`, `rtf_border_top()`, `rtf_border_bottom()`, `rtf_border_box()`, `rtf_table_border()`, `rtf_border_tfl()` |
 | 出力 | `generate_rtfreport()`, `assemble_rtf()` |
 | ユーティリティ | `text_width_in()`, `auto_col_widths()` |
+
+::: {.callout-warning}
+**廃止予定**: `rtf_table_format()`, `rtf_header_format()`, `rtf_footer_format()`,
+`rtf_figure_format()` は v0.0.6 で廃止予定となりました。書式は `rtf_tables()` /
+`rtf_figures()` / `rtftable()` / `rtfplot()` の引数として直接指定してください。
+これらの関数は警告付きの no-op として残されており、次バージョンで削除されます。
+:::
 
 ---
 
@@ -119,18 +125,73 @@ rtf_config(doc, font_table=NULL, color_table=NULL, page=NULL, default_format=NUL
 # `rtf_tables()` — コンテンツページ追加
 
 ```r
-rtf_tables(doc, tables)
+rtf_tables(
+  doc, tables,
+  # 以下の書式引数は bare data.frame 要素にのみ適用される
+  col_header              = NULL,
+  spanning_header         = NULL,
+  col_spec                = NULL,
+  border                  = "tfl",
+  blank_rows              = NULL,
+  col_rel_width           = NULL,
+  column_widths_twips     = NULL,
+  table_width_twips       = NULL,
+  table_width_pct_of_writable = NULL,
+  table_width_pct         = NULL,
+  table_align             = "left",
+  row_height_twips        = 0L,
+  row_height_exact        = FALSE,
+  header_row_height_twips = NULL,
+  blank_row_height_twips  = NULL,
+  cell_padding_left_twips  = 72L,
+  cell_padding_right_twips = 72L,
+  cell_valign             = "bottom",
+  auto_section            = FALSE,
+  section_label_align     = "left"
+)
 ```
 
-**`tables` 引数の形式:**
+**仕様:**
+
+- `tables` の各要素は **1ページ＝1コンテンツ** に対応します。1ページに表と図を併置するような multi-content 構成はサポートしません。
+- 各要素は次のいずれかでなければなりません:
+  - `data.frame` — `rtf_tables()` の書式引数が既定値として適用されます。
+  - `rtftable()` の戻り値（`rtftable_r6`）— 自身の設定が優先されます。
+  - `rtfplot()` の戻り値（`rtfplot_r6`）。
+- 書式引数（`col_rel_width`, `border`, `row_height_twips` ...）は **bare data.frame 要素にのみ** 適用されます。`rtftable()` で構築済みの要素には影響しません。
+
+**例:**
 
 ```r
 # 各要素が1ページ
 rtf_tables(doc, list(
-  df1,                         # data.frame → デフォルト書式
-  rtftable(df2, border="tfl"), # rtftable オブジェクト
-  rtfplot("fig.png")           # rtfplot オブジェクト（図）
-))
+  df1,                         # data.frame → 下の col_rel_width / border が適用
+  rtftable(df2, border="none"),# rtftable: 自身の border="none" 優先
+  rtfplot("fig.png")           # 図
+), col_rel_width = c(2, 1, 1), border = "tfl", row_height_twips = 280L)
+```
+
+---
+
+# `rtf_figures()` — 図ページ追加
+
+```r
+rtf_figures(doc, figures,
+  width_twips = NULL, height_twips = NULL, align = "center")
+```
+
+**仕様:**
+
+- `figures` の各要素は **1ページ＝1図** に対応します。
+- 各要素は次のいずれか:
+  - 文字列パス（PNG / JPEG）— `width_twips` / `height_twips` / `align` が適用されます。
+  - `rtfplot()` の戻り値 — 自身の設定が優先されます。
+
+```r
+rtf_figures(doc,
+  list("fig1.png", "fig2.png", rtfplot("fig3.png", align = "left")),
+  width_twips = 9000L
+)
 ```
 
 ---

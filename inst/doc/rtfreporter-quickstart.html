@@ -489,8 +489,12 @@ in the section header, changing from page to page.</p>
 <span id="cb4-26"><a href="#cb4-26" tabindex="-1"></a><span class="fu">generate_rtfreport</span>(doc, <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.rtf&quot;</span>), <span class="at">overwrite =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
 <hr />
 </div>
-<div id="figure-and-table-on-the-same-page" class="section level2">
-<h2>4 Figure and table on the same page</h2>
+<div id="figure-and-summary-on-consecutive-pages" class="section level2">
+<h2>4 Figure and summary on consecutive pages</h2>
+<p>Each page holds exactly one content item (one table
+<strong>or</strong> one figure). To present a figure together with a
+summary table, place them on adjacent pages — both can share the same
+section header.</p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>tbl_summary <span class="ot">&lt;-</span> <span class="fu">rtftable</span>(</span>
 <span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  <span class="fu">data.frame</span>(</span>
 <span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>    <span class="at">Statistic =</span> <span class="fu">c</span>(<span class="st">&quot;n&quot;</span>, <span class="st">&quot;Mean&quot;</span>, <span class="st">&quot;SD&quot;</span>),</span>
@@ -506,15 +510,16 @@ in the section header, changing from page to page.</p>
 <span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a>  <span class="fu">rtf_section</span>(<span class="at">page =</span> <span class="dv">1</span>, <span class="at">secinfo =</span> <span class="fu">list</span>(</span>
 <span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a>    <span class="at">header =</span> <span class="fu">rtf_header</span>(<span class="at">rows =</span> <span class="fu">list</span>(</span>
 <span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a>      <span class="fu">c</span>(<span class="at">l =</span> <span class="st">&quot;Protocol: FIG-001&quot;</span>, <span class="at">r =</span> <span class="st">&quot;ACME Pharma&quot;</span>),</span>
-<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a>      <span class="fu">c</span>(<span class="at">l =</span> <span class="st">&quot;Figure + Summary Table&quot;</span>)</span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a>      <span class="fu">c</span>(<span class="at">l =</span> <span class="st">&quot;Figure and Summary Table&quot;</span>)</span>
 <span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a>    )),</span>
 <span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a>    <span class="at">footer =</span> <span class="fu">rtf_footer</span>(<span class="at">rows =</span> <span class="fu">list</span>(<span class="fu">c</span>(<span class="at">l =</span> <span class="st">&quot;Source: LB domain.&quot;</span>, <span class="at">r =</span> <span class="st">&quot;CONFIDENTIAL&quot;</span>)))</span>
 <span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a>  )) <span class="sc">%&gt;%</span></span>
 <span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a>  <span class="fu">rtf_tables</span>(<span class="fu">list</span>(</span>
-<span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a>    <span class="fu">list</span>(<span class="fu">rtfplot</span>(png_path, <span class="at">width_twips =</span> <span class="dv">7200</span><span class="dt">L</span>), tbl_summary)  <span class="co"># both on page 1</span></span>
-<span id="cb5-22"><a href="#cb5-22" tabindex="-1"></a>  ))</span>
-<span id="cb5-23"><a href="#cb5-23" tabindex="-1"></a></span>
-<span id="cb5-24"><a href="#cb5-24" tabindex="-1"></a><span class="fu">generate_rtfreport</span>(doc, <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.rtf&quot;</span>), <span class="at">overwrite =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+<span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a>    <span class="fu">rtfplot</span>(png_path, <span class="at">width_twips =</span> <span class="dv">7200</span><span class="dt">L</span>),  <span class="co"># page 1: figure</span></span>
+<span id="cb5-22"><a href="#cb5-22" tabindex="-1"></a>    tbl_summary                              <span class="co"># page 2: summary table</span></span>
+<span id="cb5-23"><a href="#cb5-23" tabindex="-1"></a>  ))</span>
+<span id="cb5-24"><a href="#cb5-24" tabindex="-1"></a></span>
+<span id="cb5-25"><a href="#cb5-25" tabindex="-1"></a><span class="fu">generate_rtfreport</span>(doc, <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.rtf&quot;</span>), <span class="at">overwrite =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
 <hr />
 </div>
 <div id="table-width-and-alignment" class="section level2">

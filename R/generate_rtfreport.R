@@ -942,32 +942,17 @@
 }
 
 # Unwrap an rtf_auto_section_item to its underlying content object.
+# By contract, item$content is always a single rtftable_r6, rtfplot_r6, or
+# data.frame (validated and promoted in rtf_tables()).
 .unwrap_auto_section_item <- function(item) {
-  ct <- item$content
-  if (is.list(ct) && !inherits(ct, "rtftable_r6") &&
-      !inherits(ct, "rtfplot_r6") && !is.data.frame(ct)) {
-    if (length(ct) > 1L) {
-      warning("Only one content item per page is supported. Using first item.",
-              call. = FALSE)
-    }
-    ct[[1L]]
-  } else {
-    ct
-  }
+  item$content
 }
 
-# Internal helper: normalise a single content item (list → first element).
+# Internal helper: pass through a single content item.
+# By contract, rtf_tables() and rtf_figures() guarantee a single content
+# object (rtftable_r6, rtfplot_r6, or data.frame) per element.
 .normalise_content_item <- function(content_item) {
-  if (is.list(content_item) && !inherits(content_item, "rtftable_r6") &&
-      !inherits(content_item, "rtfplot_r6") && !is.data.frame(content_item)) {
-    if (length(content_item) > 1L) {
-      warning("Only one content item per page is supported. Using first item.",
-              call. = FALSE)
-    }
-    content_item[[1L]]
-  } else {
-    content_item
-  }
+  content_item
 }
 
 # Internal helper: convert S3 rtf_document (pipe API) to R6 rtfreport_r6.

@@ -31,10 +31,9 @@ The basic workflow is:
 
 1. Initialize a document with `rtf_document()`
 2. Configure document settings with `rtf_config()` (optional)
-3. Add content (tables/figures) with `rtf_tables()` and `rtf_figures()`
+3. Add content (tables/figures) with `rtf_tables()` / `rtf_figures()` — formatting arguments (`col_rel_width`, `border`, `row_height_twips`, ...) can be supplied here and apply to bare `data.frame` / file-path elements
 4. Define sections with `rtf_section()`
-5. Apply formatting with `rtf_table_format()`, `rtf_header_format()`, etc.
-6. Generate RTF with `generate_rtfreport()`
+5. Generate RTF with `generate_rtfreport()`
 
 ```{r, eval = FALSE}
 library(rtfreporter)
@@ -97,17 +96,26 @@ doc <- rtf_document() %>%
 
 #### `rtf_tables()`
 
-Add one or more data.frames as content pages. Pages are auto-numbered.
+Add one or more contents as pages. **Each element of the `tables` list
+becomes exactly one page**, holding a single table or figure.
+
+Each element must be a `data.frame`, an `rtftable()` object, or an
+`rtfplot()` object. Table-formatting arguments (`col_rel_width`, `border`,
+`row_height_twips`, …) supplied to `rtf_tables()` apply **only to bare
+`data.frame` elements**; pre-built `rtftable()` objects keep their own
+settings.
 
 ```{r, eval = FALSE}
-# Single table per page
+# Single content per page — shared formatting applies to bare data.frames
 doc <- rtf_document() %>%
-  rtf_tables(list(df1, df2, df3))
-
-# Multiple tables on one page
-doc <- rtf_document() %>%
-  rtf_tables(list(df1, list(df2a, df2b), df3))
-# Results in: df1 on page 1, df2a+df2b on page 2, df3 on page 3
+  rtf_tables(
+    list(df1, df2, rtftable(df3, border = "none")),
+    col_rel_width    = c(2, 1, 1),
+    border           = "tfl",
+    row_height_twips = 280L
+  )
+# df1 / df2 inherit col_rel_width / border / row_height_twips.
+# rtftable(df3, border="none") keeps border="none".
 ```
 
 When `auto_section = TRUE` and the list is **named**, each name is appended
@@ -127,11 +135,16 @@ doc <- rtf_document() |>
 
 #### `rtf_figures()`
 
-Add image files as figure pages. Each image creates one new page.
+Add image files as figure pages. Each element becomes exactly one page.
+Elements may be character file paths (PNG/JPEG) or pre-built `rtfplot()`
+objects. `width_twips` / `height_twips` / `align` apply to bare paths only.
 
 ```{r, eval = FALSE}
 doc <- rtf_document() %>%
-  rtf_figures(list("plot1.png", "plot2.png"))
+  rtf_figures(
+    list("plot1.png", "plot2.png", rtfplot("plot3.png", align = "left")),
+    width_twips = 9000L
+  )
 ```
 
 ### Structure Definition
@@ -172,40 +185,37 @@ doc <- rtf_document() |>
 
 ### Formatting
 
-All format functions follow the same pattern:
-- Accept `pages` parameter: `"all"` or `c(1, 3, 5)` for specific pages
-- All other parameters are **optional** (NULL = no change)
-- Safe for multiple calls - later calls override only the specified parameters
+Apply formatting directly via the constructor functions:
 
-#### `rtf_table_format()`
-
-Format table content across pages.
+- For tables: use `rtftable()` per-element for full control, or pass shared
+  formatting arguments to `rtf_tables()`.
+- For figures: use `rtfplot()` per-element, or pass shared arguments to
+  `rtf_figures()`.
+- For headers/footers: use `rtf_header()` / `rtf_footer()` together with
+  `rtf_section()`.
 
 ```{r, eval = FALSE}
+# Per-page control via rtftable() — full set of formatting arguments
 doc <- rtf_document() %>%
-  rtf_tables(list(df1, df2, df3)) %>%
-  rtf_table_format(pages = "all", border = "tfl", row_height_twips = 280L) %>%
-  rtf_table_format(pages = 1, border = "none")  # Override page 1
+  rtf_tables(list(
+    rtftable(df1, border = "tfl",  row_height_twips = 280L, col_rel_width = c(2,1,1)),
+    rtftable(df2, border = "none", row_height_twips = 320L)
+  ))
+
+# Shared defaults for multiple bare data.frames in one call
+doc <- rtf_document() %>%
+  rtf_tables(list(df1, df2, df3),
+             border = "tfl", row_height_twips = 280L,
+             col_rel_width = c(2, 1, 1))
 ```
 
-#### `rtf_header_format()` and `rtf_footer_format()`
-
-Format table headers and footers.
-
-```{r, eval = FALSE}
-doc <- doc %>%
-  rtf_header_format(pages = "all", border = "top", row_height_twips = 280L) %>%
-  rtf_footer_format(pages = c(1, 3), border = "top")
-```
-
-#### `rtf_figure_format()`
-
-Format figure content.
-
-```{r, eval = FALSE}
-doc <- doc %>%
-  rtf_figure_format(pages = "all", width_twips = 8000L, height_twips = 6000L)
-```
+::: {.callout-warning}
+**廃止予定**: かつて存在した `rtf_table_format()`, `rtf_header_format()`,
+`rtf_footer_format()`, `rtf_figure_format()` の 4 関数は実際の出力に何も影響
+しない dead-code だったため deprecate されました。書式は上記のように
+`rtf_tables()` / `rtftable()` / `rtf_header()` / `rtf_footer()` の引数として
+直接指定してください。
+:::
 
 ## Complete Example
 
@@ -235,8 +245,9 @@ report <- rtf_document() %>%
     width_in = 11,
     height_in = 8.5
   )) %>%
-  # Add content
-  rtf_tables(list(df_safety, df_efficacy)) %>%
+  # Add content with shared formatting
+  rtf_tables(list(df_safety, df_efficacy),
+             border = "tfl", row_height_twips = 280L) %>%
   # Define sections with headers/footers
   rtf_section(page = 1, secinfo = list(
     header = rtf_header(rows = list(
@@ -244,7 +255,7 @@ report <- rtf_document() %>%
       r = "Safety Analysis"
     )),
     footer = rtf_footer(rows = list(
-      c = "Page {CURRENT_PAGE} of {AUTO_TOTAL_PAGES}"
+      c = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}"
     ))
   )) %>%
   rtf_section(page = 2, secinfo = list(
@@ -253,12 +264,9 @@ report <- rtf_document() %>%
       r = "Efficacy Analysis"
     )),
     footer = rtf_footer(rows = list(
-      c = "Page {CURRENT_PAGE} of {AUTO_TOTAL_PAGES}"
+      c = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}"
     ))
-  )) %>%
-  # Apply formatting (multiple calls safe, later ones override)
-  rtf_table_format(pages = "all", border = "tfl", row_height_twips = 280L) %>%
-  rtf_header_format(pages = "all", border = "top", row_height_twips = 300L)
+  ))
 
 # Generate RTF file
 generate_rtfreport(report, "clinical_report.rtf", overwrite = TRUE)
@@ -410,9 +418,8 @@ label is taken directly from the list element name.
 
 ```{r, eval = FALSE}
 report <- rtf_document() %>%
-  rtf_tables(list(df1, df2)) %>%
-  rtf_section(page = 1, secinfo = sec_info) %>%
-  rtf_table_format(pages = "all", border = "tfl")
+  rtf_tables(list(df1, df2), border = "tfl") %>%
+  rtf_section(page = 1, secinfo = sec_info)
 ```
 
 ### Using Methods (v0.0.6)
@@ -429,22 +436,6 @@ Both APIs work and produce identical RTF output. Choose based on your preference
 - **Pipes**: Functional style, easier to compose, modern R idiom
 - **Methods**: Direct object manipulation, more explicit control
 
-## Safe Parameter Defaults
-
-The pipe API uses **NULL-safe parameters** to prevent unintended overwrites:
-
-```{r, eval = FALSE}
-# This is safe - only updates page 1
-doc <- doc %>%
-  rtf_table_format(pages = 1, border = "none")
-
-# Later call doesn't overwrite - NULL means "no change"
-doc <- doc %>%
-  rtf_table_format(pages = "all", row_height_twips = 300L)
-# Result: page 1 has border="none", row_height=300L
-#         other pages have border="tfl", row_height=300L
-```
-
 ## Object Structure
 
 The S3 `rtf_document` object contains:
@@ -457,12 +448,8 @@ list(
     page = list(orientation, width_in, height_in, margins),
     default_format = ...
   ),
-  contents = list(...),          # Pages (data.frames or file paths)
-  sections = list(...),          # Page → section info mapping
-  table_formats = list(...),     # Format specs by page
-  header_formats = list(...),
-  footer_formats = list(...),
-  figure_formats = list(...)
+  contents = list(...),    # Pages: each element is rtftable_r6 | rtfplot_r6
+  sections = list(...)     # Page → section info mapping
 )
 ```
 

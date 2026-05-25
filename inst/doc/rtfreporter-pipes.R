@@ -33,14 +33,16 @@ knitr::opts_chunk$set(
 #   rtf_config(page = list(orientation = "portrait"))
 
 ## ----eval = FALSE-------------------------------------------------------------
-# # Single table per page
+# # Single content per page — shared formatting applies to bare data.frames
 # doc <- rtf_document() %>%
-#   rtf_tables(list(df1, df2, df3))
-# 
-# # Multiple tables on one page
-# doc <- rtf_document() %>%
-#   rtf_tables(list(df1, list(df2a, df2b), df3))
-# # Results in: df1 on page 1, df2a+df2b on page 2, df3 on page 3
+#   rtf_tables(
+#     list(df1, df2, rtftable(df3, border = "none")),
+#     col_rel_width    = c(2, 1, 1),
+#     border           = "tfl",
+#     row_height_twips = 280L
+#   )
+# # df1 / df2 inherit col_rel_width / border / row_height_twips.
+# # rtftable(df3, border="none") keeps border="none".
 
 ## ----eval = FALSE-------------------------------------------------------------
 # # Named list + auto_section = TRUE  →  one RTF section per element
@@ -53,7 +55,10 @@ knitr::opts_chunk$set(
 
 ## ----eval = FALSE-------------------------------------------------------------
 # doc <- rtf_document() %>%
-#   rtf_figures(list("plot1.png", "plot2.png"))
+#   rtf_figures(
+#     list("plot1.png", "plot2.png", rtfplot("plot3.png", align = "left")),
+#     width_twips = 9000L
+#   )
 
 ## ----eval = FALSE-------------------------------------------------------------
 # # Single section starting at page 1
@@ -81,19 +86,18 @@ knitr::opts_chunk$set(
 #   # page= is omitted → stored as "_default" template
 
 ## ----eval = FALSE-------------------------------------------------------------
+# # Per-page control via rtftable() — full set of formatting arguments
 # doc <- rtf_document() %>%
-#   rtf_tables(list(df1, df2, df3)) %>%
-#   rtf_table_format(pages = "all", border = "tfl", row_height_twips = 280L) %>%
-#   rtf_table_format(pages = 1, border = "none")  # Override page 1
-
-## ----eval = FALSE-------------------------------------------------------------
-# doc <- doc %>%
-#   rtf_header_format(pages = "all", border = "top", row_height_twips = 280L) %>%
-#   rtf_footer_format(pages = c(1, 3), border = "top")
-
-## ----eval = FALSE-------------------------------------------------------------
-# doc <- doc %>%
-#   rtf_figure_format(pages = "all", width_twips = 8000L, height_twips = 6000L)
+#   rtf_tables(list(
+#     rtftable(df1, border = "tfl",  row_height_twips = 280L, col_rel_width = c(2,1,1)),
+#     rtftable(df2, border = "none", row_height_twips = 320L)
+#   ))
+# 
+# # Shared defaults for multiple bare data.frames in one call
+# doc <- rtf_document() %>%
+#   rtf_tables(list(df1, df2, df3),
+#              border = "tfl", row_height_twips = 280L,
+#              col_rel_width = c(2, 1, 1))
 
 ## ----eval = FALSE-------------------------------------------------------------
 # library(rtfreporter)
@@ -121,8 +125,9 @@ knitr::opts_chunk$set(
 #     width_in = 11,
 #     height_in = 8.5
 #   )) %>%
-#   # Add content
-#   rtf_tables(list(df_safety, df_efficacy)) %>%
+#   # Add content with shared formatting
+#   rtf_tables(list(df_safety, df_efficacy),
+#              border = "tfl", row_height_twips = 280L) %>%
 #   # Define sections with headers/footers
 #   rtf_section(page = 1, secinfo = list(
 #     header = rtf_header(rows = list(
@@ -130,7 +135,7 @@ knitr::opts_chunk$set(
 #       r = "Safety Analysis"
 #     )),
 #     footer = rtf_footer(rows = list(
-#       c = "Page {CURRENT_PAGE} of {AUTO_TOTAL_PAGES}"
+#       c = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}"
 #     ))
 #   )) %>%
 #   rtf_section(page = 2, secinfo = list(
@@ -139,12 +144,9 @@ knitr::opts_chunk$set(
 #       r = "Efficacy Analysis"
 #     )),
 #     footer = rtf_footer(rows = list(
-#       c = "Page {CURRENT_PAGE} of {AUTO_TOTAL_PAGES}"
+#       c = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}"
 #     ))
-#   )) %>%
-#   # Apply formatting (multiple calls safe, later ones override)
-#   rtf_table_format(pages = "all", border = "tfl", row_height_twips = 280L) %>%
-#   rtf_header_format(pages = "all", border = "top", row_height_twips = 300L)
+#   ))
 # 
 # # Generate RTF file
 # generate_rtfreport(report, "clinical_report.rtf", overwrite = TRUE)
@@ -251,9 +253,8 @@ knitr::opts_chunk$set(
 
 ## ----eval = FALSE-------------------------------------------------------------
 # report <- rtf_document() %>%
-#   rtf_tables(list(df1, df2)) %>%
-#   rtf_section(page = 1, secinfo = sec_info) %>%
-#   rtf_table_format(pages = "all", border = "tfl")
+#   rtf_tables(list(df1, df2), border = "tfl") %>%
+#   rtf_section(page = 1, secinfo = sec_info)
 
 ## ----eval = FALSE-------------------------------------------------------------
 # report <- rtfreport()
@@ -261,15 +262,4 @@ knitr::opts_chunk$set(
 # report$add_page(section_index = sec, content = list(rtftable(df1)))
 # report$add_page(section_index = sec, content = list(rtftable(df2)))
 # report$set_default_page(...)
-
-## ----eval = FALSE-------------------------------------------------------------
-# # This is safe - only updates page 1
-# doc <- doc %>%
-#   rtf_table_format(pages = 1, border = "none")
-# 
-# # Later call doesn't overwrite - NULL means "no change"
-# doc <- doc %>%
-#   rtf_table_format(pages = "all", row_height_twips = 300L)
-# # Result: page 1 has border="none", row_height=300L
-# #         other pages have border="tfl", row_height=300L
 

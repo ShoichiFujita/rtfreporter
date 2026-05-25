@@ -30,10 +30,6 @@
 #'   - document: list(font_table, color_table, page, default_format)
 #'   - contents: list (initially empty, populated by rtf_tables/rtf_figures)
 #'   - sections: list (initially empty, populated by rtf_section)
-#'   - table_formats: list (initially empty, populated by rtf_table_format)
-#'   - header_formats: list (initially empty, populated by rtf_header_format)
-#'   - footer_formats: list (initially empty, populated by rtf_footer_format)
-#'   - figure_formats: list (initially empty, populated by rtf_figure_format)
 #'
 #' @examples
 #' \dontrun{
@@ -74,11 +70,7 @@ rtf_document <- function(font_table = NULL, color_table = NULL, page = NULL,
         default_format = default_format
       ),
       contents = list(),
-      sections = list(),
-      table_formats = list(),
-      header_formats = list(),
-      footer_formats = list(),
-      figure_formats = list()
+      sections = list()
     ),
     class = "rtf_document"
   )
@@ -137,39 +129,71 @@ rtf_config <- function(doc, font_table = NULL, color_table = NULL, page = NULL,
 
 #' Add content pages to document
 #'
-#' Append one or more content items as pages. Each top-level list element
-#' becomes one page. Accepts data.frames, `rtftable()` objects, `rtfplot()`
-#' objects, or a list of those (multiple items on one page).
+#' Append one or more content items as pages. **Each element of `tables`
+#' becomes exactly one page**, holding a single table or figure.
+#'
+#' Table-formatting arguments (`col_rel_width`, `border`, `row_height_twips`,
+#' ...) accepted by this function are applied **only to bare `data.frame`
+#' elements** of `tables`. Elements already constructed via `rtftable()` or
+#' `rtfplot()` carry their own settings and are not overridden.
 #'
 #' @param doc An rtf_document object.
-#' @param tables A list where each element is one page's content:
-#'   - `data.frame`: simple table with default formatting
-#'   - `rtftable_r6` object (from `rtftable()`): table with full formatting
-#'   - `rtfplot_r6` object (from `rtfplot()`): embedded figure
-#'   - `list` of the above: multiple items on one page
-#'
-#'   Examples:
-#'   ```r
-#'   # Three pages
-#'   rtf_tables(list(df1, rtftable(df2, border="tfl"), rtfplot("fig.png")))
-#'
-#'   # Page 2 has a figure + table
-#'   rtf_tables(list(df1, list(rtfplot("fig.png"), rtftable(df2))))
-#'   ```
-#'
-#' @return Modified rtf_document with appended contents.
-#'
+#' @param tables A list where each element is one page's content. Each
+#'   element must be one of:
+#'   - `data.frame`: simple table; the table-format arguments below apply.
+#'   - `rtftable_r6` object (from `rtftable()`): table with full formatting.
+#'   - `rtfplot_r6` object (from `rtfplot()`): embedded figure.
+#' @param col_rel_width,column_widths_twips,table_width_twips,table_width_pct_of_writable,table_width_pct,table_align Column-width and table-width settings applied to bare `data.frame` elements. See [rtftable()] for details.
+#' @param col_header,spanning_header,col_spec,border,blank_rows Per-table content settings applied to bare `data.frame` elements. See [rtftable()] for details.
+#' @param row_height_twips,row_height_exact,header_row_height_twips,blank_row_height_twips Row-height settings applied to bare `data.frame` elements. See [rtftable()] for details.
+#' @param cell_padding_left_twips,cell_padding_right_twips,cell_valign Cell layout settings applied to bare `data.frame` elements. See [rtftable()] for details.
 #' @param auto_section Logical. When `TRUE` and `tables` is a **named** list,
 #'   each name is used as a per-section heading appended to the common header
 #'   defined by `rtf_section(secinfo = ...)` (called without a `page` argument).
 #'   The document is then automatically split into one RTF section per named
 #'   element. Unnamed items fall through to the previous section.
-#'   Default `FALSE` (preserves existing behaviour).
+#'   Default `FALSE`.
 #' @param section_label_align Alignment for the auto-appended section label row.
 #'   One of `"left"` (default), `"center"`, or `"right"`.
 #'
+#' @return Modified rtf_document with appended contents.
+#'
+#' @examples
+#' \dontrun{
+#' df1 <- data.frame(A = 1:3, B = c("x", "y", "z"))
+#' df2 <- data.frame(A = 4:6, B = c("p", "q", "r"))
+#'
+#' # Three pages, shared formatting applied to both bare data.frames
+#' doc <- rtf_document() %>%
+#'   rtf_tables(
+#'     list(df1, df2, rtfplot("fig.png")),
+#'     col_rel_width    = c(1, 2),
+#'     border           = "tfl",
+#'     row_height_twips = 280L
+#'   )
+#' }
+#'
 #' @export
-rtf_tables <- function(doc, tables, auto_section = FALSE,
+rtf_tables <- function(doc, tables,
+                        col_header = NULL,
+                        spanning_header = NULL,
+                        col_spec = NULL,
+                        border = "tfl",
+                        blank_rows = NULL,
+                        col_rel_width = NULL,
+                        column_widths_twips = NULL,
+                        table_width_twips = NULL,
+                        table_width_pct_of_writable = NULL,
+                        table_width_pct = NULL,
+                        table_align = "left",
+                        row_height_twips = 0L,
+                        row_height_exact = FALSE,
+                        header_row_height_twips = NULL,
+                        blank_row_height_twips = NULL,
+                        cell_padding_left_twips = 72L,
+                        cell_padding_right_twips = 72L,
+                        cell_valign = "bottom",
+                        auto_section = FALSE,
                         section_label_align = "left") {
   if (!inherits(doc, "rtf_document")) {
     stop("`doc` must be an rtf_document object", call. = FALSE)
@@ -185,26 +209,45 @@ rtf_tables <- function(doc, tables, auto_section = FALSE,
       inherits(x, "rtfplot_r6")
   }
 
-  # Validate each page-level item (before any wrapping)
+  # Validate each page-level item: exactly one content per page.
   for (i in seq_along(tables)) {
     item <- tables[[i]]
-
-    if (.is_content_item(item)) {
-      next  # OK - single content item
+    if (!.is_content_item(item)) {
+      stop("Item ", i,
+           " must be a data.frame, rtftable(), or rtfplot() object. ",
+           "Each list element corresponds to exactly one page (one content).",
+           call. = FALSE)
     }
-
-    # Check if it's a list of content items (multiple items on one page)
-    if (is.list(item)) {
-      if (length(item) > 0 && !all(vapply(item, .is_content_item, logical(1L)))) {
-        stop("Item ", i, " contains invalid content: each element must be a ",
-             "data.frame, rtftable(), or rtfplot() object", call. = FALSE)
-      }
-      next  # OK - list of content items
-    }
-
-    stop("Item ", i, " must be a data.frame, rtftable(), rtfplot(), or a list of those",
-         call. = FALSE)
   }
+
+  # Promote bare data.frames to rtftable_r6 using the supplied formatting args.
+  tables <- lapply(tables, function(item) {
+    if (is.data.frame(item)) {
+      rtftable_r6$new(
+        data                        = item,
+        col_header                  = col_header,
+        spanning_header             = spanning_header,
+        col_spec                    = col_spec,
+        border                      = border,
+        blank_rows                  = blank_rows,
+        col_rel_width               = col_rel_width,
+        column_widths_twips         = column_widths_twips,
+        table_width_twips           = table_width_twips,
+        table_width_pct_of_writable = table_width_pct_of_writable,
+        table_width_pct             = table_width_pct,
+        table_align                 = table_align,
+        row_height_twips            = row_height_twips,
+        row_height_exact            = row_height_exact,
+        header_row_height_twips     = header_row_height_twips,
+        blank_row_height_twips      = blank_row_height_twips,
+        cell_padding_left_twips     = cell_padding_left_twips,
+        cell_padding_right_twips    = cell_padding_right_twips,
+        cell_valign                 = cell_valign
+      )
+    } else {
+      item
+    }
+  })
 
   # When auto_section = TRUE, wrap each named item in an rtf_auto_section_item
   # sentinel so that .pipe_doc_to_r6_report() can build per-section headers.
@@ -234,41 +277,53 @@ rtf_tables <- function(doc, tables, auto_section = FALSE,
 
 #' Add figure content to document
 #'
-#' Append one or more image files as content pages.
-#' Each figure creates one new page.
+#' Append one or more image files (PNG/JPEG) as content pages. Each figure
+#' creates one new page. Display dimensions and alignment apply to every
+#' bare path in `figures`; elements already constructed via [rtfplot()] keep
+#' their own settings.
 #'
 #' @param doc An rtf_document object.
-#' @param figures A list of file paths (character) to image files.
+#' @param figures A list whose elements are either character file paths to
+#'   image files (PNG/JPEG) or pre-built `rtfplot_r6` objects from [rtfplot()].
+#' @param width_twips Display width in twips for bare paths.  `NULL` = full
+#'   writable width.
+#' @param height_twips Display height in twips for bare paths.  `NULL` =
+#'   derived from the image's aspect ratio.
+#' @param align Horizontal alignment for bare paths: `"center"` (default),
+#'   `"left"`, or `"right"`.
 #'
 #' @return Modified rtf_document with appended figure contents.
 #'
 #' @export
-rtf_figures <- function(doc, figures) {
+rtf_figures <- function(doc, figures,
+                         width_twips = NULL, height_twips = NULL,
+                         align = "center") {
   if (!inherits(doc, "rtf_document")) {
     stop("`doc` must be an rtf_document object", call. = FALSE)
   }
 
   if (!is.list(figures)) {
-    stop("`figures` must be a list of file paths", call. = FALSE)
+    stop("`figures` must be a list of file paths or rtfplot() objects",
+         call. = FALSE)
   }
 
-  # Validate each path
-  for (i in seq_along(figures)) {
+  # Validate and promote each element to rtfplot_r6.
+  fig_objs <- lapply(seq_along(figures), function(i) {
     fig <- figures[[i]]
-    if (!is.character(fig) || length(fig) != 1) {
-      stop("Item ", i, " must be a single character file path", call. = FALSE)
+    if (inherits(fig, "rtfplot_r6")) {
+      return(fig)
     }
-    if (!file.exists(fig)) {
-      stop("File not found: ", fig, call. = FALSE)
+    if (!is.character(fig) || length(fig) != 1L) {
+      stop("Item ", i,
+           " must be a single character file path or an rtfplot() object",
+           call. = FALSE)
     }
-  }
+    rtfplot_r6$new(path = fig, width_twips = width_twips,
+                   height_twips = height_twips, align = align)
+  })
 
-  # Wrap each in list (each figure = one page)
-  wrapped_figures <- lapply(figures, function(x) list(x))
-
-  # Create copy and append
   doc_copy <- doc
-  doc_copy$contents <- c(doc_copy$contents, wrapped_figures)
+  doc_copy$contents <- c(doc_copy$contents, fig_objs)
   doc_copy
 }
 
@@ -368,178 +423,98 @@ rtf_section <- function(doc, page = NULL, secinfo) {
 }
 
 # ============================================================================
-# Format Functions
+# Format Functions (DEPRECATED)
 # ============================================================================
+#
+# These four functions never actually applied formatting to the rendered RTF
+# output — they only stored values in unused slots of the rtf_document object.
+# They are retained as no-ops with a deprecation warning so that existing
+# scripts continue to run, and will be removed in a future release.
+#
+# Replacement: pass the formatting arguments (col_rel_width, border,
+# row_height_twips, ...) directly to `rtf_tables()`, or build each item with
+# `rtftable()` / `rtfplot()`.
 
-#' Format table content across pages
+#' Deprecated formatting functions
 #'
-#' Apply formatting specifications to table content on specified pages.
-#' Multiple calls accumulate format specifications; NULL parameters don't
-#' override previous settings.
+#' `rtf_table_format()`, `rtf_header_format()`, `rtf_footer_format()`, and
+#' `rtf_figure_format()` are **deprecated** and have no effect on the rendered
+#' output. They will be removed in a future release.
+#'
+#' Use the formatting arguments of [rtf_tables()] (for tables and bare
+#' data.frames) and [rtf_figures()] (for figures) instead, or build each item
+#' explicitly with [rtftable()] / [rtfplot()] and pass it to `rtf_tables()`.
 #'
 #' @param doc An rtf_document object.
-#' @param pages Page selector: "all" for all pages, or integer/vector c(1, 3, 5).
-#' @param border Optional border style (e.g., "tfl", "none").
-#' @param row_height_twips Optional row height in twips.
-#' @param cell_padding_left Optional left cell padding in twips.
-#' @param cell_padding_right Optional right cell padding in twips.
-#' @param ... Additional format parameters.
+#' @param ... Ignored.
 #'
-#' @return Modified rtf_document with format specifications.
-#'
-#' @export
-rtf_table_format <- function(doc, pages, border = NULL, row_height_twips = NULL,
-                             cell_padding_left = NULL, cell_padding_right = NULL, ...) {
-  if (!inherits(doc, "rtf_document")) {
-    stop("`doc` must be an rtf_document object", call. = FALSE)
-  }
-
-  # Collect parameters
-  params <- list(
-    border = border,
-    row_height_twips = row_height_twips,
-    cell_padding_left = cell_padding_left,
-    cell_padding_right = cell_padding_right,
-    ...
-  )
-
-  .apply_format(doc, pages, "table_formats", params)
-}
-
-#' Format table headers across pages
-#'
-#' Apply formatting to table header rows.
-#'
-#' @param doc An rtf_document object.
-#' @param pages Page selector: "all" or c(1, 3, 5).
-#' @param border Optional border style.
-#' @param row_height_twips Optional row height in twips.
-#' @param ... Additional format parameters.
-#'
-#' @return Modified rtf_document.
-#'
-#' @export
-rtf_header_format <- function(doc, pages, border = NULL, row_height_twips = NULL, ...) {
-  if (!inherits(doc, "rtf_document")) {
-    stop("`doc` must be an rtf_document object", call. = FALSE)
-  }
-
-  params <- list(
-    border = border,
-    row_height_twips = row_height_twips,
-    ...
-  )
-
-  .apply_format(doc, pages, "header_formats", params)
-}
-
-#' Format table footers across pages
-#'
-#' Apply formatting to table footer rows.
-#'
-#' @param doc An rtf_document object.
-#' @param pages Page selector: "all" or c(1, 3, 5).
-#' @param border Optional border style.
-#' @param row_height_twips Optional row height in twips.
-#' @param ... Additional format parameters.
-#'
-#' @return Modified rtf_document.
-#'
-#' @export
-rtf_footer_format <- function(doc, pages, border = NULL, row_height_twips = NULL, ...) {
-  if (!inherits(doc, "rtf_document")) {
-    stop("`doc` must be an rtf_document object", call. = FALSE)
-  }
-
-  params <- list(
-    border = border,
-    row_height_twips = row_height_twips,
-    ...
-  )
-
-  .apply_format(doc, pages, "footer_formats", params)
-}
-
-#' Format figures across pages
-#'
-#' Apply formatting to figure content.
-#'
-#' @param doc An rtf_document object.
-#' @param pages Page selector: "all" or c(1, 3, 5).
-#' @param width_twips Optional figure width in twips.
-#' @param height_twips Optional figure height in twips.
-#' @param ... Additional format parameters.
-#'
-#' @return Modified rtf_document.
-#'
-#' @export
-rtf_figure_format <- function(doc, pages, width_twips = NULL, height_twips = NULL, ...) {
-  if (!inherits(doc, "rtf_document")) {
-    stop("`doc` must be an rtf_document object", call. = FALSE)
-  }
-
-  params <- list(
-    width_twips = width_twips,
-    height_twips = height_twips,
-    ...
-  )
-
-  .apply_format(doc, pages, "figure_formats", params)
-}
-
-# ============================================================================
-# Internal Helper: .apply_format()
-# ============================================================================
-
-#' Apply format specifications safely
-#'
-#' Internal helper to merge format specifications. Handles:
-#' - pages = "all" for all pages
-#' - pages = c(1, 3, 5) for specific pages
-#' - NULL parameters (not included in merge)
-#' - Overwrites via utils::modifyList()
-#'
-#' @param doc An rtf_document object.
-#' @param pages "all" or character/integer vector of page numbers.
-#' @param format_key Name of the format list in doc (e.g., "table_formats").
-#' @param params List of format parameters (NULL values are filtered out).
-#'
-#' @return Modified doc with format specs merged.
-#'
+#' @return `doc`, unchanged.
+#' @name rtf_format-deprecated
 #' @keywords internal
-.apply_format <- function(doc, pages, format_key, params) {
-  # Normalize pages
-  if (is.character(pages) && length(pages) == 1 && pages == "all") {
-    pages <- "all"
-  } else {
-    pages <- as.character(pages)
+NULL
+
+#' @rdname rtf_format-deprecated
+#' @export
+rtf_table_format <- function(doc, ...) {
+  .Deprecated(
+    new = "rtf_tables",
+    msg = paste(
+      "rtf_table_format() is deprecated and has no effect.",
+      "Pass formatting arguments directly to rtf_tables() instead."
+    )
+  )
+  if (!inherits(doc, "rtf_document")) {
+    stop("`doc` must be an rtf_document object", call. = FALSE)
   }
+  doc
+}
 
-  # Filter out NULL parameters
-  config <- Filter(function(x) !is.null(x), params)
-
-  # If nothing to apply, return early
-  if (length(config) == 0) {
-    return(doc)
+#' @rdname rtf_format-deprecated
+#' @export
+rtf_header_format <- function(doc, ...) {
+  .Deprecated(
+    new = "rtf_header",
+    msg = paste(
+      "rtf_header_format() is deprecated and has no effect.",
+      "Configure header rows via rtf_header() / rtf_section() instead."
+    )
+  )
+  if (!inherits(doc, "rtf_document")) {
+    stop("`doc` must be an rtf_document object", call. = FALSE)
   }
+  doc
+}
 
-  # Create copy
-  doc_copy <- doc
-
-  # Apply format specs
-  if (identical(pages, "all")) {
-    # Merge with "all" key
-    existing <- doc_copy[[format_key]][["all"]] %||% list()
-    doc_copy[[format_key]][["all"]] <- utils::modifyList(existing, config)
-  } else {
-    # Merge with each specified page key
-    for (p in pages) {
-      existing <- doc_copy[[format_key]][[p]] %||% list()
-      doc_copy[[format_key]][[p]] <- utils::modifyList(existing, config)
-    }
+#' @rdname rtf_format-deprecated
+#' @export
+rtf_footer_format <- function(doc, ...) {
+  .Deprecated(
+    new = "rtf_footer",
+    msg = paste(
+      "rtf_footer_format() is deprecated and has no effect.",
+      "Configure footer rows via rtf_footer() / rtf_section() instead."
+    )
+  )
+  if (!inherits(doc, "rtf_document")) {
+    stop("`doc` must be an rtf_document object", call. = FALSE)
   }
+  doc
+}
 
-  doc_copy
+#' @rdname rtf_format-deprecated
+#' @export
+rtf_figure_format <- function(doc, ...) {
+  .Deprecated(
+    new = "rtf_figures",
+    msg = paste(
+      "rtf_figure_format() is deprecated and has no effect.",
+      "Pass width_twips / height_twips / align to rtf_figures() or rtfplot() instead."
+    )
+  )
+  if (!inherits(doc, "rtf_document")) {
+    stop("`doc` must be an rtf_document object", call. = FALSE)
+  }
+  doc
 }
 
 # ============================================================================

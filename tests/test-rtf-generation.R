@@ -30,7 +30,8 @@ report <- rtf_document() %>%
     width_in = 11,
     height_in = 8.5
   )) %>%
-  rtf_tables(list(df_safety, df_efficacy)) %>%
+  rtf_tables(list(df_safety, df_efficacy),
+             border = "tfl", row_height_twips = 280L) %>%
   rtf_section(page = 1, secinfo = list(
     header = rtf_header(rows = list(l = "Clinical Report", r = "Safety")),
     footer = rtf_footer(rows = list(c = "Page 1"))
@@ -38,9 +39,7 @@ report <- rtf_document() %>%
   rtf_section(page = 2, secinfo = list(
     header = rtf_header(rows = list(l = "Clinical Report", r = "Efficacy")),
     footer = rtf_footer(rows = list(c = "Page 2"))
-  )) %>%
-  rtf_table_format(pages = "all", border = "tfl", row_height_twips = 280L) %>%
-  rtf_header_format(pages = "all", border = "top", row_height_twips = 300L)
+  ))
 
 cat("✓ Document built successfully\n")
 cat("  Pages:", length(report$contents), "\n")

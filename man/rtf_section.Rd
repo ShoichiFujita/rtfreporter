@@ -4,7 +4,7 @@
 \alias{rtf_section}
 \title{Define sections for pages}
 \usage{
-rtf_section(doc, page, secinfo)
+rtf_section(doc, page = NULL, secinfo)
 }
 \arguments{
 \item{doc}{An rtf_document object.}

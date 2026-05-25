@@ -39,20 +39,34 @@ cat("\n=== Test 2: Content Addition ===\n")
 df1 <- data.frame(A = 1:3, B = c("x", "y", "z"))
 df2 <- data.frame(ID = c(10, 20, 30), Value = c(100, 200, 300))
 
-# Add tables
+# Add tables: bare data.frames are promoted to rtftable_r6 with shared formatting
 doc3 <- rtf_document() %>%
-  rtf_tables(list(df1, df2))
+  rtf_tables(list(df1, df2), col_rel_width = c(1, 2), row_height_twips = 280L)
 
 stopifnot(length(doc3$contents) == 2)
-cat("✓ rtf_tables() appends content\n")
+stopifnot(inherits(doc3$contents[[1L]], "rtftable_r6"))
+stopifnot(identical(doc3$contents[[1L]]$col_rel_width, c(1, 2)))
+stopifnot(identical(doc3$contents[[1L]]$row_height_twips, 280L))
+stopifnot(identical(doc3$contents[[2L]]$col_rel_width, c(1, 2)))
+cat("✓ rtf_tables() promotes data.frames and applies shared formatting\n")
 cat("  Pages created:", length(doc3$contents), "\n")
 
-# Multiple tables on one page
+# Pre-built rtftable() objects keep their own settings
+custom_tbl <- rtftable(df2, col_rel_width = c(3, 1))
 doc4 <- rtf_document() %>%
-  rtf_tables(list(df1, list(df2)))
+  rtf_tables(list(df1, custom_tbl), col_rel_width = c(1, 2))
 
-stopifnot(length(doc4$contents) == 2)
-cat("✓ Multi-table pages supported\n")
+stopifnot(identical(doc4$contents[[1L]]$col_rel_width, c(1, 2)))   # bare df: applied
+stopifnot(identical(doc4$contents[[2L]]$col_rel_width, c(3, 1)))   # rtftable(): preserved
+cat("✓ rtftable() object settings take precedence over rtf_tables() defaults\n")
+
+# Validation: list-in-list (multi-content per page) is rejected
+err <- tryCatch(
+  rtf_document() %>% rtf_tables(list(df1, list(df2))),
+  error = function(e) e
+)
+stopifnot(inherits(err, "error"))
+cat("✓ Multi-content-per-page is rejected (1 content per page enforced)\n")
 
 # ==============================================================================
 # Test 3: Section definition
@@ -80,53 +94,24 @@ stopifnot(length(doc6$sections) == 2)
 cat("✓ Multiple sections supported\n")
 
 # ==============================================================================
-# Test 4: Formatting
+# Test 4: Deprecated format functions emit warnings and are no-ops
 # ==============================================================================
-cat("\n=== Test 4: Formatting Functions ===\n")
+cat("\n=== Test 4: Deprecated rtf_*_format() Functions ===\n")
 
-doc7 <- rtf_document() %>%
-  rtf_tables(list(df1, df2)) %>%
-  rtf_table_format(pages = "all", border = "tfl", row_height_twips = 280L)
+base_doc <- rtf_document() %>% rtf_tables(list(df1, df2))
 
-stopifnot(!is.null(doc7$table_formats[["all"]]))
-stopifnot(doc7$table_formats[["all"]]$border == "tfl")
-cat("✓ rtf_table_format() with pages='all'\n")
-
-# Page-specific override
-doc8 <- doc7 %>%
-  rtf_table_format(pages = 1, border = "none")
-
-stopifnot(doc8$table_formats[["1"]]$border == "none")
-stopifnot(doc8$table_formats[["all"]]$border == "tfl")  # Global unchanged
-cat("✓ Page-specific format override (immutable)\n")
-
-# Header and footer formatting
-doc9 <- rtf_document() %>%
-  rtf_tables(list(df1, df2)) %>%
-  rtf_header_format(pages = "all", border = "top", row_height_twips = 300L) %>%
-  rtf_footer_format(pages = c(1, 2), border = "bottom")
-
-stopifnot(!is.null(doc9$header_formats[["all"]]))
-stopifnot(!is.null(doc9$footer_formats[["1"]]))
-cat("✓ rtf_header_format() and rtf_footer_format()\n")
-
-# ==============================================================================
-# Test 5: NULL-safe parameters
-# ==============================================================================
-cat("\n=== Test 5: NULL-Safe Parameters (Safe for Repeated Calls) ===\n")
-
-doc10 <- rtf_document() %>%
-  rtf_tables(list(df1, df2)) %>%
-  rtf_table_format(pages = "all", border = "tfl", row_height_twips = 280L)
-
-# Second call with partial params (only overwrites what's specified)
-doc11 <- doc10 %>%
-  rtf_table_format(pages = "all", row_height_twips = 320L)
-
-# Check: border unchanged, row_height updated
-stopifnot(doc11$table_formats[["all"]]$border == "tfl")
-stopifnot(doc11$table_formats[["all"]]$row_height_twips == 320L)
-cat("✓ NULL parameters don't overwrite (safe for repeated calls)\n")
+for (fn_name in c("rtf_table_format", "rtf_header_format",
+                  "rtf_footer_format", "rtf_figure_format")) {
+  fn   <- get(fn_name)
+  saw  <- FALSE
+  out  <- withCallingHandlers(
+    fn(base_doc, pages = "all", border = "tfl"),
+    warning = function(w) { saw <<- TRUE; invokeRestart("muffleWarning") }
+  )
+  stopifnot(saw)                       # Deprecation warning was emitted
+  stopifnot(identical(out, base_doc))  # No-op (document unchanged)
+  cat("✓", fn_name, "is a deprecated no-op\n")
+}
 
 # ==============================================================================
 # Test 6: Print method
@@ -152,7 +137,9 @@ workflow_doc <- rtf_document() %>%
     width_in = 11,
     height_in = 8.5
   )) %>%
-  rtf_tables(list(df1, df2)) %>%
+  rtf_tables(list(df1, df2),
+             border = "tfl", row_height_twips = 280L,
+             col_rel_width = c(1, 2)) %>%
   rtf_section(page = 1, secinfo = list(
     header = list(l = "Section 1", r = "Page 1"),
     footer = list(c = "Footer 1")
@@ -160,14 +147,12 @@ workflow_doc <- rtf_document() %>%
   rtf_section(page = 2, secinfo = list(
     header = list(l = "Section 2", r = "Page 2"),
     footer = list(c = "Footer 2")
-  )) %>%
-  rtf_table_format(pages = "all", border = "tfl", row_height_twips = 280L) %>%
-  rtf_header_format(pages = "all", border = "top", row_height_twips = 300L)
+  ))
 
 stopifnot(length(workflow_doc$contents) == 2)
 stopifnot(length(workflow_doc$sections) == 2)
-stopifnot(!is.null(workflow_doc$table_formats[["all"]]))
-stopifnot(!is.null(workflow_doc$header_formats[["all"]]))
+stopifnot(inherits(workflow_doc$contents[[1L]], "rtftable_r6"))
+stopifnot(identical(workflow_doc$contents[[1L]]$col_rel_width, c(1, 2)))
 cat("✓ Complete workflow successful\n")
 
 # ==============================================================================
@@ -175,10 +160,9 @@ cat("✓ Complete workflow successful\n")
 # ==============================================================================
 cat("\n=== ALL TESTS PASSED ===\n")
 cat("✓ Document creation and configuration\n")
-cat("✓ Content addition (tables and multiple tables per page)\n")
+cat("✓ Content addition (1 content per page; bare df promoted to rtftable_r6)\n")
 cat("✓ Section definition (single and multiple)\n")
-cat("✓ Formatting (table, header, footer with page selection)\n")
-cat("✓ NULL-safe parameters (repeated calls don't overwrite)\n")
+cat("✓ Deprecated rtf_*_format() functions warn and are no-ops\n")
 cat("✓ Print S3 method\n")
 cat("✓ Full workflow integration\n")
 cat("\nPipe Composition API is fully functional!\n\n")

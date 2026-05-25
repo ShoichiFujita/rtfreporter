@@ -4,17 +4,35 @@
 \alias{rtf_figures}
 \title{Add figure content to document}
 \usage{
-rtf_figures(doc, figures)
+rtf_figures(
+  doc,
+  figures,
+  width_twips = NULL,
+  height_twips = NULL,
+  align = "center"
+)
 }
 \arguments{
 \item{doc}{An rtf_document object.}
 
-\item{figures}{A list of file paths (character) to image files.}
+\item{figures}{A list whose elements are either character file paths to
+image files (PNG/JPEG) or pre-built `rtfplot_r6` objects from [rtfplot()].}
+
+\item{width_twips}{Display width in twips for bare paths.  `NULL` = full
+writable width.}
+
+\item{height_twips}{Display height in twips for bare paths.  `NULL` =
+derived from the image's aspect ratio.}
+
+\item{align}{Horizontal alignment for bare paths: `"center"` (default),
+`"left"`, or `"right"`.}
 }
 \value{
 Modified rtf_document with appended figure contents.
 }
 \description{
-Append one or more image files as content pages.
-Each figure creates one new page.
+Append one or more image files (PNG/JPEG) as content pages. Each figure
+creates one new page. Display dimensions and alignment apply to every
+bare path in `figures`; elements already constructed via [rtfplot()] keep
+their own settings.
 }

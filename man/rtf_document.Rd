@@ -26,10 +26,6 @@ An rtf_document object (S3 class) with structure:
   - document: list(font_table, color_table, page, default_format)
   - contents: list (initially empty, populated by rtf_tables/rtf_figures)
   - sections: list (initially empty, populated by rtf_section)
-  - table_formats: list (initially empty, populated by rtf_table_format)
-  - header_formats: list (initially empty, populated by rtf_header_format)
-  - footer_formats: list (initially empty, populated by rtf_footer_format)
-  - figure_formats: list (initially empty, populated by rtf_figure_format)
 }
 \description{
 Initialize a new RTF document object for building reports with pipes.
