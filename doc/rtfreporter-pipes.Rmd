@@ -110,6 +110,21 @@ doc <- rtf_document() %>%
 # Results in: df1 on page 1, df2a+df2b on page 2, df3 on page 3
 ```
 
+When `auto_section = TRUE` and the list is **named**, each name is appended
+as an extra heading row in the header for that page, and RTF sections are
+split automatically — no manual loop needed.
+See [Auto-section: multi-page lab shift table](#auto-section-multi-page-lab-shift-table) for a complete example.
+
+```{r, eval = FALSE}
+# Named list + auto_section = TRUE  →  one RTF section per element
+doc <- rtf_document() |>
+  rtf_section(secinfo = list(header = common_hdr, footer = common_ftr)) |>
+  rtf_tables(
+    list("Parameter A" = tbl_a, "Parameter B" = tbl_b),
+    auto_section = TRUE            # label_align = "left" (default)
+  )
+```
+
 #### `rtf_figures()`
 
 Add image files as figure pages. Each image creates one new page.
@@ -131,7 +146,7 @@ doc <- rtf_document() %>%
   rtf_tables(list(df1, df2, df3)) %>%
   rtf_section(page = 1, secinfo = list(
     header = rtf_header(rows = list(l = "Analysis", r = "Table 1")),
-    footer = rtf_footer(rows = list(c = "Page {CURRENT_PAGE}"))
+    footer = rtf_footer(rows = list(c = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}"))
   ))
 
 # Multiple sections
@@ -144,6 +159,15 @@ doc <- rtf_document() %>%
       list(header = h2, footer = f2)   # Section 2 (pages 3+)
     )
   )
+```
+
+**Template section (for `auto_section`):** Omit `page` to register a common
+header/footer template that `rtf_tables(auto_section = TRUE)` will use as a base.
+
+```{r, eval = FALSE}
+doc <- rtf_document() |>
+  rtf_section(secinfo = list(header = common_hdr, footer = common_ftr))
+  # page= is omitted → stored as "_default" template
 ```
 
 ### Formatting
@@ -239,6 +263,146 @@ report <- rtf_document() %>%
 # Generate RTF file
 generate_rtfreport(report, "clinical_report.rtf", overwrite = TRUE)
 ```
+
+## Auto-section: Multi-page Lab Shift Table
+
+A common clinical reporting pattern is a **shift table** repeated for several
+laboratory parameters (e.g. RBC, WBC, Haemoglobin) — each on its own page,
+with identical layout but a different heading line identifying the parameter.
+
+With the `auto_section` feature this requires **no manual loop**.
+
+### Setup: shared table builder
+
+```{r, eval = FALSE}
+library(rtfreporter)
+
+data_dir <- system.file("extdata", package = "rtfreporter")
+lab_rbc <- readRDS(file.path(data_dir, "lab_rbc.rds"))
+lab_wbc <- readRDS(file.path(data_dir, "lab_wbc.rds"))
+lab_hgb <- readRDS(file.path(data_dir, "lab_hgb.rds"))
+
+# Spanning header and column-header row (identical for all parameters)
+spanning_hdr <- list(
+  list(from = 2L,  to = 7L,  label = "Drug A (N=30)", underline = TRUE),
+  list(from = 8L,  to = 13L, label = "Drug B (N=30)", underline = TRUE),
+  list(from = 14L, to = 19L, label = "Total (N=60)",  underline = TRUE)
+)
+col_hdr <- c("Baseline\nGrade", rep(c("0","1","2","3","4","Total"), 3L))
+
+make_shift_tbl <- function(df) {
+  rtftable(
+    df,
+    col_header          = col_hdr,
+    spanning_header     = spanning_hdr,
+    column_widths_twips = c(1200L, rep(733L, 18L)),
+    col_spec = c(
+      list(list(col = 1, align = "left")),
+      lapply(2:19, function(j) list(col = j, align = "center"))
+    ),
+    row_height_twips = 360L,
+    border           = "tfl",
+    table_align      = "left"
+  )
+}
+```
+
+### Setup: common header and footer
+
+The header has **5 fixed rows** common to all pages. Row 6 — the parameter
+name — is added automatically by `auto_section`.
+
+```{r, eval = FALSE}
+common_hdr <- rtf_header(rows = list(
+  c(l = "Protocol: STUDY001",
+    r = "DRAFT"),
+  c(l = "Drug Co., Ltd.",
+    r = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}"),
+  c(c = "Table 14.x.x.x  Shift table of Toxicity Grade"),
+  c(c = "<Safety Analysis Set>"),
+  c(c = "")   # blank row — row 6 appended automatically per section
+))
+
+common_ftr <- rtf_footer(rows = list(
+  c(l = paste0(
+    "Note: Percentages are based on the number of subjects in the Safety ",
+    "Analysis Set (N) for each treatment group. ",
+    "Run date: ", Sys.Date()
+  ))
+))
+```
+
+### Build the report — the new way
+
+```{r, eval = FALSE}
+doc <- rtf_document() |>
+  rtf_config(page = list(
+    orientation    = "landscape",
+    width_in       = 11,    height_in      = 8.5,
+    margin_top_in  = 0.75,  margin_bottom_in = 0.75,
+    margin_left_in = 0.5,   margin_right_in  = 0.5
+  )) |>
+  # Register the common header/footer as the "_default" template
+  # (page= is intentionally omitted)
+  rtf_section(secinfo = list(header = common_hdr, footer = common_ftr)) |>
+  # Named list → one RTF section per element
+  # The element name is appended as a left-aligned row 6 in the header
+  rtf_tables(
+    list(
+      "Red Blood Cell Count (10^6/uL)"   = make_shift_tbl(lab_rbc),
+      "White Blood Cell Count (10^3/uL)" = make_shift_tbl(lab_wbc),
+      "Hemoglobin (g/dL)"                = make_shift_tbl(lab_hgb)
+    ),
+    auto_section = TRUE          # section_label_align = "left" by default
+  )
+
+generate_rtfreport(doc, "lab_shift.rtf", overwrite = TRUE)
+```
+
+### Comparison: old API (manual loop)
+
+Before `auto_section`, the same result required explicitly building each
+section header and looping:
+
+```{r, eval = FALSE}
+lab_params <- list(
+  list(param = "Red Blood Cell Count (10^6/uL)",   data = lab_rbc),
+  list(param = "White Blood Cell Count (10^3/uL)", data = lab_wbc),
+  list(param = "Hemoglobin (g/dL)",                data = lab_hgb)
+)
+
+make_lab_hdr <- function(label) {
+  update_header_row(
+    rtf_header(rows = common_hdr_rows),
+    row = 6L, content = c(l = label)
+  )
+}
+
+doc <- rtf_document() |>
+  rtf_config(page = list(...))
+
+for (i in seq_along(lab_params)) {
+  doc <- doc |>
+    rtf_tables(list(make_shift_tbl(lab_params[[i]]$data))) |>
+    rtf_section(page    = i,
+                secinfo = list(header = make_lab_hdr(lab_params[[i]]$param),
+                               footer = common_ftr))
+}
+```
+
+`auto_section = TRUE` replaces the entire loop with the named list — the
+label is taken directly from the list element name.
+
+### Key parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `auto_section` | `FALSE` | Enable automatic section splitting for named lists |
+| `section_label_align` | `"left"` | Alignment of the appended label row: `"left"`, `"center"`, or `"right"` |
+
+> **Note:** `auto_section` only activates for elements whose name is a
+> non-empty string. Unnamed elements (or elements whose name is `""`) fall
+> through to the inherited section from the previous page.
 
 ## Pipe vs. Methods API
 
