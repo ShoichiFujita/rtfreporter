@@ -6,7 +6,39 @@ All notable changes to rtfreporter are documented in this file. Changes are reco
 
 ## v0.1.0 (TBD - when ready for public release)
 
-> **Status**: Currently in development as v0.0.16. Will be released as v0.1.0 when complete.
+> **Status**: Currently in development as v0.0.17. Will be released as v0.1.0 when complete.
+
+### 📚 Documentation (v0.0.17)
+
+#### Quickstart vignette: new sections for v0.0.11–v0.0.16 features
+
+Three new numbered sections added to `rtfreporter-quickstart.Rmd`:
+
+* **§14 Blank separator rows** — demonstrates all three `blank_rows`
+  specification modes (integer positions, `blank_rows_by_change()`,
+  `blank_rows_by_rule()`), their combination via `list()`, and the
+  `read_attributes = TRUE` data-frame attribute fallback.
+* **§15 Titles & footnotes per page** — shows the
+  `rtf_tables(..., titles = ..., footnotes = ...)` flow, the
+  standalone `rtf_titles()` / `rtf_footnotes()` setters, and the
+  current text-paragraph rendering (centred-bold titles, divider-line
+  footnotes).
+* **§16 Shared table style (R6 theme)** — minimal example of
+  `rtf_table_style_tfl()` shared across many tables, plus the
+  `style$clone_with(...)` non-mutating derivation. Cross-references
+  [LEARNING.md](LEARNING.md).
+
+The Quick-reference table at the bottom is expanded to include the
+parameters added during the v0.0.11–v0.0.16 arc:
+`col_header_align`, `read_attributes`, `style`, plus the `titles` /
+`footnotes` pipe-API extras on `rtf_tables()` / `rtf_figures()`.
+
+#### All vignette / article HTML re-rendered
+
+* `inst/doc/rtfreporter-pipes.html`, `inst/doc/rtfreporter-quickstart.html`
+  rebuilt via `devtools::build_vignettes()`.
+* `vignettes/articles/external-api.html`, `internal-design.html`
+  re-rendered via Quarto.
 
 ### 🔴 Breaking Changes (v0.0.16) — column-header border defaults
 

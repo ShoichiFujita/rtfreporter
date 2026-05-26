@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="rtfreporter development team">
-<meta name="dcterms.date" content="2026-05-25">
+<meta name="dcterms.date" content="2026-05-26">
 
 <title>rtfreporter 内部クラス設計書</title>
 <style>
@@ -2298,7 +2298,7 @@ vertical-align: -.125em;
     <div>
     <div class="quarto-title-meta-heading">公開</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">2026-05-25</p>
+      <p class="date">2026-05-26</p>
     </div>
   </div>
   
@@ -3683,7 +3683,7 @@ last_row:  bottom = single</code></pre>
 </tr>
 </tbody>
 </table>
-<p><strong><code>defaults</code> — 調整可能なデフォルト値</strong></p>
+<p><strong><code>defaults</code> — 調整可能なデフォルト値（<code>inst/resources/rtfreporter_defaults.R</code>）</strong></p>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 33%">
@@ -3699,12 +3699,28 @@ last_row:  bottom = single</code></pre>
 </thead>
 <tbody>
 <tr class="odd">
-<td><code>header_footer_row_height_twips</code></td>
-<td><code>288L</code></td>
-<td>ヘッダー/フッター行高さ（≈ 0.2 inch）</td>
+<td><code>default_row_height_twips_by_font_half_points</code></td>
+<td><code>list(&quot;18&quot; = 230L, ...)</code></td>
+<td>フォントサイズ別の行高（テーブル形式の全要素で共有）</td>
+</tr>
+<tr class="even">
+<td><code>default_row_height_twips_per_half_point</code></td>
+<td><code>12.8</code></td>
+<td>ルックアップに無いフォントサイズに対する線形フォールバック</td>
+</tr>
+<tr class="odd">
+<td><code>default_row_height_twips_min</code></td>
+<td><code>180L</code></td>
+<td>行高の下限値</td>
+</tr>
+<tr class="even">
+<td><code>default_cell_padding_left_twips</code> / <code>_right_twips</code></td>
+<td><code>72L</code> / <code>72L</code></td>
+<td>セル左右パディング</td>
 </tr>
 </tbody>
 </table>
+<p>これらは管理者が必要に応じて調整できる。ヘルパー <code>.default_row_height_twips(font_half_points)</code> がルックアップ→線形フォールバック→下限クランプを行い、ヘッダ・フッタ・表・フットノートのレンダラから共通で利用される。</p>
 </section>
 <section id="コマンド利用の仕組み" class="level3" data-number="9.3.2">
 <h3 data-number="9.3.2" class="anchored" data-anchor-id="コマンド利用の仕組み"><span class="header-section-number">9.3.2</span> コマンド利用の仕組み</h3>
