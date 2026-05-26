@@ -44,12 +44,12 @@ stopifnot(grepl("\\\\ql\\\\li144\\\\ri36 LEFT",  txt2))
 stopifnot(grepl("\\\\qr\\\\li144\\\\ri36 RIGHT", txt2))
 cat("OK  rtf_header(cell_padding_*_twips) override applied\n")
 
-# ── HALF_BLANK_ROW cell also picks up the same padding (visual consistency) ─
+# ── Empty cell ("" — full default height) carries the same padding ─────────
 doc3 <- rtf_document() %>%
   rtf_section(page = 1, secinfo = list(
     header = rtf_header(rows = list(
       c(l = "Top"),
-      c(c = "{HALF_BLANK_ROW}"),
+      c(c = ""),                    # explicit empty row
       c(l = "Below")
     )),
     footer = NULL
@@ -58,9 +58,9 @@ doc3 <- rtf_document() %>%
 txt3 <- gen(doc3)
 stopifnot(grepl("\\\\ql\\\\li72\\\\ri72 Top",   txt3))
 stopifnot(grepl("\\\\ql\\\\li72\\\\ri72 Below", txt3))
-# HALF_BLANK_ROW emits \ql\li72\ri72 \cell (empty text)
-stopifnot(grepl("\\\\ql\\\\li72\\\\ri72 \\\\cell", txt3))
-cat("OK  {HALF_BLANK_ROW} row carries padding too\n")
+# Empty c-cell emits \qc\li72\ri72 \cell  (single empty centred cell)
+stopifnot(grepl("\\\\qc\\\\li72\\\\ri72 \\\\cell", txt3))
+cat("OK  empty cell carries padding too\n")
 
 # ── Resource-level default change cascades automatically (no per-block need) ─
 # Simulate admin tweak by mocking the loader cache — read the resource normally

@@ -6,9 +6,40 @@ All notable changes to rtfreporter are documented in this file. Changes are reco
 
 ## v0.1.0 (TBD - when ready for public release)
 
-> **Status**: Currently in development as v0.0.10. Will be released as v0.1.0 when complete.
+> **Status**: Currently in development as v0.0.11. Will be released as v0.1.0 when complete.
 
-### 🐛 Bug fixes
+### 🔴 Breaking Changes (v0.0.11)
+
+#### Magic blank-row tokens removed; title / footnote return to text paragraphs
+
+The short-lived `{HALF_BLANK_ROW}` / `{BLANK_ROW}` magic tokens introduced in
+v0.0.9 are removed. Blank rows inside titles, footnotes, and
+`rtf_header()` / `rtf_footer()` rows are now expressed with the empty string
+`""` only, and there is no half-height shortcut. (Per-row twips control is
+deferred to a later release.)
+
+Rendering changes:
+
+* **Title** is back to ordinary RTF paragraphs (was a 1-column table in
+  v0.0.9–v0.0.10). Each element of the character vector becomes one
+  `\par`. `""` yields a blank paragraph at the document font size.
+  `title = NULL` (the default) emits one blank centred paragraph; use
+  `title = character(0)` to suppress the block entirely. The default
+  alignment is centre and non-empty lines are bold.
+* **Footnote** is now also a paragraph block (was a 1×1 table, then a
+  N×1 table). Each element is one paragraph; the first paragraph carries
+  the top border (`\brdrt\brdrs\brdrw15`) acting as the visual separator
+  from the content above.
+* **`rtf_header()` / `rtf_footer()`** rows no longer recognise magic
+  tokens. `c(c = "")` is a normal-height empty row.
+
+#### Column-header bold default flipped to `FALSE`
+
+`rtftable()` previously rendered column headers in bold. The default is
+now normal weight (`header_bold = FALSE`). Set it via `col_spec` per
+column to restore bold.
+
+
 
 #### Header / footer cells now share the content-table cell padding
 

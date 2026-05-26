@@ -78,44 +78,6 @@
   }
 })
 
-# ── Magic-token resolution for blank rows ─────────────────────────────────────
-#
-# A single character value may carry one of two "blank row" markers used by
-# titles, footnotes, and RTF page header/footer rows:
-#
-#   "{HALF_BLANK_ROW}"  — render an empty row at half the default row height
-#   "{BLANK_ROW}"       — render an empty row at the full default row height
-#                          (synonym of "" for a single-cell context)
-#
-# `.parse_blank_token()` returns a named list:
-#   text          — text to actually print ("" for blank rows)
-#   height_factor — multiplier applied to .default_row_height_twips()
-#                    (1.0 = full default, 0.5 = half)
-#   is_blank      — TRUE when no visible text
-#
-# Treating an empty string as a full-default blank row is intentional: users
-# who type `""` get a plain empty row, while the explicit
-# `"{HALF_BLANK_ROW}"` is required for the half-height variant.
-.parse_blank_token <- function(text) {
-  if (is.null(text)) text <- ""
-  text <- as.character(text)
-  if (length(text) != 1L) text <- paste(text, collapse = "\n")
-  if (identical(text, "{HALF_BLANK_ROW}")) {
-    list(text = "", height_factor = 0.5, is_blank = TRUE)
-  } else if (identical(text, "{BLANK_ROW}") || !nzchar(text)) {
-    list(text = "", height_factor = 1.0, is_blank = TRUE)
-  } else {
-    list(text = text, height_factor = 1.0, is_blank = FALSE)
-  }
-}
-
-# Resolve a height factor (1.0, 0.5, ...) to a twips integer based on the
-# document font size.
-.row_height_from_factor <- function(factor, font_half_points) {
-  default_h <- .default_row_height_twips(font_half_points)
-  as.integer(round(default_h * as.numeric(factor)))
-}
-
 # Resolve the default row (cell) height for a given font size.
 #
 # Looked up from `rtfreporter_defaults.R`:
@@ -759,12 +721,9 @@
   table_cmd <- cmds$table
   align_cmd <- cmds$alignment
 
-  rh_full  <- hf$row_height_twips %||% .default_row_height_twips(font_half_points)
-  rh_str   <- .cmd_fmt(table_cmd$row_height_template,
-                        list(row_height_twips = rh_full))
-  rh_half  <- as.integer(round(rh_full * 0.5))
-  rh_h_str <- .cmd_fmt(table_cmd$row_height_template,
-                        list(row_height_twips = rh_half))
+  rh_full <- hf$row_height_twips %||% .default_row_height_twips(font_half_points)
+  rh_str  <- .cmd_fmt(table_cmd$row_height_template,
+                       list(row_height_twips = rh_full))
 
   # Cell padding (left/right) — same default as content tables, configurable
   # per-block via rtf_header() / rtf_footer().
@@ -781,27 +740,6 @@
     cols_vec <- if (is.list(row_def) && !is.null(row_def$columns)) row_def$columns else row_def
     if (is.null(cols_vec) || length(cols_vec) == 0L) {
       cols_vec <- c("")
-    }
-
-    # ── Magic blank-row token: any cell value == "{HALF_BLANK_ROW}" ─────────
-    is_half_blank <- any(vapply(cols_vec, function(x) {
-      identical(as.character(x), "{HALF_BLANK_ROW}")
-    }, logical(1L)))
-    if (is_half_blank) {
-      # Single empty cell spanning the full width at half default row height.
-      row_border_cmds <- if (row_idx == 1L)
-        .build_border_commands(hf_border, color_index_map) else ""
-      row <- paste0(table_cmd$row_start, rh_h_str)
-      if (nzchar(row_border_cmds)) {
-        row <- paste0(row, row_border_cmds, "\\cellx", width)
-      } else {
-        row <- paste0(row, .cmd_fmt(table_cmd$cell_boundary_template, list(cx = width)))
-      }
-      row <- paste0(row,
-                    align_cmd$left, "\\li", pad_l, "\\ri", pad_r, " \\cell")
-      row <- paste0(row, table_cmd$row_end)
-      out_rows <- c(out_rows, row)
-      next
     }
 
     col_names <- names(cols_vec)
@@ -956,72 +894,63 @@
   writable_width
 }
 
-# Render footnote as an N×1 RTF table directly below the content block.
+# ── Title / footnote: plain text paragraphs ─────────────────────────────────
 #
-# `footnote` is a character vector — each element becomes one row.
-# Magic tokens ({HALF_BLANK_ROW}, {BLANK_ROW}) are honoured per row.
-# The top border is emitted on the first row only.
-.render_footnote_table <- function(footnote, width_twips, font_half_points = 18L) {
-  if (is.null(footnote) || length(footnote) == 0L) return(character())
-  border_cmd <- .build_border_commands(rtf_border_top())
-  defaults   <- .load_rtfreporter_defaults()
-  pad_l      <- as.integer(defaults$default_cell_padding_left_twips  %||% 72L)
-  pad_r      <- as.integer(defaults$default_cell_padding_right_twips %||% 72L)
+# Both blocks are rendered as ordinary RTF paragraphs (not tables), inheriting
+# the document font size.  Each element of the input character vector becomes
+# one paragraph (`\par`); an empty string yields a blank paragraph.
+#
+#   title:    centred, bold, no border.  NULL → one blank paragraph
+#             (so there is always a small visual gap between the page header
+#             and the content).  character(0) → suppress entirely.
+#
+#   footnote: left-aligned, normal weight; the first paragraph carries a top
+#             border (`\brdrt`) acting as the visual separator from the
+#             content above.  NULL or character(0) → suppress entirely.
 
-  rows_rtf <- character()
-  for (i in seq_along(footnote)) {
-    parsed   <- .parse_blank_token(footnote[[i]])
-    rh       <- .row_height_from_factor(parsed$height_factor, font_half_points)
-    text_rtf <- if (parsed$is_blank) "" else .format_cell_text(parsed$text)
-    border   <- if (i == 1L) border_cmd else ""
-    rows_rtf <- c(rows_rtf, paste0(
-      "\\trowd\\trgaph0\\trrh", rh,
-      border, "\\clvertalb\\cellx", width_twips,
-      "\\ql\\li", pad_l, "\\ri", pad_r, " ", text_rtf, "\\cell",
-      "\\row"
-    ))
-  }
-  rows_rtf
-}
-
-# Render a content title as an N×1 RTF table sitting above the content block.
-#
-# `title` is a character vector — each element becomes one row.
-# When `title` is NULL (the default), one `{HALF_BLANK_ROW}` row is emitted
-# automatically so there is always a small visual gap between the RTF page
-# header and the content.  Use `title = character(0)` to suppress the title
-# block entirely.
-#
-# Non-blank rows are centred and bold; blank rows omit the bold attribute.
-.render_title_table <- function(title, width_twips, font_half_points = 18L) {
-  if (is.null(title)) {
-    title <- "{HALF_BLANK_ROW}"
-  }
+.render_title_text <- function(title, align = "center") {
+  # NULL → one blank paragraph (the default visual gap).
+  if (is.null(title)) title <- ""
   if (length(title) == 0L) return(character())
 
-  defaults <- .load_rtfreporter_defaults()
-  pad_l    <- as.integer(defaults$default_cell_padding_left_twips  %||% 72L)
-  pad_r    <- as.integer(defaults$default_cell_padding_right_twips %||% 72L)
-
-  rows_rtf <- character()
-  for (i in seq_along(title)) {
-    parsed <- .parse_blank_token(title[[i]])
-    rh     <- .row_height_from_factor(parsed$height_factor, font_half_points)
-    cell_def <- paste0("\\clvertalb\\cellx", width_twips)
-    if (parsed$is_blank) {
-      cell_content <- paste0("\\ql\\li", pad_l, "\\ri", pad_r, " \\cell")
+  align_cmd <- switch(align,
+                       left   = "\\ql",
+                       right  = "\\qr",
+                       center = "\\qc",
+                       "\\qc")
+  out <- character()
+  for (line in title) {
+    if (!nzchar(line)) {
+      out <- c(out, paste0("\\pard", align_cmd, "\\par"))
     } else {
-      txt <- .format_cell_text(parsed$text)
-      cell_content <- paste0("\\qc\\li", pad_l, "\\ri", pad_r,
-                              " \\b ", txt, "\\b0 \\cell")
+      txt <- .rtf_escape(line)
+      out <- c(out, paste0("\\pard", align_cmd, "\\b ", txt, "\\b0\\par"))
     }
-    rows_rtf <- c(rows_rtf, paste0(
-      "\\trowd\\trgaph0\\trrh", rh,
-      cell_def, cell_content,
-      "\\row"
-    ))
   }
-  rows_rtf
+  out
+}
+
+.render_footnote_text <- function(footnote, align = "left") {
+  if (is.null(footnote) || length(footnote) == 0L) return(character())
+
+  align_cmd <- switch(align,
+                       left   = "\\ql",
+                       right  = "\\qr",
+                       center = "\\qc",
+                       "\\ql")
+  out <- character()
+  for (i in seq_along(footnote)) {
+    line <- footnote[[i]]
+    # Paragraph border on the first line only (visual separator from content).
+    brd <- if (i == 1L) "\\brdrt\\brdrs\\brdrw15" else ""
+    if (is.null(line) || !nzchar(line)) {
+      out <- c(out, paste0("\\pard", brd, align_cmd, "\\par"))
+    } else {
+      txt <- .rtf_escape(line)
+      out <- c(out, paste0("\\pard", brd, align_cmd, " ", txt, "\\par"))
+    }
+  }
+  out
 }
 
 # Build the RTF color table string from a character vector of hex colors.
@@ -1356,10 +1285,9 @@ generate_rtfreport <- function(report, file_path, overwrite = FALSE) {
 
       # ── Content (single rtftable_r6 or rtfplot_r6) ───────────────────────
       ct <- page$content
-      content_width <- .compute_content_width(ct, writable_w)
 
-      # ── Title (N×1 table above content; NULL → one {HALF_BLANK_ROW}) ────
-      lines <- c(lines, .render_title_table(page$title, content_width, font_half_points))
+      # ── Title (plain centred paragraphs; NULL → one blank line) ──────────
+      lines <- c(lines, .render_title_text(page$title, align = "center"))
       if (!is.null(ct)) {
         if (inherits(ct, "rtftable_r6")) {
           lines <- c(lines, .render_rtftable(ct, writable_w, font_half_points))
@@ -1368,9 +1296,9 @@ generate_rtfreport <- function(report, file_path, overwrite = FALSE) {
         }
       }
 
-      # ── Footnote (N×1 table, same width as content) ──────────────────────
+      # ── Footnote (plain left-aligned paragraphs, top border on row 1) ───
       if (!is.null(page$footnote) && length(page$footnote) > 0L) {
-        lines <- c(lines, .render_footnote_table(page$footnote, content_width, font_half_points))
+        lines <- c(lines, .render_footnote_text(page$footnote, align = "left"))
       }
 
       # Page break between pages; section break between sections.

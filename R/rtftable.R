@@ -28,7 +28,7 @@
       italic        = FALSE,
       underline     = FALSE,
       indent_twips  = 0L,
-      header_bold   = TRUE,
+      header_bold   = FALSE,   # column headers default to normal weight
       header_align  = "center",
       header_italic = FALSE
     )

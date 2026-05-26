@@ -174,59 +174,44 @@ rtf_tables(doc, list(
 
 ---
 
-# タイトル / フットノートとマジックトークン
+# タイトル / フットノート
 
-各ページのコンテンツ（表または図）の **上下に配置するタイトル/フットノート** は、character vector で指定します。各要素が 1 行に対応します。
+各ページの **コンテンツの上に配置するタイトル**、**下に配置するフットノート** は、character vector で指定します。各要素が 1 段落（1 行）に対応します。フォントサイズは文書共通設定（デフォルト 9pt）。
 
-| 値 | 意味 |
-|---|---|
-| `"任意のテキスト"` | デフォルトの行高でテキスト行を出力 |
-| `""` または `"{BLANK_ROW}"` | デフォルトの行高で空白行 |
-| `"{HALF_BLANK_ROW}"` | **デフォルト行高の半分** の空白行 |
-
-これら**マジックトークン**は title / footnote / `rtf_header()` / `rtf_footer()` の row 値で共通に解釈されます。
-
-**title のデフォルト動作**:
+**title**:
 
 | 入力 | 出力 |
 |---|---|
-| `title = NULL`（既定） | 半行高さの空行 1 つを自動挿入（ヘッダ←→content の呼吸） |
+| `title = NULL`（既定） | 中央寄せの空段落 1 行（content の上の呼吸） |
 | `title = character(0)` | 何も出力しない（明示抑制） |
-| `title = "..."` または `title = c(...)` | 各要素を 1 行として出力 |
+| `title = "Text"` | 中央寄せ・太字の段落 1 行 |
+| `title = c("A", "", "B")` | A → 空行 → B の 3 段落 |
 
-**pipe API での指定**:
+**footnote**:
+
+- 各要素 = 1 段落。最初の段落の上端に細い罫線（content との視覚的区切り）。左寄せがデフォルト。
+- `""` は空段落。`NULL` / `character(0)` で抑制。
+
+**pipe API**:
 
 ```r
 rtf_document() %>%
   rtf_tables(list(df1, df2),
     titles = list(
-      c("Table 14.1.1", "{HALF_BLANK_ROW}", "Safety Population"),
+      c("Table 14.1.1", "", "Safety Population"),    # 中央太字 → 空行 → 中央太字
       "Table 14.1.2"
     ),
     footnotes = list(
-      c("Note 1: foo.", "{HALF_BLANK_ROW}", "Note 2: bar."),
-      NULL                # ページ 2 にはフットノートなし
+      c("Note 1: foo.", "", "Note 2: bar."),
+      NULL
     )
   )
-```
 
-**単独関数** `rtf_titles()` / `rtf_footnotes()` でコンテンツ追加後に上書きすることも可能:
-
-```r
+# あるいは後付けで
 doc %>%
   rtf_tables(list(df1, df2)) %>%
   rtf_titles(list("Page One", "Page Two")) %>%
-  rtf_footnotes(list(NULL, "Note for page 2."))
-```
-
-**ヘッダー/フッター行内でのトークン**:
-
-```r
-rtf_header(rows = list(
-  c(l = "Protocol", r = "Page X"),
-  c(c = "{HALF_BLANK_ROW}"),     # 半行空白
-  c(c = "Table 14.1.1")
-))
+  rtf_footnotes(list(NULL, "Footer of page 2"))
 ```
 
 ---

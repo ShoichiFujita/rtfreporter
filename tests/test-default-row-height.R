@@ -16,6 +16,9 @@ stopifnot(rtfreporter:::.default_row_height_twips(40L) == round(40 * 12.8))
 stopifnot(rtfreporter:::.default_row_height_twips(2L)  == 180L)
 cat("OK  .default_row_height_twips() lookup, fallback, and clamp\n")
 
+# Title/footnote are text paragraphs now → no \trrh for those blocks.
+# Counts below cover only header + body + page footer (table-shaped).
+
 # ── End-to-end RTF generation: header, body, footnote all use 230 ───────────
 df <- data.frame(A = 1:2, B = c("x", "y"), stringsAsFactors = FALSE)
 
@@ -35,10 +38,11 @@ generate_rtfreport(r6, tmp, overwrite = TRUE)
 
 txt <- paste(readLines(tmp, warn = FALSE), collapse = "\n")
 
-# Count occurrences of "\trrh230" — header row, footer row, table rows,
-# footnote row should ALL emit it.
+# Count occurrences of "\trrh230" — page header, page footer, table body
+# (header + data rows) should all emit it.  Title and footnote are now
+# text paragraphs and emit no \trrh.
 n_230 <- length(gregexpr("\\\\trrh230\\b", txt)[[1L]])
-stopifnot(n_230 >= 4L)   # at least 1 header + 1 footer + 2 body + 1 footnote
+stopifnot(n_230 >= 4L)   # 1 page header + 1 page footer + 1 col-header + ≥2 body
 cat(sprintf("OK  generated RTF contains %d occurrences of \\trrh230\n", n_230))
 
 # No occurrence of the old 360 default.
