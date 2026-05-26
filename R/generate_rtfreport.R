@@ -403,9 +403,17 @@
 }
 
 # Render spanning-header row(s).
-# spanning_header: list of list(from, to, label, underline).
+# spanning_header: list of list(from, to, label, underline, [align]).
+#
+# Alignment resolution for a spanning cell covering columns from..to:
+#   1. sp$align                              (explicit per-cell override)
+#   2. col_spec[[sp$from]]$header_align       (inherit from the level below —
+#                                              i.e. the leftmost covered
+#                                              column's header alignment)
+#   3. "center"                              (final fallback)
 .render_spanning_rows <- function(spanning_header, cellx, border_spec,
                                    row_height_twips, pad_l, pad_r, valign_cmd,
+                                   col_spec = NULL,
                                    table_align = "left") {
   if (is.null(spanning_header) || length(spanning_header) == 0L) return(character())
   ncols <- length(cellx)
@@ -435,18 +443,32 @@
     }
   }
 
+  # Resolve the alignment for a spanning cell.
+  .span_align <- function(sp) {
+    if (!is.null(sp$align)) return(sp$align)
+    from_idx <- as.integer(sp$from)
+    if (!is.null(col_spec) && from_idx >= 1L && from_idx <= length(col_spec)) {
+      below <- col_spec[[from_idx]]$header_align
+      if (!is.null(below) && nzchar(below)) return(below)
+    }
+    "center"
+  }
+
   # Build cell contents.
   cell_contents <- character()
   j <- 1L
   while (j <= ncols) {
     k <- coverage[j]
     if (k > 0L) {
-      sp    <- spanning_header[[k]]
-      label <- .format_cell_text(sp$label %||% "")
+      sp        <- spanning_header[[k]]
+      label     <- .format_cell_text(sp$label %||% "")
       if (isTRUE(sp$underline)) label <- paste0("\\ul ", label, "\\ulnone ")
-      label <- paste0("\\b ", label, "\\b0 ")
+      label     <- paste0("\\b ", label, "\\b0 ")
+      al        <- .span_align(sp)
+      align_cmd <- switch(al, left = "\\ql", right = "\\qr",
+                              center = "\\qc", "\\qc")
       cell_contents <- c(cell_contents,
-        paste0("\\qc\\li", pad_l, "\\ri", pad_r, " ", label, "\\cell"))
+        paste0(align_cmd, "\\li", pad_l, "\\ri", pad_r, " ", label, "\\cell"))
       j <- as.integer(sp$to) + 1L
     } else {
       cell_contents <- c(cell_contents,
@@ -531,7 +553,8 @@
   if (!is.null(spanning_header)) {
     lines <- c(lines, .render_spanning_rows(
       spanning_header, cellx,
-      border$spanning, hdr_h, pad_l, pad_r, valign_cmd, table_align
+      border$spanning, hdr_h, pad_l, pad_r, valign_cmd,
+      col_spec = col_spec, table_align = table_align
     ))
   }
 
@@ -546,7 +569,8 @@
     if (is_spanning) {
       lines <- c(lines, .render_spanning_rows(
         hdr_row, cellx,
-        span_border, hdr_h, pad_l, pad_r, valign_cmd, table_align
+        span_border, hdr_h, pad_l, pad_r, valign_cmd,
+        col_spec = col_spec, table_align = table_align
       ))
     } else {
       lines <- c(lines, .render_header_row(

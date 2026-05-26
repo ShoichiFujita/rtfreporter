@@ -345,6 +345,14 @@ rtftable(df,
 )
 ```
 
+**アラインメント**: spanning セルの既定配置は、その **直下の階層**（カバーしている列の `col_spec[[from]]$header_align`、最終的にデータ列の `align`）を継承します。明示的に上書きしたい場合は `align` を指定:
+
+```r
+list(from = 2, to = 3, label = "Always Center", underline = TRUE, align = "center")
+```
+
+優先順位: `sp$align` > `col_spec[[sp$from]]$header_align` > `"center"`。`col_header` 内に書いた spanning 行も同じ規則が適用されます。
+
 ## `blank_rows` — 空行の挿入（3 モード組み合わせ）
 
 | モード | 構文 | 内容 |

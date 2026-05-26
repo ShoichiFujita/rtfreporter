@@ -6,7 +6,44 @@ All notable changes to rtfreporter are documented in this file. Changes are reco
 
 ## v0.1.0 (TBD - when ready for public release)
 
-> **Status**: Currently in development as v0.0.13. Will be released as v0.1.0 when complete.
+> **Status**: Currently in development as v0.0.14. Will be released as v0.1.0 when complete.
+
+### ✨ Features (v0.0.14)
+
+#### Spanning rows inherit alignment from the level below
+
+`spanning_header` cells previously rendered with a hard-coded `\qc`
+(centre) alignment.  They now inherit the alignment of the level
+immediately below — i.e. the leftmost covered column's `header_align`
+(which itself cascades from `col_spec[[j]]$align`).  Resolution order
+per spanning cell:
+
+1. `sp$align` — explicit per-cell override.
+2. `col_spec[[sp$from]]$header_align` — inherit from the level below.
+3. `"center"` — final fallback.
+
+```r
+# Numeric columns are right-aligned;
+# the spanning labels above them now follow suit by default.
+rtftable(df,
+  col_header = c("Item", "N", "Mean", "N", "Mean"),
+  col_spec   = list(
+    list(col = 1, align = "left"),
+    list(col = 2, align = "right"),
+    list(col = 3, align = "right"),
+    list(col = 4, align = "right"),
+    list(col = 5, align = "right")
+  ),
+  spanning_header = list(
+    list(from = 2, to = 3, label = "Drug A (N=30)", underline = TRUE),
+    list(from = 4, to = 5, label = "Drug B (N=30)", underline = TRUE)
+  ))
+# → "Drug A (N=30)" and "Drug B (N=30)" are right-aligned.
+```
+
+`list(from, to, label, underline, align = "center")` still works for an
+explicit override.  Same rule applies to spanning rows declared inline
+inside the `col_header` list.
 
 ### ✨ Features (v0.0.13 — Step C of the style/spec refactor)
 
