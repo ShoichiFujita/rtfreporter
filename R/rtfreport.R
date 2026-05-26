@@ -146,6 +146,10 @@ update_footer_row <- function(footer, row, content) {
 #'   full writable width (page width minus margins).
 #' @param row_height_twips Integer. Row height in twips. `NULL` (default) reads
 #'   the value from `inst/resources/rtfreporter_defaults.R`.
+#' @param cell_padding_left_twips,cell_padding_right_twips Integer cell padding
+#'   on the left / right side of each header (or footer) cell, matching the
+#'   content-table convention. `NULL` (default) reads from
+#'   `inst/resources/rtfreporter_defaults.R` (72L for both).
 #' @param top_border **Deprecated.** Use `border = rtf_border_top()` or
 #'   `border = NULL` instead.
 #'
@@ -166,10 +170,12 @@ update_footer_row <- function(footer, row, content) {
 #'
 #' @export
 rtf_header <- function(rows,
-                        border           = NULL,
-                        width_twips      = NULL,
-                        row_height_twips = NULL,
-                        top_border       = NULL) {
+                        border                   = NULL,
+                        width_twips              = NULL,
+                        row_height_twips         = NULL,
+                        cell_padding_left_twips  = NULL,
+                        cell_padding_right_twips = NULL,
+                        top_border               = NULL) {
   if (!is.null(top_border)) {
     warning("`top_border` is deprecated in rtf_header(). ",
             "Use `border = rtf_border_top()` or `border = NULL` instead.",
@@ -181,16 +187,21 @@ rtf_header <- function(rows,
   }
   if (is.character(rows)) rows <- list(rows)
   if (!is.list(rows)) stop("`rows` must be a named character vector or list of named vectors.", call. = FALSE)
-  list(rows = rows, border = border, width_twips = width_twips, row_height_twips = row_height_twips)
+  list(rows = rows, border = border, width_twips = width_twips,
+       row_height_twips         = row_height_twips,
+       cell_padding_left_twips  = cell_padding_left_twips,
+       cell_padding_right_twips = cell_padding_right_twips)
 }
 
 #' @rdname rtf_header
 #' @export
 rtf_footer <- function(rows,
-                        border           = rtf_border_top(),
-                        width_twips      = NULL,
-                        row_height_twips = NULL,
-                        top_border       = NULL) {
+                        border                   = rtf_border_top(),
+                        width_twips              = NULL,
+                        row_height_twips         = NULL,
+                        cell_padding_left_twips  = NULL,
+                        cell_padding_right_twips = NULL,
+                        top_border               = NULL) {
   if (!is.null(top_border)) {
     warning("`top_border` is deprecated in rtf_footer(). ",
             "Use `border = rtf_border_top()` or `border = NULL` instead.",
@@ -206,7 +217,10 @@ rtf_footer <- function(rows,
   }
   if (is.character(rows)) rows <- list(rows)
   if (!is.list(rows)) stop("`rows` must be a named character vector or list of named vectors.", call. = FALSE)
-  list(rows = rows, border = border, width_twips = width_twips, row_height_twips = row_height_twips)
+  list(rows = rows, border = border, width_twips = width_twips,
+       row_height_twips         = row_height_twips,
+       cell_padding_left_twips  = cell_padding_left_twips,
+       cell_padding_right_twips = cell_padding_right_twips)
 }
 
 # ============================================================================

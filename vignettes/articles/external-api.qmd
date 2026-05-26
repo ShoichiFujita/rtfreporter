@@ -376,17 +376,21 @@ rtfplot(
 
 ```r
 rtf_header(
-  rows,                       # named chr vector (1行) または list(vecs) (複数行)
-  border           = NULL,    # rtf_border | NULL（デフォルト: 罫線なし）
-  width_twips      = NULL,    # NULL = 書き込み可能幅
-  row_height_twips = NULL     # NULL = デフォルト値
+  rows,                                # named chr vector (1行) または list(vecs) (複数行)
+  border                   = NULL,     # rtf_border | NULL（デフォルト: 罫線なし）
+  width_twips              = NULL,     # NULL = 書き込み可能幅
+  row_height_twips         = NULL,     # NULL = フォントサイズ依存デフォルト
+  cell_padding_left_twips  = NULL,     # NULL = リソース既定値 (72L)
+  cell_padding_right_twips = NULL      # NULL = リソース既定値 (72L)
 )
 
 rtf_footer(
   rows,
-  border           = rtf_border_top(),  # デフォルト: フッター上辺に横線
-  width_twips      = NULL,
-  row_height_twips = NULL
+  border                   = rtf_border_top(),  # フッター上辺に横線
+  width_twips              = NULL,
+  row_height_twips         = NULL,
+  cell_padding_left_twips  = NULL,
+  cell_padding_right_twips = NULL
 )
 ```
 
@@ -459,6 +463,17 @@ rtfreporter_defaults <- list(
 | `rtftable(blank_row_height_twips = ...)` | 空白セパレータ行のみ |
 
 これら個別指定が `NULL`（既定）の場合、上記リソースから引いたデフォルトが適用されます。フットノートは現状個別指定 API なし。
+
+### セル左右パディング
+
+セルの罫線とテキストの間隔も同じくリソース既定値で全要素統一されます:
+
+```r
+default_cell_padding_left_twips  = 72L
+default_cell_padding_right_twips = 72L
+```
+
+これは表本体・タイトル・フットノート・**ページヘッダー/フッター** すべてに適用されます。`rtf_header()` / `rtf_footer()` の `cell_padding_left_twips` / `cell_padding_right_twips` 引数で個別上書き可能。`rtftable()` の同名引数も従来通り。
 
 **特殊値**:
 

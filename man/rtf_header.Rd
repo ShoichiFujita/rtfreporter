@@ -10,6 +10,8 @@ rtf_header(
   border = NULL,
   width_twips = NULL,
   row_height_twips = NULL,
+  cell_padding_left_twips = NULL,
+  cell_padding_right_twips = NULL,
   top_border = NULL
 )
 
@@ -18,6 +20,8 @@ rtf_footer(
   border = rtf_border_top(),
   width_twips = NULL,
   row_height_twips = NULL,
+  cell_padding_left_twips = NULL,
+  cell_padding_right_twips = NULL,
   top_border = NULL
 )
 }
@@ -36,6 +40,11 @@ full writable width (page width minus margins).}
 
 \item{row_height_twips}{Integer. Row height in twips. `NULL` (default) reads
 the value from `inst/resources/rtfreporter_defaults.R`.}
+
+\item{cell_padding_left_twips, cell_padding_right_twips}{Integer cell padding
+on the left / right side of each header (or footer) cell, matching the
+content-table convention. `NULL` (default) reads from
+`inst/resources/rtfreporter_defaults.R` (72L for both).}
 
 \item{top_border}{**Deprecated.** Use `border = rtf_border_top()` or
 `border = NULL` instead.}

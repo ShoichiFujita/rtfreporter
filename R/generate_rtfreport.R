@@ -766,6 +766,14 @@
   rh_h_str <- .cmd_fmt(table_cmd$row_height_template,
                         list(row_height_twips = rh_half))
 
+  # Cell padding (left/right) — same default as content tables, configurable
+  # per-block via rtf_header() / rtf_footer().
+  defaults <- .load_rtfreporter_defaults()
+  pad_l <- as.integer(hf$cell_padding_left_twips  %||%
+                       defaults$default_cell_padding_left_twips  %||% 72L)
+  pad_r <- as.integer(hf$cell_padding_right_twips %||%
+                       defaults$default_cell_padding_right_twips %||% 72L)
+
   out_rows <- character()
   for (row_idx in seq_along(rows)) {
     row_def  <- rows[[row_idx]]
@@ -789,8 +797,8 @@
       } else {
         row <- paste0(row, .cmd_fmt(table_cmd$cell_boundary_template, list(cx = width)))
       }
-      row <- paste0(row, .cmd_fmt(table_cmd$cell_text_aligned_template,
-                                   list(align = align_cmd$left, text = "")))
+      row <- paste0(row,
+                    align_cmd$left, "\\li", pad_l, "\\ri", pad_r, " \\cell")
       row <- paste0(row, table_cmd$row_end)
       out_rows <- c(out_rows, row)
       next
@@ -855,7 +863,8 @@
       at <- switch(aligns[i], left = align_cmd$left, right = align_cmd$right,
                    center = align_cmd$center, align_cmd$default)
       txt <- .render_tokens(cols_display[i], current_page = current_page, total_pages = total_pages)
-      row <- paste0(row, .cmd_fmt(table_cmd$cell_text_aligned_template, list(align = at, text = txt)))
+      row <- paste0(row,
+                    at, "\\li", pad_l, "\\ri", pad_r, " ", txt, "\\cell")
     }
     row <- paste0(row, table_cmd$row_end)
     out_rows <- c(out_rows, row)

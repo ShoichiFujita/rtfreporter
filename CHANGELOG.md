@@ -6,7 +6,27 @@ All notable changes to rtfreporter are documented in this file. Changes are reco
 
 ## v0.1.0 (TBD - when ready for public release)
 
-> **Status**: Currently in development as v0.0.9. Will be released as v0.1.0 when complete.
+> **Status**: Currently in development as v0.0.10. Will be released as v0.1.0 when complete.
+
+### 🐛 Bug fixes
+
+#### Header / footer cells now share the content-table cell padding
+
+Cells emitted by `rtf_header()` / `rtf_footer()` were rendered without
+`\li` / `\ri` padding, while content-table cells used 72 twips on both
+sides — so header text sat flush against the cell border. v0.0.10 emits
+the same `\li{pad_l}\ri{pad_r}` for header and footer cells (and for the
+half-blank row variant). Defaults come from
+`inst/resources/rtfreporter_defaults.R`:
+
+```r
+default_cell_padding_left_twips  = 72L
+default_cell_padding_right_twips = 72L
+```
+
+`rtf_header()` and `rtf_footer()` gain `cell_padding_left_twips` /
+`cell_padding_right_twips` arguments for per-block overrides (NULL =
+inherit from the resource file).
 
 ### ✨ Features
 
