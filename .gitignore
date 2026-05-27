@@ -19,6 +19,12 @@ Thumbs.db
 /doc/
 /Meta/
 
+# pkgdown build output -- deployed to gh-pages branch via GitHub Actions
+/docs/
+
+# Quarto local cache
+/vignettes/.quarto/
+
 # Quarto build artifacts
 vignettes/articles/.quarto/
 vignettes/articles/*_files/
