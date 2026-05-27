@@ -1,5 +1,5 @@
 # ============================================================================
-#  rtf_theme — shared mutable theme (R6, optional)
+#  rtf_theme -- shared mutable theme (R6, optional)
 # ============================================================================
 #
 #  This is the ONE place in `rtfreporter` where R6 is the right tool.
@@ -14,10 +14,10 @@
 #
 #      theme <- rtf_theme(header_bold = FALSE)
 #      tbls  <- lapply(dfs, function(df) rtftable(df, theme = theme))
-#      # render → headers are not bold
+#      # render -> headers are not bold
 #
 #      theme$header_bold <- TRUE       # one in-place mutation
-#      # render → every table picks the change up because each rtftable
+#      # render -> every table picks the change up because each rtftable
 #      # holds an R6 *reference* to `theme`, not a snapshot
 #
 #  With S3 lists, mutating `theme$header_bold` after construction would
@@ -41,10 +41,10 @@
 #
 #  ============================================================================
 
-#' Shared mutable theme (R6 — optional)
+#' Shared mutable theme (R6 -- optional)
 #'
 #' `rtf_theme` is an R6 class whose instances are designed to be *shared by
-#' many tables* and *mutated in place* — every table that holds the same
+#' many tables* and *mutated in place* -- every table that holds the same
 #' theme reference picks up the new defaults at the next render.  It is
 #' the only R6 object in `rtfreporter`; everything else is S3.
 #'
@@ -53,7 +53,7 @@
 #' @section R6 is optional:
 #' `rtf_theme()` is gated on the suggested `R6` package being installed.
 #' If it is not, an informative error is raised.  Users who do not need
-#' shared mutable themes do not need to install `R6` at all — the rest
+#' shared mutable themes do not need to install `R6` at all -- the rest
 #' of `rtfreporter` runs without it.
 #'
 #' @param ... Initial field values (same names as [rtf_table_style()]).
@@ -61,8 +61,8 @@
 #' @return An R6 object of class `rtf_theme`.
 #'
 #' @seealso
-#'   * [rtf_table_style()] — the S3 equivalent (snapshot semantics).
-#'   * [rtftable()] — accepts `theme =` to attach an `rtf_theme`.
+#'   * [rtf_table_style()] -- the S3 equivalent (snapshot semantics).
+#'   * [rtftable()] -- accepts `theme =` to attach an `rtf_theme`.
 #'   * `vignette("class-systems", package = "rtfreporter")` for the
 #'     S3-vs-R6 design notes.
 #'
@@ -105,25 +105,25 @@ rtf_theme <- function(...) {
   .rtf_theme_class <<- R6::R6Class(
     classname = "rtf_theme",
     public = list(
-      # ── Zone borders ────────────────────────────────────────────────
+      # -- Zone borders ------------------------------------------------
       border_header    = NULL,
       border_spanning  = NULL,
       border_body      = NULL,
       border_first_row = NULL,
       border_last_row  = NULL,
 
-      # ── Column-header text defaults ────────────────────────────────
+      # -- Column-header text defaults --------------------------------
       header_align  = NULL,
       header_bold   = FALSE,
       header_italic = FALSE,
 
-      # ── Data-row text defaults ─────────────────────────────────────
+      # -- Data-row text defaults -------------------------------------
       align     = "left",
       bold      = FALSE,
       italic    = FALSE,
       underline = FALSE,
 
-      # ── Cell metrics ───────────────────────────────────────────────
+      # -- Cell metrics -----------------------------------------------
       cell_padding_left_twips  = NULL,
       cell_padding_right_twips = NULL,
       row_height_twips         = NULL,
@@ -203,7 +203,7 @@ rtf_theme <- function(...) {
       },
 
       print = function(...) {
-        cat("<rtf_theme (R6 — shared mutable)>\n")
+        cat("<rtf_theme (R6 -- shared mutable)>\n")
         cat("  borders:\n")
         for (z in c("header", "spanning", "body", "first_row", "last_row")) {
           v <- self[[paste0("border_", z)]]

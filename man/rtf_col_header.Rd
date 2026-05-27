@@ -18,8 +18,8 @@ can be passed to `rtftable(col_header = ...)`.  Each argument is one
 row; a row may be either:
 }
 \details{
-* a character vector — one label per data column (legacy form), or
-* a list of [col_cell()] objects — for a row with single and/or
+* a character vector -- one label per data column (legacy form), or
+* a list of [col_cell()] objects -- for a row with single and/or
   spanning cells.
 }
 \examples{

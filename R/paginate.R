@@ -1,5 +1,5 @@
 # ============================================================================
-#  paginate() — table-object → per-page data.frame list
+#  paginate() -- table-object -> per-page data.frame list
 # ============================================================================
 #
 #  Single public entry point for turning a "table object" (currently
@@ -20,7 +20,7 @@
 #         rtf_paginate_meta   list( strategy, group_col, page_index, ... )
 #     so an unmodified `rtf_tables(list)` consumes the result directly.
 #  *  The blank-row positions and the group / split logic are deliberately
-#     pure-R / pure-data.frame — they do not touch the renderer, the gt
+#     pure-R / pure-data.frame -- they do not touch the renderer, the gt
 #     formatting machinery, or any RTF-specific concept.  That keeps the
 #     algorithm reusable for future table-object types.
 #
@@ -49,7 +49,7 @@
 # ============================================================================
 
 
-# ── Generic ─────────────────────────────────────────────────────────────────
+# -- Generic -----------------------------------------------------------------
 
 #' Split a table object into per-page data.frames
 #'
@@ -59,16 +59,16 @@
 #' `rtftable(read_attributes = TRUE)` consumes automatically).
 #'
 #' Dispatch is by S3 class:
-#' * `paginate.gt_tbl()` — for [gt::gt()] tables.  Requires the optional
+#' * `paginate.gt_tbl()` -- for [gt::gt()] tables.  Requires the optional
 #'   `gt` package; an informative error is raised otherwise.
-#' * `paginate.data.frame()` — for plain data.frames / tibbles.  Where the
+#' * `paginate.data.frame()` -- for plain data.frames / tibbles.  Where the
 #'   real work happens; the gt method extracts a data.frame and delegates
 #'   here.
-#' * `paginate.list()` — recurses into every element and concatenates the
+#' * `paginate.list()` -- recurses into every element and concatenates the
 #'   resulting pages in input order.
 #'
 #' New table-object types can be supported by adding another
-#' `paginate.<class>()` method — see `vignette("paginate")` for an
+#' `paginate.<class>()` method -- see `vignette("paginate")` for an
 #' example.
 #'
 #' @param x A supported table object (`gt_tbl`, `data.frame`/tibble, or a
@@ -86,17 +86,17 @@
 #' @param cont_label Suffix appended to the group label on continuation
 #'   pages (only used by group-aware splits).  Default `" (Cont.)"`.
 #' @param blank_rows Blank-row specification:
-#'   * `NULL` (default) — no blank rows added.
-#'   * integer vector — positions within each page.
-#'   * `"between_groups"` — auto-insert a blank row before every group
+#'   * `NULL` (default) -- no blank rows added.
+#'   * integer vector -- positions within each page.
+#'   * `"between_groups"` -- auto-insert a blank row before every group
 #'     transition within the page.
-#'   * `list(...)` of any of the above — union of positions.
+#'   * `list(...)` of any of the above -- union of positions.
 #' @param ... Method-specific extras.
 #'
 #' @return A list of data.frames, one per page.  Each carries:
-#'   * `attr(., "rtf_blank_rows")` — integer positions consumed by
+#'   * `attr(., "rtf_blank_rows")` -- integer positions consumed by
 #'     [rtftable()] when `read_attributes = TRUE`.
-#'   * `attr(., "rtf_paginate_meta")` — list with `strategy`,
+#'   * `attr(., "rtf_paginate_meta")` -- list with `strategy`,
 #'     `page_index`, `total_pages`, `group_col`.
 #'
 #' @examples
@@ -121,7 +121,7 @@
 paginate <- function(x, ...) UseMethod("paginate")
 
 
-# ── Default — error with helpful message ───────────────────────────────────
+# -- Default -- error with helpful message -----------------------------------
 
 #' @rdname paginate
 #' @export
@@ -133,7 +133,7 @@ paginate.default <- function(x, ...) {
 }
 
 
-# ── gt method ──────────────────────────────────────────────────────────────
+# -- gt method --------------------------------------------------------------
 
 #' @rdname paginate
 #' @export
@@ -144,16 +144,16 @@ paginate.gt_tbl <- function(x, ...) {
          call. = FALSE)
   }
   body <- as.data.frame(gt::extract_body(x, output = "rtf"))
-  # Non-breaking spaces from gt → regular spaces, so indentation detection
+  # Non-breaking spaces from gt -> regular spaces, so indentation detection
   # via leading-space works against the body cells.
   body[] <- lapply(body, function(col) {
-    if (is.character(col)) gsub(" ", " ", col, fixed = TRUE) else col
+    if (is.character(col)) gsub("\u00a0", " ", col, fixed = TRUE) else col
   })
   paginate.data.frame(body, ...)
 }
 
 
-# ── list method — recurse + concatenate ─────────────────────────────────────
+# -- list method -- recurse + concatenate -------------------------------------
 
 #' @rdname paginate
 #' @export
@@ -168,7 +168,7 @@ paginate.list <- function(x, ...) {
 }
 
 
-# ── data.frame method — the core algorithm ──────────────────────────────────
+# -- data.frame method -- the core algorithm ----------------------------------
 
 #' @rdname paginate
 #' @export
@@ -220,10 +220,10 @@ paginate.data.frame <- function(x,
 }
 
 
-# ── Internal: group identification ──────────────────────────────────────────
+# -- Internal: group identification ------------------------------------------
 
 # Resolve a user-supplied group_col (name, integer, or NULL) to an integer
-# column index — or NULL for "auto-detect from leading whitespace".
+# column index -- or NULL for "auto-detect from leading whitespace".
 .resolve_group_col <- function(group_col, df) {
   if (is.null(group_col)) return(NULL)
   if (is.character(group_col)) {
@@ -284,7 +284,7 @@ paginate.data.frame <- function(x,
 }
 
 
-# ── Internal: split helpers ─────────────────────────────────────────────────
+# -- Internal: split helpers -------------------------------------------------
 
 .split_by_rows <- function(df, split_rows) {
   n <- nrow(df)
@@ -376,14 +376,14 @@ paginate.data.frame <- function(x,
 }
 
 
-# ── Internal: blank-row spec resolution per page ───────────────────────────
+# -- Internal: blank-row spec resolution per page ---------------------------
 
 # Resolve the user's blank_rows spec into an integer vector of positions
 # valid for ONE page (a chunk).  Accepts:
-#   NULL                 → integer(0)
-#   integer / numeric    → positions (passed through, clipped to chunk)
-#   "between_groups"     → auto-fill between detected group transitions
-#   list                 → union of any of the above
+#   NULL                 -> integer(0)
+#   integer / numeric    -> positions (passed through, clipped to chunk)
+#   "between_groups"     -> auto-fill between detected group transitions
+#   list                 -> union of any of the above
 .resolve_pagewise_blanks <- function(spec, chunk, group_idx) {
   if (is.null(spec) || length(spec) == 0L) return(integer(0))
 

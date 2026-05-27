@@ -1,5 +1,5 @@
 # ============================================================================
-#  rtf_table_style — shared style template (S3)
+#  rtf_table_style -- shared style template (S3)
 # ============================================================================
 #
 #  An `rtf_table_style` bundles table-wide formatting defaults (borders,
@@ -19,8 +19,8 @@
 
 #' Shared table style
 #'
-#' Bundles table-wide formatting defaults — borders, alignment, bold, cell
-#' padding, row height — into a single record that can be passed as the
+#' Bundles table-wide formatting defaults -- borders, alignment, bold, cell
+#' padding, row height -- into a single record that can be passed as the
 #' `style =` argument of [rtftable()].  Each `rtftable()` call snapshots the
 #' style fields it needs at construction time, so the style object behaves
 #' like an immutable template.

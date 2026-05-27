@@ -51,17 +51,17 @@ on column 1.}
 pages (only used by group-aware splits).  Default `" (Cont.)"`.}
 
 \item{blank_rows}{Blank-row specification:
-* `NULL` (default) — no blank rows added.
-* integer vector — positions within each page.
-* `"between_groups"` — auto-insert a blank row before every group
+* `NULL` (default) -- no blank rows added.
+* integer vector -- positions within each page.
+* `"between_groups"` -- auto-insert a blank row before every group
   transition within the page.
-* `list(...)` of any of the above — union of positions.}
+* `list(...)` of any of the above -- union of positions.}
 }
 \value{
 A list of data.frames, one per page.  Each carries:
-  * `attr(., "rtf_blank_rows")` — integer positions consumed by
+  * `attr(., "rtf_blank_rows")` -- integer positions consumed by
     [rtftable()] when `read_attributes = TRUE`.
-  * `attr(., "rtf_paginate_meta")` — list with `strategy`,
+  * `attr(., "rtf_paginate_meta")` -- list with `strategy`,
     `page_index`, `total_pages`, `group_col`.
 }
 \description{
@@ -72,16 +72,16 @@ list of data.frames, one per page, ready to be passed to [rtf_tables()]
 }
 \details{
 Dispatch is by S3 class:
-* `paginate.gt_tbl()` — for [gt::gt()] tables.  Requires the optional
+* `paginate.gt_tbl()` -- for [gt::gt()] tables.  Requires the optional
   `gt` package; an informative error is raised otherwise.
-* `paginate.data.frame()` — for plain data.frames / tibbles.  Where the
+* `paginate.data.frame()` -- for plain data.frames / tibbles.  Where the
   real work happens; the gt method extracts a data.frame and delegates
   here.
-* `paginate.list()` — recurses into every element and concatenates the
+* `paginate.list()` -- recurses into every element and concatenates the
   resulting pages in input order.
 
 New table-object types can be supported by adding another
-`paginate.<class>()` method — see `vignette("paginate")` for an
+`paginate.<class>()` method -- see `vignette("paginate")` for an
 example.
 }
 \examples{

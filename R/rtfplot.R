@@ -9,7 +9,7 @@
   raw <- readBin(path, "raw", n = 24L)
   if (length(raw) < 24L) stop("File too short to be a valid PNG.", call. = FALSE)
   # PNG signature: bytes 1-8.  IHDR chunk: bytes 9-12 (length), 13-16 (type),
-  # 17-20 (width), 21-24 (height) — all big-endian.
+  # 17-20 (width), 21-24 (height) -- all big-endian.
   to_int <- function(b) sum(as.integer(b) * c(16777216L, 65536L, 256L, 1L))
   list(width = to_int(raw[17:20]), height = to_int(raw[21:24]))
 }

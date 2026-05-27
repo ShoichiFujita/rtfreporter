@@ -1,9 +1,9 @@
 # ============================================================================
-#  S3 plot() methods — visual preview of rtfreporter objects
+#  S3 plot() methods -- visual preview of rtfreporter objects
 # ============================================================================
 #
 #  These methods draw a quick wireframe of an rtfreporter object using base
-#  graphics — no extra dependency.  Their purpose is fast layout inspection
+#  graphics -- no extra dependency.  Their purpose is fast layout inspection
 #  before the (more expensive) RTF render: you can eyeball whether your
 #  column widths, headers, borders and page composition look right.
 #
@@ -204,7 +204,7 @@ plot.rtf_document <- function(x, max_pages = 12L, ...) {
   n_show  <- min(n_total, as.integer(max_pages))
   if (n_show == 0L) {
     graphics::plot.new()
-    graphics::title(main = "<rtf_document — no pages yet>")
+    graphics::title(main = "<rtf_document -- no pages yet>")
     return(invisible(x))
   }
 
@@ -252,7 +252,7 @@ plot.rtf_document <- function(x, max_pages = 12L, ...) {
   }
 
   if (n_total > n_show) {
-    graphics::mtext(sprintf("(%d more page(s) not shown — pass max_pages = %d)",
+    graphics::mtext(sprintf("(%d more page(s) not shown -- pass max_pages = %d)",
                              n_total - n_show, n_total),
                     side = 1, line = -1, outer = TRUE, cex = 0.8, col = "gray50")
   }
@@ -260,7 +260,7 @@ plot.rtf_document <- function(x, max_pages = 12L, ...) {
 }
 
 
-# ── Internal helpers ────────────────────────────────────────────────────────
+# -- Internal helpers --------------------------------------------------------
 
 # Map an rtf_border_side `style` to a base-R lty + lwd pair.
 .side_lty_lwd <- function(side) {

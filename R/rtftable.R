@@ -6,11 +6,11 @@
 
 # Normalize a border specification to rtf_table_border.
 # Accepts:
-#   rtf_table_border          → returned as-is
-#   rtf_table_style (S3)      → .style_to_table_border(style)
-#   "tfl"                     → rtf_border_tfl()
-#   NULL                      → NULL
-#   old plain nested list     → .plain_list_to_table_border()
+#   rtf_table_border          -> returned as-is
+#   rtf_table_style (S3)      -> .style_to_table_border(style)
+#   "tfl"                     -> rtf_border_tfl()
+#   NULL                      -> NULL
+#   old plain nested list     -> .plain_list_to_table_border()
 .normalize_table_border <- function(border) {
   if (is.null(border)) return(NULL)
   if (inherits(border, "rtf_table_border")) return(border)
@@ -21,7 +21,7 @@
        "an rtf_table_style object, or a named list.", call. = FALSE)
 }
 
-# Normalize col_spec: list of per-column lists → internal indexed form.
+# Normalize col_spec: list of per-column lists -> internal indexed form.
 #
 # Each output element:
 #   list(align, bold, italic, underline, indent_twips,
@@ -108,7 +108,7 @@
     }
   }
 
-  # Cascade fill: header_align ← col_header_align[j] ← align
+  # Cascade fill: header_align <- col_header_align[j] <- align
   for (j in seq_len(ncol_df)) {
     if (is.null(result[[j]]$header_align)) {
       result[[j]]$header_align <- if (!is.null(cha)) cha[[j]] else result[[j]]$align
@@ -119,23 +119,23 @@
 }
 
 # Normalize the col_header argument into a list whose elements are either:
-#   * character vector — a regular label row (one entry per data column)
-#   * list of list(from, to, label, ...) — a spanning row (renderer's form)
+#   * character vector -- a regular label row (one entry per data column)
+#   * list of list(from, to, label, ...) -- a spanning row (renderer's form)
 #
 # Accepted inputs (in order of detection):
-#   NULL                                        → NULL (renderer uses names(df))
-#   character(n)                                → list of one label row
-#   "A | B | C"   (single string)               → split on '|', single row
-#   rtf_col_header object                       → unclass; list of rows
-#   list, top-level all cell specs              → wrap as a single row
-#   list of mixed rows (label / spanning / pos) → multi-row
+#   NULL                                        -> NULL (renderer uses names(df))
+#   character(n)                                -> list of one label row
+#   "A | B | C"   (single string)               -> split on '|', single row
+#   rtf_col_header object                       -> unclass; list of rows
+#   list, top-level all cell specs              -> wrap as a single row
+#   list of mixed rows (label / spanning / pos) -> multi-row
 #
 # `ncol_df` is required when any row uses the new pos-style cell spec
 # (it is needed to validate ranges and to fill gaps with empty cells).
 .normalize_col_header_rows <- function(col_header, ncol_df = NULL) {
   if (is.null(col_header)) return(NULL)
 
-  # rtf_col_header object → list of rows (still tagged by class for outer
+  # rtf_col_header object -> list of rows (still tagged by class for outer
   # callers; here we strip it so the per-row loop below treats it as data).
   if (inherits(col_header, "rtf_col_header")) {
     col_header <- unclass(col_header)
@@ -184,7 +184,7 @@
   })
 }
 
-# Predicate: is `x` a canonical "header rows list" — every element being
+# Predicate: is `x` a canonical "header rows list" -- every element being
 # either a character vector (label row) or a spanning / pos-cell row
 # (list whose first element has $from or $pos)?
 .is_header_rows_list <- function(x) {
@@ -210,7 +210,7 @@
     return(rep(list(h), n_dfs))
   }
 
-  # Plain character → shared single label row for all DFs.
+  # Plain character -> shared single label row for all DFs.
   if (is.character(col_header)) {
     h <- .normalize_col_header_rows(col_header, ncol_df)
     return(rep(list(h), n_dfs))
@@ -221,7 +221,7 @@
          call. = FALSE)
   }
 
-  # A bare list of cell specs is a single row — same handling as the
+  # A bare list of cell specs is a single row -- same handling as the
   # single-DF normalizer.
   if (length(col_header) > 0L &&
       all(vapply(col_header, .is_cell_spec, logical(1L)))) {
@@ -251,7 +251,7 @@
 }
 
 
-# ── Internal S3 constructor ──────────────────────────────────────────────────
+# -- Internal S3 constructor --------------------------------------------------
 #
 # Builds an `rtftable` S3 object containing the normalized fields the
 # renderer expects.  Public callers use rtftable() in wrappers.R; this
@@ -304,7 +304,7 @@
     cell_valign = cell_valign
   ) else NULL
 
-  # ── theme (R6, optional) — broadcast mutable defaults ─────────────────
+  # -- theme (R6, optional) -- broadcast mutable defaults -----------------
   # The theme is materialised as an rtf_table_style snapshot here AND the
   # R6 reference is retained on the result so the renderer can re-snapshot
   # on every render.  Explicit `style =` always wins over the theme.
@@ -315,13 +315,13 @@
     if (is.null(style)) style <- theme$as_style()
   }
 
-  # ── Resolve defaults from a shared style template, when supplied ───
+  # -- Resolve defaults from a shared style template, when supplied ---
   # The style provides defaults; explicit arguments always override.
   if (!is.null(style)) {
     if (!inherits(style, "rtf_table_style")) {
       stop("`style` must be an rtf_table_style object.", call. = FALSE)
     }
-    # `border` is "tfl" by default — only adopt the style's borders
+    # `border` is "tfl" by default -- only adopt the style's borders
     # when the caller has not passed an rtf_table_border or another
     # explicit object.
     if (identical(border, "tfl")) border <- style
@@ -343,7 +343,7 @@
   col_hdr_list <- NULL
 
   if (is.data.frame(data)) {
-    # ── Single data.frame mode ────────────────────────────────────────────
+    # -- Single data.frame mode --------------------------------------------
     data_single <- data
 
     # Normalize col_header to a list whose elements are either:
@@ -365,7 +365,7 @@
     }
 
   } else if (is.list(data) && length(data) > 0L) {
-    # ── Multi data.frame mode ─────────────────────────────────────────────
+    # -- Multi data.frame mode ---------------------------------------------
     for (i in seq_along(data)) {
       if (!is.data.frame(data[[i]])) {
         stop(sprintf("`data[[%d]]` must be a data.frame.", i), call. = FALSE)

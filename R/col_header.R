@@ -2,7 +2,7 @@
 #  Unified column-header API (v0.0.21+)
 # ============================================================================
 #
-#  Multi-row column headers were historically split across two arguments —
+#  Multi-row column headers were historically split across two arguments --
 #  `col_header` (label rows + nested spanning rows) and `spanning_header`
 #  (a single span row placed above col_header).  The split made it awkward
 #  to span at the top-most level using `col_header` alone and forced two
@@ -16,16 +16,16 @@
 #    pos = 1            single-column cell at data column 1
 #    pos = c(2, 5)      cell spanning data columns 2 through 5
 #
-#  Positions always refer to the underlying **data columns** — not to the
+#  Positions always refer to the underlying **data columns** -- not to the
 #  positions of cells in the row above.  Cells in a row must not overlap;
 #  gaps are filled internally with empty cells so the renderer always
 #  sees a fully-covered row.
 #
 #  Three small public helpers make the API ergonomic:
 #
-#    col_cell(pos, label, ...)           — one cell
-#    rtf_col_header(...)                 — collect rows top-to-bottom
-#    add_col_header_row(hdr, row, ...)   — append (or prepend) a row
+#    col_cell(pos, label, ...)           -- one cell
+#    rtf_col_header(...)                 -- collect rows top-to-bottom
+#    add_col_header_row(hdr, row, ...)   -- append (or prepend) a row
 #
 #  Internally a pos-style row is converted to the existing (from, to)
 #  spanning-row representation via `.pos_row_to_spans()`, so every
@@ -111,8 +111,8 @@ print.rtf_col_cell <- function(x, ...) {
 #' can be passed to `rtftable(col_header = ...)`.  Each argument is one
 #' row; a row may be either:
 #'
-#' * a character vector — one label per data column (legacy form), or
-#' * a list of [col_cell()] objects — for a row with single and/or
+#' * a character vector -- one label per data column (legacy form), or
+#' * a list of [col_cell()] objects -- for a row with single and/or
 #'   spanning cells.
 #'
 #' @param ... Header rows in render order (top first).
@@ -138,7 +138,7 @@ rtf_col_header <- function(...) {
 
 #' @export
 print.rtf_col_header <- function(x, ...) {
-  cat(sprintf("<rtf_col_header — %d row%s>\n",
+  cat(sprintf("<rtf_col_header -- %d row%s>\n",
               length(x), if (length(x) == 1L) "" else "s"))
   for (i in seq_along(x)) {
     row <- x[[i]]
@@ -198,9 +198,9 @@ add_col_header_row <- function(hdr, row,
 }
 
 
-# ── Internal helpers ────────────────────────────────────────────────────────
+# -- Internal helpers --------------------------------------------------------
 
-# Is `x` a cell spec — either the new pos form or the legacy from/to form?
+# Is `x` a cell spec -- either the new pos form or the legacy from/to form?
 .is_cell_spec <- function(x) {
   is.list(x) && length(x) > 0L && (!is.null(x$pos) || !is.null(x$from))
 }

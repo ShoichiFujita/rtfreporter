@@ -1,8 +1,8 @@
-# text_width.R — Font-aware text width estimation for column sizing.
+# text_width.R -- Font-aware text width estimation for column sizing.
 #
 # Provides:
-#   text_width_in()   — estimated display width of a string in inches
-#   auto_col_widths() — suggested column widths (twips) for a data.frame
+#   text_width_in()   -- estimated display width of a string in inches
+#   auto_col_widths() -- suggested column widths (twips) for a data.frame
 
 # Courier New character widths at 12pt in points.
 # All characters are equal-width (monospace), so a single constant is used.
@@ -20,7 +20,7 @@
     arial       = .ARIAL_CHAR_W_PT_AT_12,
     .COURIER_CHAR_W_PT_AT_12            # fallback: treat as Courier
   )
-  (base_w * size_pt / 12) / 72          # scale to size, convert pt → inches
+  (base_w * size_pt / 12) / 72          # scale to size, convert pt -> inches
 }
 
 
@@ -101,7 +101,7 @@ auto_col_widths <- function(df,
   hdr_labels <- if (is.null(col_header)) {
     names(df)
   } else {
-    # Normalize: pipe string → char vector; list → first row.
+    # Normalize: pipe string -> char vector; list -> first row.
     h <- col_header
     if (is.character(h) && length(h) == 1L && grepl("|", h, fixed = TRUE)) {
       h <- trimws(strsplit(h, "|", fixed = TRUE)[[1]])

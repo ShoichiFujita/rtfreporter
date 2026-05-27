@@ -24,7 +24,7 @@
 #'   column; a character vector of length `ncol` overrides per-column.
 #' @param spanning_header A standalone spanning row placed **above** the
 #'   `col_header` rows.  Each element: `list(from, to, label, underline)`.
-#'   Kept for backward compatibility — new code should put spanning rows
+#'   Kept for backward compatibility -- new code should put spanning rows
 #'   directly inside `col_header`.
 #' @param col_spec List of per-column formatting specs. Each element may
 #'   contain: `col` (integer), `align` (`"left"`/`"center"`/`"right"`),
@@ -35,21 +35,27 @@
 #'   - `"none"`: no borders.
 #'   - An `rtf_table_border` object from `rtf_table_border()`.
 #'   - An `rtf_table_style` R6 object (its border zones are used).
-#' @param style Optional shared `rtf_table_style` (R6). Provides default
+#' @param style Optional shared `rtf_table_style` (S3).  Provides default
 #'   values for borders, alignment, cell padding, etc.; explicit arguments
-#'   to `rtftable()` always override.  Multiple tables that share the same
-#'   `style` instance pick up later mutations to that instance.
+#'   to `rtftable()` always override.  Snapshot semantics: each
+#'   `rtftable()` call captures the style's current state at construction.
+#'   For a *broadcast-mutable* theme, see [rtf_theme()].
+#' @param theme Optional shared `rtf_theme` (R6, requires the optional
+#'   `R6` package).  Like `style =` but a reference is stored on the
+#'   rtftable; the renderer re-reads the theme's current state on every
+#'   render, so mutating the theme propagates to every referencing
+#'   table.  Explicit `rtftable()` arguments always beat the theme.
 #' @param blank_rows Specification of blank separator rows. Accepts:
 #'   - Integer vector of positions (`0` = before first row, `k` = after
 #'     data row `k`, `-1` = after the last data row).
-#'   - A [blank_rows_by_change()] spec — insert when a column value
+#'   - A [blank_rows_by_change()] spec -- insert when a column value
 #'     changes.
-#'   - A [blank_rows_by_rule()] spec — insert before/after rows matching
+#'   - A [blank_rows_by_rule()] spec -- insert before/after rows matching
 #'     a regex.
 #'   - A `list` containing any combination of the above (positions are
 #'     unioned).
 #' @param read_attributes Logical. When `TRUE` (default), read recognised
-#'   attributes off `data` for use as fallback defaults — currently
+#'   attributes off `data` for use as fallback defaults -- currently
 #'   `attr(data, "rtf_blank_rows")` is folded into `blank_rows` when the
 #'   argument is `NULL`. Set `FALSE` to ignore attributes.
 #' @param col_rel_width Numeric vector of relative column widths (e.g.
@@ -57,9 +63,9 @@
 #' @param column_widths_twips Integer vector of absolute column widths in
 #'   twips. Overrides `col_rel_width`.
 #' @param table_width_twips Total table width in twips.
-#' @param table_width_pct_of_writable Table width as a fraction 0–1 of the
+#' @param table_width_pct_of_writable Table width as a fraction 0-1 of the
 #'   writable page width.
-#' @param table_width_pct Table width as a percentage 0–100 of the writable
+#' @param table_width_pct Table width as a percentage 0-100 of the writable
 #'   page width (convenience alias for `table_width_pct_of_writable * 100`).
 #' @param table_align Horizontal placement: `"left"` (default), `"center"`,
 #'   or `"right"`.

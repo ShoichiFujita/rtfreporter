@@ -39,8 +39,8 @@ row formatting.  `header_align = NULL` means "inherit `align`".}
 A list of class `"rtf_table_style"`.
 }
 \description{
-Bundles table-wide formatting defaults — borders, alignment, bold, cell
-padding, row height — into a single record that can be passed as the
+Bundles table-wide formatting defaults -- borders, alignment, bold, cell
+padding, row height -- into a single record that can be passed as the
 `style =` argument of [rtftable()].  Each `rtftable()` call snapshots the
 style fields it needs at construction time, so the style object behaves
 like an immutable template.

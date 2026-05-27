@@ -2,7 +2,7 @@
 % Please edit documentation in r/rtf_theme.R
 \name{rtf_theme}
 \alias{rtf_theme}
-\title{Shared mutable theme (R6 — optional)}
+\title{Shared mutable theme (R6 -- optional)}
 \usage{
 rtf_theme(...)
 }
@@ -14,7 +14,7 @@ An R6 object of class `rtf_theme`.
 }
 \description{
 `rtf_theme` is an R6 class whose instances are designed to be *shared by
-many tables* and *mutated in place* — every table that holds the same
+many tables* and *mutated in place* -- every table that holds the same
 theme reference picks up the new defaults at the next render.  It is
 the only R6 object in `rtfreporter`; everything else is S3.
 }
@@ -25,7 +25,7 @@ Field names match [rtf_table_style()] one-for-one.
 
 `rtf_theme()` is gated on the suggested `R6` package being installed.
 If it is not, an informative error is raised.  Users who do not need
-shared mutable themes do not need to install `R6` at all — the rest
+shared mutable themes do not need to install `R6` at all -- the rest
 of `rtfreporter` runs without it.
 }
 
@@ -45,8 +45,8 @@ theme$header_bold <- TRUE
 
 }
 \seealso{
-* [rtf_table_style()] — the S3 equivalent (snapshot semantics).
-  * [rtftable()] — accepts `theme =` to attach an `rtf_theme`.
+* [rtf_table_style()] -- the S3 equivalent (snapshot semantics).
+  * [rtftable()] -- accepts `theme =` to attach an `rtf_theme`.
   * `vignette("class-systems", package = "rtfreporter")` for the
     S3-vs-R6 design notes.
 }

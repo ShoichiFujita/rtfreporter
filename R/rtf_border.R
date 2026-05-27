@@ -1,18 +1,18 @@
-# rtf_border.R — Border specifications (all S3)
+# rtf_border.R -- Border specifications (all S3)
 #
 # Three constructor functions build border specifications used in
 # rtf_header(), rtf_footer(), and rtftable():
 #
-#   rtf_border_side   — one edge (style, width, color)
-#   rtf_border        — four edges of a single cell/row
-#   rtf_table_border  — per-zone borders for a full table
+#   rtf_border_side   -- one edge (style, width, color)
+#   rtf_border        -- four edges of a single cell/row
+#   rtf_table_border  -- per-zone borders for a full table
 #
 # All three are plain S3 lists with a class attribute.  Reference semantics
 # are intentionally absent: every value is a pure record that travels with
 # copy semantics, so passing a border into multiple tables is always safe.
 
 
-# ── Internal helpers ───────────────────────────────────────────────────────────
+# -- Internal helpers -----------------------------------------------------------
 
 .valid_border_styles <- c("single", "double", "thick", "dash", "dot")
 
@@ -32,7 +32,7 @@
 }
 
 
-# ── rtf_border_side ────────────────────────────────────────────────────────────
+# -- rtf_border_side ------------------------------------------------------------
 
 #' Single-edge border specification
 #'
@@ -66,7 +66,7 @@ print.rtf_border_side <- function(x, ...) {
 }
 
 
-# ── rtf_border ────────────────────────────────────────────────────────────────
+# -- rtf_border ----------------------------------------------------------------
 
 #' Four-edge border specification for a cell or row
 #'
@@ -135,7 +135,7 @@ rtf_border_with <- function(border, top = NULL, bottom = NULL,
 }
 
 
-# ── Convenience rtf_border constructors ────────────────────────────────────────
+# -- Convenience rtf_border constructors ----------------------------------------
 
 #' @describeIn rtf_border All sides `NULL` (explicit "no border").
 #' @export
@@ -162,7 +162,7 @@ rtf_border_box <- function(style = "single", width = 15L, color = NULL) {
 }
 
 
-# ── rtf_table_border ──────────────────────────────────────────────────────────
+# -- rtf_table_border ----------------------------------------------------------
 
 #' Per-zone border specification for a table
 #'
@@ -214,7 +214,7 @@ print.rtf_table_border <- function(x, ...) {
 }
 
 
-# ── TFL preset ────────────────────────────────────────────────────────────────
+# -- TFL preset ----------------------------------------------------------------
 
 #' Clinical TFL-style table border preset
 #'
@@ -222,11 +222,11 @@ print.rtf_table_border <- function(x, ...) {
 #' **borders are applied to the column-header block only**, with no
 #' borders in the data area by default.  Specifically:
 #'
-#' * `header$top`    — top border on the topmost header row
-#' * `header$bottom` — bottom border on the bottommost header row
+#' * `header$top`    -- top border on the topmost header row
+#' * `header$bottom` -- bottom border on the bottommost header row
 #' * Multi-column spanning cells additionally receive a bottom border
 #'   (group underline) when they are not themselves the last header
-#'   row — this is added automatically by the renderer.
+#'   row -- this is added automatically by the renderer.
 #' * No vertical lines.
 #' * **No borders on the data section** (`body` / `first_row` /
 #'   `last_row` all `NULL`).  Callers who want a bottom rule under the
@@ -248,7 +248,7 @@ rtf_border_tfl <- function(style = "single", width = 15L, color = NULL) {
 }
 
 
-# ── Internal conversion helpers ───────────────────────────────────────────────
+# -- Internal conversion helpers -----------------------------------------------
 
 # Convert old plain-list border spec (used by rtftable before the class redesign)
 # to rtf_table_border.  The old spec had keys: header, spanning, body,

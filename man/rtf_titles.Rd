@@ -20,7 +20,7 @@ Replace the per-page title list with the supplied values.  The length of
 / [rtf_figures()].
 }
 \details{
-Each element is a character vector — one element per row of the title
+Each element is a character vector -- one element per row of the title
 block.  Magic tokens `"{HALF_BLANK_ROW}"` (half-height blank row) and
 `"{BLANK_ROW}"` (full-height blank row, equivalent to `""`) are honoured.
 Pass `NULL` for a single element to fall back to the default of one

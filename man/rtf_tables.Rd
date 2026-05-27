@@ -43,7 +43,7 @@ element must be one of:
 - `rtftable` object (from `rtftable()`): table with full formatting.
 - `rtfplot` object (from `rtfplot()`): embedded figure.}
 
-\item{col_header, spanning_header, col_spec, border, blank_rows}{Per-table content settings applied to bare `data.frame` elements. See [rtftable()] for details.}
+\item{col_header, col_header_align, spanning_header, col_spec, border, blank_rows, read_attributes, style}{Per-table content settings applied to bare `data.frame` elements. See [rtftable()] for details.}
 
 \item{col_rel_width, column_widths_twips, table_width_twips, table_width_pct_of_writable, table_width_pct, table_align}{Column-width and table-width settings applied to bare `data.frame` elements. See [rtftable()] for details.}
 
@@ -52,10 +52,10 @@ element must be one of:
 \item{cell_padding_left_twips, cell_padding_right_twips, cell_valign}{Cell layout settings applied to bare `data.frame` elements. See [rtftable()] for details.}
 
 \item{titles}{`NULL` (default) or a list of length `length(tables)`. Each
-element is a character vector — one element per row of that page's
+element is a character vector -- one element per row of that page's
 title.  Magic tokens `"{HALF_BLANK_ROW}"` and `"{BLANK_ROW}"` are
 honoured.  Use `NULL` per element to fall back to the default
-(`{HALF_BLANK_ROW}` — one half-height blank row).}
+(`{HALF_BLANK_ROW}` -- one half-height blank row).}
 
 \item{footnotes}{`NULL` (default) or a list of length `length(tables)`.
 Same structure as `titles`; each element becomes one row in the

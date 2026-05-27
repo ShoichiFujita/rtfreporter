@@ -26,3 +26,4 @@
 ^vignettes/articles$
 ^vignettes/articles/.*\.html$
 ^vignettes/articles/.*_files$
+^vignettes/\.quarto$

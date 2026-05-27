@@ -118,10 +118,10 @@
   out
 }
 
-# ── Text processing ────────────────────────────────────────────────────────────
+# -- Text processing ------------------------------------------------------------
 
 # Character-level RTF escape + Unicode conversion.
-# Handles: \, {, }, newline → \line , non-ASCII → \uN?
+# Handles: \, {, }, newline -> \line , non-ASCII -> \uN?
 # Does NOT handle markup tokens (^{}, _{}); those are handled by .format_cell_text().
 .rtf_escape_unicode_raw <- function(x) {
   if (!nzchar(x)) return(x)
@@ -155,7 +155,7 @@
   if (m_sub[1]   > 0L && m_sub[1]   < pos) { pos <- m_sub[1];   kind <- "sub"   }
 
   if (kind == "") {
-    # No markup found – escape the whole segment.
+    # No markup found - escape the whole segment.
     return(.rtf_escape_unicode_raw(x))
   }
 
@@ -174,7 +174,7 @@
   }
 
   if (end_pos == 0L) {
-    # Unmatched brace – treat the whole thing as plain text.
+    # Unmatched brace - treat the whole thing as plain text.
     return(.rtf_escape_unicode_raw(x))
   }
 
@@ -235,10 +235,10 @@
 # Replace page tokens, then RTF-escape.
 #
 # Token reference (after escaping, braces appear as \{ and \}):
-#   \{PAGE\} / \{AUTO_PAGE\}         → \chpgn  (RTF dynamic per-page number)
-#   \{AUTO_TOTAL_PAGES\}             → RTF NUMPAGES field  (dynamic, viewer-rendered)
-#   \{SECTION_PAGES\}                → RTF SECTIONPAGES field (dynamic, viewer-rendered)
-#   \{TOTAL_PAGES\}                  → static integer at render time (total pages in doc)
+#   \{PAGE\} / \{AUTO_PAGE\}         -> \chpgn  (RTF dynamic per-page number)
+#   \{AUTO_TOTAL_PAGES\}             -> RTF NUMPAGES field  (dynamic, viewer-rendered)
+#   \{SECTION_PAGES\}                -> RTF SECTIONPAGES field (dynamic, viewer-rendered)
+#   \{TOTAL_PAGES\}                  -> static integer at render time (total pages in doc)
 #
 # NOTE: current_page is retained for signature compatibility but is no longer used.
 .render_tokens <- function(x, current_page = NULL, total_pages = NULL) {
@@ -247,7 +247,7 @@
   # the token {PAGE} appears as \{PAGE\} and can be substituted safely.
   out <- .rtf_escape(x)
 
-  # Dynamic tokens — rendered per-page by the RTF viewer.
+  # Dynamic tokens -- rendered per-page by the RTF viewer.
   out <- gsub("\\{PAGE\\}",      "\\chpgn ", out, fixed = TRUE)
   out <- gsub("\\{AUTO_PAGE\\}", "\\chpgn ", out, fixed = TRUE)
 
@@ -268,7 +268,7 @@
   out
 }
 
-# ── Border helpers ─────────────────────────────────────────────────────────────
+# -- Border helpers -------------------------------------------------------------
 
 # Build RTF border commands for all four sides of a single cell.
 # border_spec: rtf_border object (new style), OR
@@ -312,15 +312,15 @@
 
 # Merge an override border on top of a base border.
 #
-#   base = NULL, override = NULL → NULL
-#   base = X,    override = NULL → X
-#   base = NULL, override = Y    → Y           (was: dropped — bug)
-#   base = X,    override = Y    → X with non-NULL sides of Y replacing X
+#   base = NULL, override = NULL -> NULL
+#   base = X,    override = NULL -> X
+#   base = NULL, override = Y    -> Y           (was: dropped -- bug)
+#   base = X,    override = Y    -> X with non-NULL sides of Y replacing X
 #
 # Used by:
-#   * the data-row loop (body × first_row / last_row),
-#   * `.render_header_row()` (zone × col_spec per-cell),
-#   * `.render_spanning_rows()` (zone × col_spec per-cell).
+#   * the data-row loop (body x first_row / last_row),
+#   * `.render_header_row()` (zone x col_spec per-cell),
+#   * `.render_spanning_rows()` (zone x col_spec per-cell).
 .effective_row_border <- function(base_border, override) {
   if (is.null(override) || length(override) == 0L) return(base_border)
   if (is.null(base_border)) return(override)
@@ -330,7 +330,7 @@
   .merge_list(base_border, override)
 }
 
-# ── Column width computation ───────────────────────────────────────────────────
+# -- Column width computation ---------------------------------------------------
 
 # Compute cumulative cellx positions for a table.
 # Priority: column_widths_twips > col_rel_width > equal distribution.
@@ -372,7 +372,7 @@
   cumsum(widths)
 }
 
-# ── Cell content builder ───────────────────────────────────────────────────────
+# -- Cell content builder -------------------------------------------------------
 
 # Build the content string for one table cell (no \trowd / \cellx, just text+\cell).
 # align: "left"|"right"|"center"
@@ -392,11 +392,11 @@
   paste0(align_cmd, "\\li", li, "\\ri", ri, " ", text, "\\cell")
 }
 
-# ── Row renderers ──────────────────────────────────────────────────────────────
+# -- Row renderers --------------------------------------------------------------
 
 # Build one complete RTF table row string.
-# cell_defs:    character vector – one border+valign+\cellx string per column.
-# cell_contents: character vector – one \q..\li..\ri.. text\cell string per column.
+# cell_defs:    character vector - one border+valign+\cellx string per column.
+# cell_contents: character vector - one \q..\li..\ri.. text\cell string per column.
 # row_height_twips: integer or NULL.
 .build_row <- function(cell_defs, cell_contents, row_height_twips = NULL, table_align = "left") {
   rh <- if (!is.null(row_height_twips) && as.integer(row_height_twips) != 0L)
@@ -413,9 +413,9 @@
 
 # Outer-frame border for a header row at position `idx` of `n` total.
 #
-#   * top      → present only on the FIRST row
-#   * bottom   → present only on the LAST row
-#   * left/right → preserved on every row (per-cell behaviour is
+#   * top      -> present only on the FIRST row
+#   * bottom   -> present only on the LAST row
+#   * left/right -> preserved on every row (per-cell behaviour is
 #                  controlled by the renderer; this just passes them
 #                  through unchanged)
 #
@@ -435,21 +435,21 @@
 # Render spanning-header row(s).
 #
 # spanning_header: list of spec lists with the following fields:
-#   from, to     — (required) 1-based column range covered by the cell.
-#   label        — (required) cell text.
-#   align        — (optional) "left" / "center" / "right".
+#   from, to     -- (required) 1-based column range covered by the cell.
+#   label        -- (required) cell text.
+#   align        -- (optional) "left" / "center" / "right".
 #                   Default: inherit from col_spec[[from]]$header_align
 #                   (the leftmost covered column's header alignment),
 #                   which itself cascades from col_spec$align.
 #                   Final fallback: "center".
-#   bold         — (optional) TRUE / FALSE.  Default FALSE.
-#   italic       — (optional) TRUE / FALSE.  Default FALSE.
-#   underline    — (optional) TRUE / FALSE.  Default FALSE.
+#   bold         -- (optional) TRUE / FALSE.  Default FALSE.
+#   italic       -- (optional) TRUE / FALSE.  Default FALSE.
+#   underline    -- (optional) TRUE / FALSE.  Default FALSE.
 #
 # `border_spec` is the row-level border (only top on first / bottom on
 # last header row, per .header_outer_border()).  `group_bottom_side`,
 # when non-NULL, adds a bottom border to every spanning cell that
-# covers more than one column — the typical "underline the group
+# covers more than one column -- the typical "underline the group
 # label" look.  Pass NULL to suppress (e.g. when this spanning row is
 # itself the last header row and the row-level bottom already covers
 # the whole span).
@@ -470,7 +470,7 @@
     }
   }
 
-  # ── Per-cell border resolution ──────────────────────────────────────────
+  # -- Per-cell border resolution ------------------------------------------
   #   row's outer frame (border_spec)
   #   + multi-col group bottom (if applicable)
   #   + col_spec[[from]]$border override
@@ -532,7 +532,7 @@
   # Build cell contents.
   #
   # Apply decorations inside-out so the outermost wrapper closes last.
-  # All of bold / italic / underline default to FALSE — spanning labels
+  # All of bold / italic / underline default to FALSE -- spanning labels
   # are rendered in normal weight unless explicitly opted in.
   cell_contents <- character()
   j <- 1L
@@ -615,7 +615,7 @@
   .build_row(cell_defs, cell_contents, row_height_twips, table_align)
 }
 
-# ── rtftable renderer ──────────────────────────────────────────────────────────
+# -- rtftable renderer ----------------------------------------------------------
 
 # Render one data.frame section of an rtftable (headers + data rows).
 # Used by both single-DF and multi-DF render paths.
@@ -629,7 +629,7 @@
   nrows <- nrow(df)
   lines <- character()
 
-  # ── Column-header block ─────────────────────────────────────────────────
+  # -- Column-header block -------------------------------------------------
   #
   # The whole header block (the legacy standalone `spanning_header`
   # argument plus every entry of `col_headers`) is treated as a single
@@ -643,7 +643,7 @@
   #
   # On any spanning row that is *not* the last header row, every cell
   # covering more than one column additionally receives a bottom border
-  # — the typical clinical TFL "underline the group label" look.
+  # -- the typical clinical TFL "underline the group label" look.
   #
   # `border$spanning`, when supplied, takes precedence over
   # `border$header` for spanning rows.
@@ -745,9 +745,9 @@
   cellx <- .compute_cellx(ncols, writable_width_twips, tbl)
 
   # Resolve the effective body row height:
-  #   • explicit positive integer  → use as given
-  #   • 0L                          → legacy "automatic" (no \trrh emitted)
-  #   • NULL                        → apply the document-wide default
+  #   * explicit positive integer  -> use as given
+  #   * 0L                          -> legacy "automatic" (no \trrh emitted)
+  #   * NULL                        -> apply the document-wide default
   base_rh   <- tbl$row_height_twips
   effective <- if (is.null(base_rh)) {
     .default_row_height_twips(font_half_points)
@@ -771,11 +771,11 @@
   table_align <- tbl$table_align %||% "left"
 
   if (!is.null(tbl$data_list)) {
-    # ── Multi-DF mode ──────────────────────────────────────────────────────────
+    # -- Multi-DF mode ----------------------------------------------------------
     lines <- character()
     for (df_i in seq_along(tbl$data_list)) {
       df      <- tbl$data_list[[df_i]]
-      # Per-DF header (NULL → use column names of this DF).
+      # Per-DF header (NULL -> use column names of this DF).
       hdr_spec    <- tbl$col_header_list[[df_i]]
       col_headers <- hdr_spec %||% list(names(df))
 
@@ -799,7 +799,7 @@
     return(lines)
   }
 
-  # ── Single-DF mode (existing behaviour) ────────────────────────────────────
+  # -- Single-DF mode (existing behaviour) ------------------------------------
   df          <- tbl$data
   col_headers <- tbl$col_header %||% list(names(df))
 
@@ -821,7 +821,7 @@
   )
 }
 
-# ── rtfplot renderer ───────────────────────────────────────────────────────────
+# -- rtfplot renderer -----------------------------------------------------------
 
 .render_rtfplot <- function(plot_obj, writable_width_twips) {
   cmds <- .load_rtf_commands()
@@ -864,7 +864,7 @@
   ))
 }
 
-# ── Header / footer renderer (unchanged from original) ────────────────────────
+# -- Header / footer renderer (unchanged from original) ------------------------
 
 # Normalize a section header/footer value to list(rows=list(...), width_twips=NULL).
 # Accepts: NULL | plain named vector (single row) | list(rows=list(...)) | list(columns=c(...)) (legacy).
@@ -874,7 +874,7 @@
   if (is.list(hf) && !is.null(hf$rows)) return(hf)
   # Legacy single-row list(columns = c(...))
   if (is.list(hf) && !is.null(hf$columns)) return(list(rows = list(hf), width_twips = NULL))
-  # Plain named vector — single row
+  # Plain named vector -- single row
   list(rows = list(hf), width_twips = NULL)
 }
 
@@ -897,7 +897,7 @@
   rh_str  <- .cmd_fmt(table_cmd$row_height_template,
                        list(row_height_twips = rh_full))
 
-  # Cell padding (left/right) — same default as content tables, configurable
+  # Cell padding (left/right) -- same default as content tables, configurable
   # per-block via rtf_header() / rtf_footer().
   defaults <- .load_rtfreporter_defaults()
   pad_l <- as.integer(hf$cell_padding_left_twips  %||%
@@ -983,7 +983,7 @@
   out_rows
 }
 
-# ── Color table helpers ────────────────────────────────────────────────────────
+# -- Color table helpers --------------------------------------------------------
 
 # Collect all unique hex color strings used in border specs across the report.
 # Returns a character vector of unique "#RRGGBB" strings (may be empty).
@@ -1028,7 +1028,7 @@
     if (is.null(fp) || is.na(fp)) NA_integer_ else as.integer(fp)
   }, integer(1L))
 
-  # Single section with no from_page → covers all pages
+  # Single section with no from_page -> covers all pages
   if (length(sections) == 1L && is.na(from_pages[1L])) from_pages[1L] <- 1L
 
   # Sort by from_page (NAs last, assigned sequentially)
@@ -1066,22 +1066,22 @@
   writable_width
 }
 
-# ── Title / footnote: plain text paragraphs ─────────────────────────────────
+# -- Title / footnote: plain text paragraphs ---------------------------------
 #
 # Both blocks are rendered as ordinary RTF paragraphs (not tables), inheriting
 # the document font size.  Each element of the input character vector becomes
 # one paragraph (`\par`); an empty string yields a blank paragraph.
 #
-#   title:    centred, bold, no border.  NULL → one blank paragraph
+#   title:    centred, bold, no border.  NULL -> one blank paragraph
 #             (so there is always a small visual gap between the page header
-#             and the content).  character(0) → suppress entirely.
+#             and the content).  character(0) -> suppress entirely.
 #
 #   footnote: left-aligned, normal weight; the first paragraph carries a top
 #             border (`\brdrt`) acting as the visual separator from the
-#             content above.  NULL or character(0) → suppress entirely.
+#             content above.  NULL or character(0) -> suppress entirely.
 
 .render_title_text <- function(title, align = "center") {
-  # NULL → one blank paragraph (the default visual gap).
+  # NULL -> one blank paragraph (the default visual gap).
   if (is.null(title)) title <- ""
   if (length(title) == 0L) return(character())
 
@@ -1153,10 +1153,10 @@
 
 
 # ============================================================================
-# Pipe API Adapter: Convert rtf_document (public S3) → rtfreport (internal S3)
+# Pipe API Adapter: Convert rtf_document (public S3) -> rtfreport (internal S3)
 # ============================================================================
 
-# ── auto_section helpers ───────────────────────────────────────────────────────
+# -- auto_section helpers -------------------------------------------------------
 
 # Build a per-section header by appending a label row to the base header
 # from the "_default" section.
@@ -1226,12 +1226,12 @@
     report <- .rtfreport_set_default_format(report, pipe_doc$document$default_format)
   }
 
-  # ── Detect auto-section items ─────────────────────────────────────────────
+  # -- Detect auto-section items ---------------------------------------------
   has_auto_section <- any(vapply(pipe_doc$contents,
     function(x) inherits(x, "rtf_auto_section_item"), logical(1L)))
 
   if (has_auto_section) {
-    # ── Auto-section path ──────────────────────────────────────────────────
+    # -- Auto-section path --------------------------------------------------
     # "_default" section provides the base header/footer template.
     default_sec <- pipe_doc$sections[["_default"]]
 
@@ -1280,13 +1280,13 @@
     }
 
   } else {
-    # ── Original path (no auto-section items) ─────────────────────────────
+    # -- Original path (no auto-section items) -----------------------------
     all_keys     <- names(pipe_doc$sections)
     non_def_keys <- all_keys[all_keys != "_default"]
     section_keys <- sort(as.integer(non_def_keys))
 
     if (length(section_keys) == 0L) {
-      # No explicit page sections – use "_default" or an empty default.
+      # No explicit page sections - use "_default" or an empty default.
       default_sec <- pipe_doc$sections[["_default"]]
       if (!is.null(default_sec)) {
         report <- .rtfreport_add_section(report, header = default_sec$header,
@@ -1409,13 +1409,13 @@ generate_rtfreport <- function(report, file_path, overwrite = FALSE) {
     #
     # \sectd resets all section formatting to RTF built-in defaults, so we must
     # explicitly re-specify:
-    #   \sbkpage      – force each section to start on a new page (required for
+    #   \sbkpage      - force each section to start on a new page (required for
     #                   per-section headers to work; without it sections are
     #                   "continuous" and share the first section's header).
-    #   \lndscpsxn    – landscape orientation (document-level \landscape only
+    #   \lndscpsxn    - landscape orientation (document-level \landscape only
     #                   applies to the first section in many RTF viewers).
-    #   \pgwsxn / \pghsxn         – section page dimensions.
-    #   \marglsxn / \margrsxn ... – section margins.
+    #   \pgwsxn / \pghsxn         - section page dimensions.
+    #   \marglsxn / \margrsxn ... - section margins.
     {
       pg     <- page_defaults
       is_lnd <- isTRUE(pg$orientation == "landscape")
@@ -1458,10 +1458,10 @@ generate_rtfreport <- function(report, file_path, overwrite = FALSE) {
       p_idx <- sec_pages[sp_idx]
       page  <- report$pages[[p_idx]]
 
-      # ── Content (single rtftable or rtfplot) ─────────────────────────────
+      # -- Content (single rtftable or rtfplot) -----------------------------
       ct <- page$content
 
-      # ── Title (plain centred paragraphs; NULL → one blank line) ──────────
+      # -- Title (plain centred paragraphs; NULL -> one blank line) ----------
       lines <- c(lines, .render_title_text(page$title, align = "center"))
       if (!is.null(ct)) {
         if (inherits(ct, "rtftable")) {
@@ -1471,7 +1471,7 @@ generate_rtfreport <- function(report, file_path, overwrite = FALSE) {
         }
       }
 
-      # ── Footnote (plain left-aligned paragraphs, top border on row 1) ───
+      # -- Footnote (plain left-aligned paragraphs, top border on row 1) ---
       if (!is.null(page$footnote) && length(page$footnote) > 0L) {
         lines <- c(lines, .render_footnote_text(page$footnote, align = "left"))
       }

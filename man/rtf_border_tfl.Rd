@@ -24,11 +24,11 @@ Returns an [rtf_table_border()] matching the standard clinical TFL style:
 borders in the data area by default.  Specifically:
 }
 \details{
-* `header$top`    — top border on the topmost header row
-* `header$bottom` — bottom border on the bottommost header row
+* `header$top`    -- top border on the topmost header row
+* `header$bottom` -- bottom border on the bottommost header row
 * Multi-column spanning cells additionally receive a bottom border
   (group underline) when they are not themselves the last header
-  row — this is added automatically by the renderer.
+  row -- this is added automatically by the renderer.
 * No vertical lines.
 * **No borders on the data section** (`body` / `first_row` /
   `last_row` all `NULL`).  Callers who want a bottom rule under the

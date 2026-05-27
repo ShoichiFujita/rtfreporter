@@ -34,7 +34,7 @@
 #  those positions are folded in.  Explicit `blank_rows` overrides the
 #  attribute (the attribute is used only when the argument is NULL).
 
-# ── Constructor: by-variable-change ─────────────────────────────────────────
+# -- Constructor: by-variable-change -----------------------------------------
 
 #' Blank-row specification: insert when a variable's value changes
 #'
@@ -73,7 +73,7 @@ blank_rows_by_change <- function(cols,
   )
 }
 
-# ── Constructor: by-rule (regex on one column) ──────────────────────────────
+# -- Constructor: by-rule (regex on one column) ------------------------------
 
 #' Blank-row specification: insert before/after rows matching a pattern
 #'
@@ -110,16 +110,16 @@ blank_rows_by_rule <- function(col, pattern,
   )
 }
 
-# ── Resolver ────────────────────────────────────────────────────────────────
+# -- Resolver ----------------------------------------------------------------
 
 # Resolve a blank_rows spec into a sorted/deduplicated integer vector of
 # positions (0 = before first; k = after row k).  Out-of-range integers
 # warn and are dropped.  Accepts:
-#   * NULL                            → integer(0)
-#   * integer / numeric vector        → mode 1 (positions)
-#   * rtf_blank_rows_by_change object → mode 2
-#   * rtf_blank_rows_by_rule object   → mode 3
-#   * list of any of the above        → union of all resolved positions
+#   * NULL                            -> integer(0)
+#   * integer / numeric vector        -> mode 1 (positions)
+#   * rtf_blank_rows_by_change object -> mode 2
+#   * rtf_blank_rows_by_rule object   -> mode 3
+#   * list of any of the above        -> union of all resolved positions
 .resolve_blank_rows <- function(spec, df) {
   if (is.null(spec)) return(integer(0))
   if (is.numeric(spec) && !is.list(spec)) {
@@ -201,11 +201,11 @@ blank_rows_by_rule <- function(col, pattern,
   sort(unique(positions[positions >= 0L & positions <= n]))
 }
 
-# ── data.frame attribute reader (extensible) ────────────────────────────────
+# -- data.frame attribute reader (extensible) --------------------------------
 
 # Read recognised attributes off a data.frame and return them as a named
 # list.  Currently supported:
-#   attr(df, "rtf_blank_rows") — numeric vector (mode-1 positions)
+#   attr(df, "rtf_blank_rows") -- numeric vector (mode-1 positions)
 #
 # Future extension: more attribute keys can be added here without changing
 # call sites.  rtftable() consumes the returned list as fallback defaults.

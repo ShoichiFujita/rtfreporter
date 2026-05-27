@@ -27,12 +27,12 @@
   stop("content must be an rtftable, rtfplot, or data.frame.", call. = FALSE)
 }
 
-# ── Internal S3 object constructors ──────────────────────────────────────────
+# -- Internal S3 object constructors ------------------------------------------
 
 # rtf_page: structured page object stored in rtfreport$pages
-#   title    — character vector (multi-line, center)
-#   content  — rtftable | rtfplot | NULL (exactly 1 per page)
-#   footnote — character vector (multi-line, rendered as left-aligned paragraphs)
+#   title    -- character vector (multi-line, center)
+#   content  -- rtftable | rtfplot | NULL (exactly 1 per page)
+#   footnote -- character vector (multi-line, rendered as left-aligned paragraphs)
 .new_page <- function(title = NULL, content = NULL, footnote = NULL) {
   structure(
     list(title = title, content = content, footnote = footnote),
@@ -41,9 +41,9 @@
 }
 
 # rtf_sect: structured section definition stored in rtfreport$sections
-#   header    — rtf_header() | named vector | NULL (NULL = inherit from previous)
-#   footer    — rtf_footer() | named vector | NULL (NULL = inherit from previous)
-#   from_page — integer: first page this section applies to
+#   header    -- rtf_header() | named vector | NULL (NULL = inherit from previous)
+#   footer    -- rtf_footer() | named vector | NULL (NULL = inherit from previous)
+#   from_page -- integer: first page this section applies to
 .new_sect <- function(header = NULL, footer = NULL, from_page = NULL) {
   structure(
     list(header = header, footer = footer, from_page = from_page),
@@ -51,7 +51,7 @@
   )
 }
 
-# ── Internal helper: update a single row in a header/footer rows list ─────────
+# -- Internal helper: update a single row in a header/footer rows list ---------
 
 .update_hf_rows <- function(hf, row, content) {
   if (!is.list(hf) || is.null(hf$rows)) {
@@ -121,7 +121,7 @@ update_footer_row <- function(footer, row, content) {
   .update_hf_rows(footer, row, content)
 }
 
-# ── rtf_header() / rtf_footer() ──────────────────────────────────────────────
+# -- rtf_header() / rtf_footer() ----------------------------------------------
 
 #' Create a header or footer object for a section
 #'
@@ -221,9 +221,9 @@ rtf_footer <- function(rows,
 # ============================================================================
 #
 # Structure:
-#   document  — font_table, color_table, default_page, default_format
-#   pages[]   — list of rtf_page objects: list(title, content, footnote)
-#   sections[]— list of rtf_sect objects: list(header, footer, from_page)
+#   document  -- font_table, color_table, default_page, default_format
+#   pages[]   -- list of rtf_page objects: list(title, content, footnote)
+#   sections[]-- list of rtf_sect objects: list(header, footer, from_page)
 #
 # Section-to-page mapping (resolved at render time):
 #   Sections sorted by from_page. Each section covers pages from its
@@ -273,7 +273,7 @@ rtf_footer <- function(rows,
   )
 }
 
-# ── Document defaults ───────────────────────────────────────────────────────
+# -- Document defaults -------------------------------------------------------
 
 .rtfreport_set_default_page <- function(report, page) {
   report$document$default_page <- .merge_list(report$document$default_page, page)
@@ -295,7 +295,7 @@ rtf_footer <- function(rows,
   report
 }
 
-# ── Page ops ────────────────────────────────────────────────────────────────
+# -- Page ops ----------------------------------------------------------------
 
 .rtfreport_add_page <- function(report, title = NULL, content = NULL, footnote = NULL) {
   if (!is.null(content)) content <- .normalize_content(content)
@@ -304,7 +304,7 @@ rtf_footer <- function(rows,
   report
 }
 
-# ── Section ops ─────────────────────────────────────────────────────────────
+# -- Section ops -------------------------------------------------------------
 
 .rtfreport_add_section <- function(report, header = NULL, footer = NULL,
                                     from_page = NULL) {
@@ -314,12 +314,12 @@ rtf_footer <- function(rows,
   report
 }
 
-# ── Validation ──────────────────────────────────────────────────────────────
+# -- Validation --------------------------------------------------------------
 
 .rtfreport_validate <- function(report) {
   # Auto-create a default empty section if none is defined.
   if (length(report$sections) == 0L) {
-    message("No sections defined — creating a default empty section (no header/footer).")
+    message("No sections defined -- creating a default empty section (no header/footer).")
     report$sections[[1L]] <- .new_sect()
   }
   if (length(report$pages) == 0L) {

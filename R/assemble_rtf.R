@@ -5,10 +5,10 @@
 # \sectd and closes with a single "}" on its own line.
 #
 # Assembly strategy:
-#   • File 1  → keep all lines except the closing "}"
-#   • File N>1 → extract lines from the first \sectd onward, drop the closing "}"
-#   • Files are joined with a \sect separator (RTF section break)
-#   • A single "}" closes the combined document
+#   * File 1  -> keep all lines except the closing "}"
+#   * File N>1 -> extract lines from the first \sectd onward, drop the closing "}"
+#   * Files are joined with a \sect separator (RTF section break)
+#   * A single "}" closes the combined document
 
 # Strip the closing RTF "}" from a line vector.
 .rtf_drop_close <- function(lines) {
@@ -37,8 +37,8 @@
 #'
 #' Page-number fields work correctly across the assembled document provided the
 #' header/footer text uses dynamic tokens:
-#' - `{AUTO_PAGE}` — page number updated per page by the RTF viewer.
-#' - `{AUTO_TOTAL_PAGES}` — total page count updated by the RTF viewer across
+#' - `{AUTO_PAGE}` -- page number updated per page by the RTF viewer.
+#' - `{AUTO_TOTAL_PAGES}` -- total page count updated by the RTF viewer across
 #'   all assembled files.
 #'
 #' Static tokens (`{TOTAL_PAGES}`) reflect only the page count of the

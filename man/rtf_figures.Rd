@@ -30,7 +30,7 @@ derived from the image's aspect ratio.}
 `"left"`, or `"right"`.}
 
 \item{titles, footnotes}{Optional lists of length `length(figures)`. See
-[rtf_tables()] for the same semantics — character vectors per page,
+[rtf_tables()] for the same semantics -- character vectors per page,
 magic tokens supported.}
 }
 \value{

@@ -147,14 +147,14 @@ rtf_config <- function(doc, font_table = NULL, color_table = NULL, page = NULL,
 #'   - `rtftable` object (from `rtftable()`): table with full formatting.
 #'   - `rtfplot` object (from `rtfplot()`): embedded figure.
 #' @param col_rel_width,column_widths_twips,table_width_twips,table_width_pct_of_writable,table_width_pct,table_align Column-width and table-width settings applied to bare `data.frame` elements. See [rtftable()] for details.
-#' @param col_header,spanning_header,col_spec,border,blank_rows Per-table content settings applied to bare `data.frame` elements. See [rtftable()] for details.
+#' @param col_header,col_header_align,spanning_header,col_spec,border,blank_rows,read_attributes,style Per-table content settings applied to bare `data.frame` elements. See [rtftable()] for details.
 #' @param row_height_twips,row_height_exact,header_row_height_twips,blank_row_height_twips Row-height settings applied to bare `data.frame` elements. See [rtftable()] for details.
 #' @param cell_padding_left_twips,cell_padding_right_twips,cell_valign Cell layout settings applied to bare `data.frame` elements. See [rtftable()] for details.
 #' @param titles `NULL` (default) or a list of length `length(tables)`. Each
-#'   element is a character vector — one element per row of that page's
+#'   element is a character vector -- one element per row of that page's
 #'   title.  Magic tokens `"{HALF_BLANK_ROW}"` and `"{BLANK_ROW}"` are
 #'   honoured.  Use `NULL` per element to fall back to the default
-#'   (`{HALF_BLANK_ROW}` — one half-height blank row).
+#'   (`{HALF_BLANK_ROW}` -- one half-height blank row).
 #' @param footnotes `NULL` (default) or a list of length `length(tables)`.
 #'   Same structure as `titles`; each element becomes one row in the
 #'   footnote block.  Magic tokens supported.
@@ -328,7 +328,7 @@ rtf_tables <- function(doc, tables,
 #' @param align Horizontal alignment for bare paths: `"center"` (default),
 #'   `"left"`, or `"right"`.
 #' @param titles,footnotes Optional lists of length `length(figures)`. See
-#'   [rtf_tables()] for the same semantics — character vectors per page,
+#'   [rtf_tables()] for the same semantics -- character vectors per page,
 #'   magic tokens supported.
 #'
 #' @return Modified rtf_document with appended figure contents.
@@ -382,7 +382,7 @@ rtf_figures <- function(doc, figures,
 }
 
 # ============================================================================
-# rtf_titles() / rtf_footnotes() — assign titles / footnotes to pages
+# rtf_titles() / rtf_footnotes() -- assign titles / footnotes to pages
 # ============================================================================
 
 #' Assign content titles to pages
@@ -391,7 +391,7 @@ rtf_figures <- function(doc, figures,
 #' `titles` must equal the number of pages already added via [rtf_tables()]
 #' / [rtf_figures()].
 #'
-#' Each element is a character vector — one element per row of the title
+#' Each element is a character vector -- one element per row of the title
 #' block.  Magic tokens `"{HALF_BLANK_ROW}"` (half-height blank row) and
 #' `"{BLANK_ROW}"` (full-height blank row, equivalent to `""`) are honoured.
 #' Pass `NULL` for a single element to fall back to the default of one
@@ -566,7 +566,7 @@ rtf_section <- function(doc, page = NULL, secinfo) {
 # ============================================================================
 #
 # These four functions never actually applied formatting to the rendered RTF
-# output — they only stored values in unused slots of the rtf_document object.
+# output -- they only stored values in unused slots of the rtf_document object.
 # They are retained as no-ops with a deprecation warning so that existing
 # scripts continue to run, and will be removed in a future release.
 #

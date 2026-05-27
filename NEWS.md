@@ -154,7 +154,6 @@
   it explicitly:
   `rtf_table_border(last_row = rtf_border(bottom = rtf_border_side()))`.
 
-## Earlier versions
+# Earlier versions
 
-See [`CHANGELOG.md`](CHANGELOG.md) for the detailed pre-v0.0.18
-history.
+See [`CHANGELOG.md`](CHANGELOG.md) for the detailed pre-v0.0.18 history.

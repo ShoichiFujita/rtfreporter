@@ -1,0 +1,26 @@
+# Clinical TFL preset (table style)
+
+Returns a freshly constructed \`rtf_table_style\` matching the standard
+clinical TFL preset: borders are applied to the \*\*column-header block
+only\*\* (top on the topmost header row, bottom on the bottommost;
+multi-col spanning auto-underlines). \*\*The data section carries no
+borders by default.\*\* No vertical lines. No bold headers.
+
+## Usage
+
+``` r
+rtf_table_style_tfl()
+```
+
+## Value
+
+An \`rtf_table_style\` object.
+
+## Details
+
+To override one or more fields, pipe through \[rtf_table_style_with()\]:
+
+
+      heavy <- rtf_table_style_with(rtf_table_style_tfl(),
+                header_bold = TRUE,
+                border_last_row = rtf_border(bottom = rtf_border_side()))
