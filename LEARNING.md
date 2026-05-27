@@ -1,15 +1,23 @@
-# Learning Notes — S3 architecture in `rtfreporter`
+# Learning Notes — class systems in `rtfreporter`
 
-`rtfreporter` is implemented entirely with S3 classes — there is no R6
-anywhere in the package.  This document records *why*, because earlier
-versions of the codebase mixed S3 and R6 and the path back to a uniform
-S3 design is itself instructive.
+`rtfreporter` is almost entirely S3.  There is exactly **one** R6 class
+(`rtf_theme`), kept as a deliberate example of the one place R6 truly
+shines.  This document records the design reasoning, because earlier
+versions of the codebase used R6 widely without justification and the
+path to the current shape is itself instructive.
 
-The rule of thumb is now simply:
+The rule of thumb:
 
-> **Use S3 for data.  Reach for R6 only when reference semantics,
-> long-lived state, or method chaining genuinely improves the API —
-> and `rtfreporter` has none of those.**
+> **Default to S3.  Reach for R6 only when reference semantics
+> genuinely change what the API can do — and document the choice next
+> to the class definition.**
+
+In this package S3 covers every value-like object (borders, styles,
+tables, figures, documents, etc.).  R6 is used in exactly one place,
+`rtf_theme()`, because — and only because — multiple `rtftable()`
+objects need to share a *mutable* defaults record and observe each
+other's changes at render time.  See "The one R6 class" below for the
+full story.
 
 ---
 
@@ -20,7 +28,8 @@ The rule of thumb is now simply:
 | `rtf_border_side` | **S3** (tagged list) | [`R/rtf_border.R`](R/rtf_border.R) | Tiny immutable value object (style + width + colour). |
 | `rtf_border` | **S3** (tagged list) | [`R/rtf_border.R`](R/rtf_border.R) | Four-edge spec; derive variants with `rtf_border_with()`. |
 | `rtf_table_border` | **S3** (tagged list) | [`R/rtf_border.R`](R/rtf_border.R) | Passive grouping of `rtf_border`s by zone. |
-| `rtf_table_style` | **S3** (tagged list) | [`R/rtf_table_style.R`](R/rtf_table_style.R) | Bundle of table defaults; derive variants with `rtf_table_style_with()`. |
+| `rtf_table_style` | **S3** (tagged list) | [`R/rtf_table_style.R`](R/rtf_table_style.R) | Bundle of table defaults; derive variants with `rtf_table_style_with()`.  Snapshot semantics. |
+| `rtf_theme` | **R6** (optional) | [`R/rtf_theme.R`](R/rtf_theme.R) | The one R6 class.  Shared *mutable* theme: mutate once → every referencing table reflects the change at the next render. |
 | `rtfreport` | **S3** (internal tagged list) | [`R/rtfreport.R`](R/rtfreport.R) | Internal scaffold built by the pipe adapter; the renderer consumes it. |
 | `rtftable` | **S3** (tagged list) | [`R/rtftable.R`](R/rtftable.R) | Public content record built by `rtftable()`. |
 | `rtfplot` | **S3** (tagged list) | [`R/rtfplot.R`](R/rtfplot.R) | Public content record built by `rtfplot()`. |
@@ -87,14 +96,69 @@ honest about what actually happens.
 
 ---
 
+## The one R6 class: `rtf_theme`
+
+`rtf_theme` is the only R6 object in `rtfreporter`.  It is kept as a
+focused, well-justified counter-example to the "everything S3" default.
+
+### What makes it the right tool here
+
+The classic snapshot pattern — `rtftable(df, style = my_style)` — bakes
+the style fields into the rtftable at construction.  Mutating
+`my_style` afterwards does not affect tables that already snapshotted
+it.  That is the correct, predictable S3 behaviour.
+
+A *theme*, by contrast, is meant to be:
+
+* shared by many tables that should all look the same,
+* mutated after construction to retune the look, and
+* observed by the renderer so that the next render reflects the change.
+
+`rtf_theme` is an R6 class whose instances are stored on each
+`rtftable()` by **reference**.  At render time
+`.refresh_theme(tbl)` re-snapshots the theme's *current* state and
+applies it before delegating to the regular renderer.  S3 cannot do
+this without either (a) rebuilding every table after each mutation, or
+(b) passing the theme through every render call — both clumsy.
+
+```r
+theme <- rtf_theme(header_bold = FALSE)
+t1 <- rtftable(df1, theme = theme)
+t2 <- rtftable(df2, theme = theme)
+
+# Render — both tables have non-bold headers.
+
+theme$header_bold <- TRUE
+
+# Render again — both tables now show bold headers, no rebuild required.
+```
+
+Explicit `rtftable()` arguments (e.g. `col_header_align = "right"`)
+still beat the theme defaults, so users get the best of both worlds:
+opinionated central defaults plus per-table overrides.
+
+### Why it is an *optional* dependency
+
+The R6 package is declared in `Suggests:`, not `Imports:`.  `rtf_theme()`
+gracefully errors with installation instructions if R6 is missing.  All
+other rtfreporter features — including the snapshot-style `rtf_table_style`
+— work without R6 being installed.  Users who do not want a runtime
+dependency on R6 simply ignore `rtf_theme()`; users who want shared
+mutable themes opt in with `install.packages("R6")`.
+
+---
+
 ## What this means for users
 
-* All public objects are plain S3 lists.  `inherits(x, "rtf_border")`,
-  field access via `x$top` / `x[["top"]]`, and `unclass(x)` all work as
-  expected.
+* All public objects except `rtf_theme()` are plain S3 lists.
+  `inherits(x, "rtf_border")`, field access via `x$top` / `x[["top"]]`,
+  and `unclass(x)` all work as expected.
 * To derive a border from another, use `rtf_border_with(b, bottom = ...)`.
 * To derive a style from another, use `rtf_table_style_with(s, header_bold = TRUE)`.
-* Multiple tables that share the same style snapshot defaults at
-  construction.  To "change the theme", build a new style with
-  `rtf_table_style_with()` and pass it to new tables — there is no
-  hidden propagation.
+* If you want *broadcast* updates across many tables, attach a shared
+  `rtf_theme()` instead of `rtf_table_style()`.  Mutate the theme
+  in place and the change shows up in every referencing table on the
+  next render.
+
+See `vignette("class-systems", package = "rtfreporter")` for a hands-on
+walk-through of the S3 vs R6 design choices in this package.

@@ -724,6 +724,10 @@
 # font_half_points drives the default row-height lookup when the table does
 # not specify an explicit row_height_twips.
 .render_rtftable <- function(tbl, writable_width_twips, font_half_points = 18L) {
+  # Pull in any live theme mutations made since the rtftable was built.
+  # No-op for tables without a theme (the common case).
+  tbl <- .refresh_theme(tbl)
+
   border   <- tbl$border
   col_spec <- tbl$col_spec
   pad_l    <- tbl$cell_padding_left_twips

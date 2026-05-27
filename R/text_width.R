@@ -35,7 +35,7 @@
 #' @param font Font name.  One of `"courier_new"` (default), `"courier"`, or
 #'   `"arial"`.  Unrecognised values fall back to Courier New.
 #' @param size_half_points Font size in **half-points** (the unit used by RTF
-#'   and `rtfreport$new()`).  Default `18` = 9 pt.
+#'   and the document's `default_format$font_size_half_points`).  Default `18` = 9 pt.
 #'
 #' @return A numeric vector of estimated widths in inches (same length as
 #'   `text`).
@@ -83,7 +83,7 @@ text_width_in <- function(text, font = "courier_new", size_half_points = 18L) {
 #'   AGE      = c(45L, 62L)
 #' )
 #' widths <- auto_col_widths(df, table_width_twips = 14400L)
-#' tbl <- rtftable$new(df, column_widths_twips = widths)
+#' tbl <- rtftable(df, column_widths_twips = widths)
 #'
 #' @export
 auto_col_widths <- function(df,

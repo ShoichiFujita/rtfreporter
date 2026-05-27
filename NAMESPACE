@@ -36,10 +36,14 @@ export(rtf_border_box)
 export(rtf_table_border)
 export(rtf_border_tfl)
 
-# Shared style
+# Shared style (S3)
 export(rtf_table_style)
 export(rtf_table_style_with)
 export(rtf_table_style_tfl)
+
+# Shared mutable theme (R6 — optional, requires the R6 package)
+export(rtf_theme)
+export(rtf_theme_tfl)
 
 # Border builder helper
 export(rtf_border_with)
@@ -49,6 +53,13 @@ S3method(print, rtf_border_side)
 S3method(print, rtf_border)
 S3method(print, rtf_table_border)
 S3method(print, rtf_table_style)
+
+# S3 plot methods — visual preview before rendering
+S3method(plot, rtf_border_side)
+S3method(plot, rtf_border)
+S3method(plot, rtf_table_border)
+S3method(plot, rtftable)
+S3method(plot, rtf_document)
 
 # Report generation
 export(generate_rtfreport)

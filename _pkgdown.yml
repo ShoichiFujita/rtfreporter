@@ -36,6 +36,8 @@ navbar:
         - text: "Tutorials"
         - text: "Pipe API guide"
           href: articles/rtfreporter-pipes.html
+        - text: "Class systems — S3 vs R6"
+          href: articles/class-systems.html
         - text: -------
         - text: "Specification"
         - text: "External API specification"
@@ -95,11 +97,31 @@ reference:
       - rtf_table_border
       - rtf_border_tfl
 
-  - title: Shared table style
+  - title: Shared table style (S3, snapshot)
     contents:
       - rtf_table_style
       - rtf_table_style_with
       - rtf_table_style_tfl
+
+  - title: Shared mutable theme (R6, optional)
+    desc: >
+      Reference-semantics theme — mutate once, every referencing table
+      reflects the change at the next render.  Requires the optional
+      `R6` package.
+    contents:
+      - rtf_theme
+      - rtf_theme_tfl
+
+  - title: Visual preview (S3 plot methods)
+    desc: >
+      Quick base-graphics wireframes of rtfreporter objects, for
+      sanity-checking layouts before rendering RTF.
+    contents:
+      - plot.rtf_border
+      - plot.rtf_border_side
+      - plot.rtf_table_border
+      - plot.rtftable
+      - plot.rtf_document
 
   - title: Blank-row specifications
     contents:
@@ -121,6 +143,7 @@ articles:
     contents:
       - rtfreporter-quickstart
       - rtfreporter-pipes
+      - class-systems
 
   - title: Specification
     navbar: ~
