@@ -40,11 +40,24 @@ jobs:
           print(cov)
         shell: Rscript {0}
 
+      # Promote the secret to an env var first so the next step can check
+      # it in `if:`.  GitHub Actions disallows referencing `secrets.*`
+      # directly inside `if:` on push events for public repos.
+      - name: Detect Codecov token
+        id: codecov_token_check
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: |
+          if [ -n "$CODECOV_TOKEN" ]; then
+            echo "has_token=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "has_token=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CODECOV_TOKEN secret is not set; skipping Codecov upload."
+          fi
+        shell: bash
+
       - uses: codecov/codecov-action@v4
-        # Skip the upload if CODECOV_TOKEN isn't set on the repo (Codecov
-        # rejects tokenless uploads from protected branches now).  Coverage
-        # is still computed and printed above; only the badge is stale.
-        if: ${{ secrets.CODECOV_TOKEN != '' }}
+        if: steps.codecov_token_check.outputs.has_token == 'true'
         with:
           fail_ci_if_error: false
           files: ./cobertura.xml
