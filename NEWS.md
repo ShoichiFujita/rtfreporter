@@ -1,5 +1,34 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.23
+
+### `paginate()` enhancements
+
+* **`blank_row_first = TRUE` / `blank_row_end = TRUE`** — new
+  per-page boolean arguments that auto-insert a blank row at the top
+  / bottom of *every* returned page (positions `0` and `nrow(chunk)`
+  respectively).  Combine with `blank_rows = "between_groups"` to
+  get the clinical-TFL pattern of blank-before-each-group +
+  blank-at-page-edges.
+* **Indent-based grouping clarified.**  The auto-detected group
+  semantics (default `group_col = NULL`) are now explicitly
+  documented as indent-based: only rows whose first column starts
+  with a non-space character open a new top-level group; rows with
+  leading whitespace (any depth) stay in the current group.
+  Multi-level layouts like
+
+  ```
+  group1
+      sub-row 1
+      sub-row 2
+          sub-sub-row 3
+  group2
+      ...
+  ```
+
+  therefore split / blank correctly out of the box, using `group1`
+  and `group2` as the unit.
+
 ## rtfreporter 0.0.22
 
 ### New features

@@ -24,6 +24,8 @@ paginate(x, ...)
   group_col = NULL,
   cont_label = " (Cont.)",
   blank_rows = NULL,
+  blank_row_first = FALSE,
+  blank_row_end = FALSE,
   ...
 )
 }
@@ -44,18 +46,40 @@ the package vignette.}
 start new pages.  Only used when `split = "rows"`.}
 
 \item{group_col}{Column name or 1-based index identifying the group.
-`NULL` (default) auto-detects groups from leading-space indentation
-on column 1.}
+`NULL` (default) auto-detects groups from **leading-space
+indentation** on column 1 — a row whose first column starts with
+a non-space character opens a new top-level group; rows whose
+first column starts with whitespace are sub-rows of the current
+group.  Sub-rows can themselves carry deeper indentation
+(sub-sub-rows etc.) — only the top-level rows act as group
+boundaries, so a multi-indent block is treated as ONE group for
+splitting and blank-row insertion.}
 
 \item{cont_label}{Suffix appended to the group label on continuation
 pages (only used by group-aware splits).  Default `" (Cont.)"`.}
 
-\item{blank_rows}{Blank-row specification:
-* `NULL` (default) -- no blank rows added.
-* integer vector -- positions within each page.
-* `"between_groups"` -- auto-insert a blank row before every group
-  transition within the page.
+\item{blank_rows}{Blank-row specification applied *within* each
+page.  Resolved positions are stored as the page's
+`rtf_blank_rows` attribute, which `rtftable(read_attributes =
+TRUE)` consumes.  Accepts:
+* `NULL` (default) -- no blank rows added from this argument.
+* integer vector -- positions (`0` = before first data row;
+  `k` = after data row `k`).
+* `"between_groups"` -- auto-insert a blank row at every group
+  transition within the page (same indent-based group detection
+  as the split modes).
 * `list(...)` of any of the above -- union of positions.}
+
+\item{blank_row_first}{Logical, default `FALSE`.  When `TRUE`,
+*every* returned page also gets a blank row at the top (position
+`0`).  Combined with `blank_rows = "between_groups"` this gives
+the "blank before each group, including the first on every page"
+pattern that clinical TFL layouts often want.}
+
+\item{blank_row_end}{Logical, default `FALSE`.  When `TRUE`,
+*every* returned page also gets a blank row at the bottom (after
+the page's last data row).  Useful when the last data row needs
+visual separation from the page footer.}
 }
 \value{
 A list of data.frames, one per page.  Each carries:

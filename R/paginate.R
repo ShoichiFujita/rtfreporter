@@ -81,16 +81,36 @@
 #' @param split_rows Integer vector of 1-based row indices at which to
 #'   start new pages.  Only used when `split = "rows"`.
 #' @param group_col Column name or 1-based index identifying the group.
-#'   `NULL` (default) auto-detects groups from leading-space indentation
-#'   on column 1.
+#'   `NULL` (default) auto-detects groups from **leading-space
+#'   indentation** on column 1 — a row whose first column starts with
+#'   a non-space character opens a new top-level group; rows whose
+#'   first column starts with whitespace are sub-rows of the current
+#'   group.  Sub-rows can themselves carry deeper indentation
+#'   (sub-sub-rows etc.) — only the top-level rows act as group
+#'   boundaries, so a multi-indent block is treated as ONE group for
+#'   splitting and blank-row insertion.
 #' @param cont_label Suffix appended to the group label on continuation
 #'   pages (only used by group-aware splits).  Default `" (Cont.)"`.
-#' @param blank_rows Blank-row specification:
-#'   * `NULL` (default) -- no blank rows added.
-#'   * integer vector -- positions within each page.
-#'   * `"between_groups"` -- auto-insert a blank row before every group
-#'     transition within the page.
+#' @param blank_rows Blank-row specification applied *within* each
+#'   page.  Resolved positions are stored as the page's
+#'   `rtf_blank_rows` attribute, which `rtftable(read_attributes =
+#'   TRUE)` consumes.  Accepts:
+#'   * `NULL` (default) -- no blank rows added from this argument.
+#'   * integer vector -- positions (`0` = before first data row;
+#'     `k` = after data row `k`).
+#'   * `"between_groups"` -- auto-insert a blank row at every group
+#'     transition within the page (same indent-based group detection
+#'     as the split modes).
 #'   * `list(...)` of any of the above -- union of positions.
+#' @param blank_row_first Logical, default `FALSE`.  When `TRUE`,
+#'   *every* returned page also gets a blank row at the top (position
+#'   `0`).  Combined with `blank_rows = "between_groups"` this gives
+#'   the "blank before each group, including the first on every page"
+#'   pattern that clinical TFL layouts often want.
+#' @param blank_row_end Logical, default `FALSE`.  When `TRUE`,
+#'   *every* returned page also gets a blank row at the bottom (after
+#'   the page's last data row).  Useful when the last data row needs
+#'   visual separation from the page footer.
 #' @param ... Method-specific extras.
 #'
 #' @return A list of data.frames, one per page.  Each carries:
@@ -179,7 +199,9 @@ paginate.data.frame <- function(x,
                                  split_rows  = NULL,
                                  group_col   = NULL,
                                  cont_label  = " (Cont.)",
-                                 blank_rows  = NULL,
+                                 blank_rows       = NULL,
+                                 blank_row_first  = FALSE,
+                                 blank_row_end    = FALSE,
                                  ...) {
   split <- match.arg(split)
 
@@ -202,12 +224,20 @@ paginate.data.frame <- function(x,
     group_force  = .split_group_force(x, info, max_rows, cont_label, group_idx)
   )
 
-  # Step 2: attach blank-row positions + paginate meta to each chunk
+  # Step 2: attach blank-row positions + paginate meta to each chunk.
+  # Order of position sources (all unioned, then sorted + deduped):
+  #   * blank_rows = ... (integer / "between_groups" / list combination)
+  #   * blank_row_first = TRUE → position 0  (blank BEFORE first data row)
+  #   * blank_row_end   = TRUE → position nrow(chunk) (blank AFTER last)
   n_pages <- length(chunks)
   lapply(seq_along(chunks), function(i) {
     chunk <- chunks[[i]]
     rownames(chunk) <- NULL
     pos <- .resolve_pagewise_blanks(blank_rows, chunk, group_idx)
+    if (isTRUE(blank_row_first)) pos <- c(0L,             pos)
+    if (isTRUE(blank_row_end))   pos <- c(pos, nrow(chunk))
+    pos <- sort(unique(as.integer(pos)))
+    pos <- pos[pos >= 0L & pos <= nrow(chunk)]
     if (length(pos) > 0L) attr(chunk, "rtf_blank_rows") <- pos
     attr(chunk, "rtf_paginate_meta") <- list(
       strategy    = split,
