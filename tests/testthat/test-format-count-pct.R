@@ -15,6 +15,20 @@ test_that("format_count_pct() respects pct_unit = 'percent'", {
   expect_match(out[3L], "100")             # 100% rendered without decimals
 })
 
+test_that("100% branch right-aligns the closing paren (width 10, ends with ')')", {
+  # Use plain spaces so we can eyeball the result; the alignment is
+  # independent of nbsp.
+  out <- format_count_pct(c(5L, 14L, 30L), c(5, 50, 100),
+                           pct_unit = "percent",
+                           nbsp     = " ")
+  expect_identical(out, c("  5  (5.0)", " 14 (50.0)", " 30  (100)"))
+  # Every paren-bearing row ends with ')':
+  expect_true(all(endsWith(out, ")")))
+  # The ')' sits at column 10 on every row:
+  expect_identical(regexpr("\\)", out, perl = TRUE), c(10L, 10L, 10L),
+                   ignore_attr = TRUE)
+})
+
 test_that("format_count_pct() handles count = 0 / NA (count-only branch)", {
   out_0  <- format_count_pct(0L,        0.0)
   out_na <- format_count_pct(NA_integer_, NA_real_)

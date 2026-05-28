@@ -1,5 +1,16 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.27
+
+### `format_count_pct()` — right-align the 100% branch
+
+The 100% branch used to render `" 30 (100) "` (closing paren in
+column 9, trailing space at column 10), so it did not line up with
+the other paren-bearing branches.  It now renders `" 30  (100)"` —
+an extra space before `(` so the closing paren sits at column 10
+just like `" 14 (50.0)"` and `"  5  (5.0)"`.  All paren-bearing
+rows now share the same right edge.
+
 ## rtfreporter 0.0.26
 
 ### New utility functions extracted from `paginate()`

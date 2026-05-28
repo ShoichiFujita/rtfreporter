@@ -16,12 +16,13 @@
 #        - output: same cells re-padded for equal width.  Non-matching
 #                  strings are passed through unchanged.
 #
-#  Width rules (port of the reference helper from Issue #2):
+#  Width rules — every branch produces a 10-character string, and the
+#  closing parenthesis lands at column 10 so it lines up across rows:
 #
-#       count = NA or 0           ->  "%3d       "           (10 wide)
-#       pct  >= 100               ->  "%3d (%3d) "           (10 wide)
-#       0 < pct < 10              ->  "%3d  (%3.1f)"         (10 wide)
-#       10 <= pct < 100           ->  "%3d (%4.1f)"          (10 wide)
+#       count = NA or 0           ->  "%3d       "           (no paren)
+#       pct  >= 100               ->  "%3d  (%3d)"           e.g. " 30  (100)"
+#       0 < pct < 10              ->  "%3d  (%3.1f)"         e.g. "  5  (5.0)"
+#       10 <= pct < 100           ->  "%3d (%4.1f)"          e.g. " 14 (50.0)"
 #
 #  Padding spaces are converted to non-breaking spaces (U+00A0) by default
 #  so RTF / Word does not collapse them.
@@ -84,7 +85,9 @@ format_count_pct <- function(count, pct,
     if (is.na(c1) || is.na(p) || c1 == 0) {
       raw <- sprintf("%3d       ", as.integer(c1))
     } else if (p >= 100) {
-      raw <- sprintf("%3d (%3d) ",   as.integer(c1), round(p))
+      # Two spaces before '(' so the ')' aligns at column 10 with the
+      # other paren-bearing branches.
+      raw <- sprintf("%3d  (%3d)",  as.integer(c1), round(p))
     } else if (p < 10) {
       raw <- sprintf("%3d  (%3.1f)", as.integer(c1), p)
     } else {
