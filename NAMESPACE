@@ -85,6 +85,8 @@ S3method(plot, rtf_document)
 # Report generation
 export(generate_rtfreport)
 export(assemble_rtf)
+export(toc_heading)
+export(toc_entry)
 
 # Column width utilities
 export(text_width_in)

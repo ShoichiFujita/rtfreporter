@@ -158,6 +158,8 @@ reference:
       - rtf_footnotes
       - generate_rtfreport
       - assemble_rtf
+      - toc_heading
+      - toc_entry
 
   - title: Content constructors
     desc: Build a richly formatted table or figure object.

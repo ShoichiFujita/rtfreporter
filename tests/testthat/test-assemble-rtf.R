@@ -194,6 +194,199 @@ test_that("custom bookmark_prefix is honoured", {
   expect_false(grepl("bkmkstart tfl_", txt))
 })
 
+# ──────── toc = "auto" — auto-extract titles from input RTFs ──────────────
+
+test_that("toc = 'auto' extracts the first centred-bold title of each input", {
+  f1 <- .write_demo_rtf("My Auto Title 14.1.1")
+  f2 <- .write_demo_rtf("Adverse Events Summary")
+  on.exit(unlink(c(f1, f2)), add = TRUE)
+
+  out <- tempfile(fileext = ".rtf"); on.exit(unlink(out), add = TRUE)
+  assemble_rtf(c(f1, f2), out, toc = "auto", overwrite = TRUE)
+  txt <- paste(readLines(out, warn = FALSE), collapse = "\n")
+  expect_match(txt, "My Auto Title 14\\.1\\.1")
+  expect_match(txt, "Adverse Events Summary")
+})
+
+test_that("toc = 'auto' falls back to basename when no title is detected", {
+  doc <- rtf_document()
+  doc <- rtf_section(doc, page = 1, secinfo = list(header = NULL, footer = NULL))
+  doc <- rtf_tables(doc, list(data.frame(a = 1L)),
+                    titles = list(character(0)))      # suppress the title
+  f <- tempfile(pattern = "no_title_here", fileext = ".rtf")
+  generate_rtfreport(doc, f, overwrite = TRUE)
+  f2 <- .write_demo_rtf("Real Title")
+  on.exit(unlink(c(f, f2)), add = TRUE)
+
+  out <- tempfile(fileext = ".rtf"); on.exit(unlink(out), add = TRUE)
+  assemble_rtf(c(f, f2), out, toc = "auto", overwrite = TRUE)
+  txt <- paste(readLines(out, warn = FALSE), collapse = "\n")
+  # First entry is basename-derived (file 1 has no title)
+  expect_match(txt, "no_title_here")
+  expect_match(txt, "Real Title")
+})
+
+# ──────── Structured TOC: toc_heading() + toc_entry() ─────────────────────
+
+test_that("toc_heading() and toc_entry() build the expected S3 objects", {
+  h <- toc_heading("EFFICACY", level = 1)
+  expect_s3_class(h, "rtf_toc_heading")
+  expect_identical(h$label, "EFFICACY")
+  expect_identical(h$level, 1L)
+
+  e <- toc_entry("Table 14.1.1", file = "t14_1_1.rtf", level = 2)
+  expect_s3_class(e, "rtf_toc_entry")
+  expect_identical(e$label, "Table 14.1.1")
+  expect_identical(e$file,  "t14_1_1.rtf")
+  expect_identical(e$level, 2L)
+})
+
+test_that("structured toc list assigns entries to files in declaration order", {
+  f1 <- .write_demo_rtf("A"); f2 <- .write_demo_rtf("B"); f3 <- .write_demo_rtf("C")
+  on.exit(unlink(c(f1, f2, f3)), add = TRUE)
+
+  out <- tempfile(fileext = ".rtf"); on.exit(unlink(out), add = TRUE)
+  assemble_rtf(
+    c(f1, f2, f3), out,
+    toc = list(
+      toc_heading("EFFICACY ANALYSES"),
+      toc_entry("Table 14.1.1 Demographics"),       # auto-bound to f1
+      toc_heading("SAFETY ANALYSES"),
+      toc_entry("Table 14.2.1 Adverse Events"),     # auto-bound to f2
+      toc_entry("Listing 16.1 Disposition")         # auto-bound to f3
+    ),
+    overwrite = TRUE
+  )
+  txt <- paste(readLines(out, warn = FALSE), collapse = "\n")
+  expect_match(txt, "EFFICACY ANALYSES")
+  expect_match(txt, "SAFETY ANALYSES")
+  expect_match(txt, "Demographics")
+  expect_match(txt, "Adverse Events")
+  expect_match(txt, "Disposition")
+  # 3 bookmarks (one per source file)
+  expect_identical(length(gregexpr("bkmkstart tfl_", txt)[[1L]]), 3L)
+})
+
+test_that("toc_entry(file = ...) supports both path and integer index", {
+  f1 <- .write_demo_rtf("X"); f2 <- .write_demo_rtf("Y")
+  on.exit(unlink(c(f1, f2)), add = TRUE)
+  out <- tempfile(fileext = ".rtf"); on.exit(unlink(out), add = TRUE)
+  expect_invisible(
+    assemble_rtf(c(f1, f2), out,
+                 toc = list(
+                   toc_entry("Entry A", file = f1),
+                   toc_entry("Entry B", file = 2L)
+                 ),
+                 overwrite = TRUE)
+  )
+})
+
+test_that("toc_entry(file) referring to a missing input file errors clearly", {
+  f1 <- .write_demo_rtf("X"); f2 <- .write_demo_rtf("Y")
+  on.exit(unlink(c(f1, f2)), add = TRUE)
+  out <- tempfile(fileext = ".rtf"); on.exit(unlink(out), add = TRUE)
+  expect_error(
+    assemble_rtf(c(f1, f2), out,
+                 toc = list(toc_entry("X", file = "ghost.rtf")),
+                 overwrite = TRUE),
+    "not in"
+  )
+})
+
+# ──────── Page-numbering modes ─────────────────────────────────────────────
+
+test_that("toc_page_numbering = 'roman' inserts \\pgnlcrm and restarts body", {
+  f1 <- .write_demo_rtf("X"); f2 <- .write_demo_rtf("Y")
+  on.exit(unlink(c(f1, f2)), add = TRUE)
+  out <- tempfile(fileext = ".rtf"); on.exit(unlink(out), add = TRUE)
+  assemble_rtf(c(f1, f2), out,
+               toc                = c("A", "B"),
+               toc_page_numbering = "roman",
+               overwrite          = TRUE)
+  txt <- paste(readLines(out, warn = FALSE), collapse = "\n")
+  expect_match(txt, "\\\\pgnlcrm")
+  expect_match(txt, "\\\\pgnrestart\\\\pgndec")    # body restart
+})
+
+test_that("toc_page_numbering = 'none' (default) omits both restart and pgnlcrm", {
+  f1 <- .write_demo_rtf("X"); f2 <- .write_demo_rtf("Y")
+  on.exit(unlink(c(f1, f2)), add = TRUE)
+  out <- tempfile(fileext = ".rtf"); on.exit(unlink(out), add = TRUE)
+  assemble_rtf(c(f1, f2), out, toc = c("A", "B"), overwrite = TRUE)
+  txt <- paste(readLines(out, warn = FALSE), collapse = "\n")
+  expect_false(grepl("\\\\pgnlcrm",            txt))
+  expect_false(grepl("\\\\pgnrestart\\\\pgndec", txt))
+})
+
+# ──────── Cover page ──────────────────────────────────────────────────────
+
+test_that("cover = list(...) inserts a cover section before the TOC", {
+  f1 <- .write_demo_rtf("X"); f2 <- .write_demo_rtf("Y")
+  on.exit(unlink(c(f1, f2)), add = TRUE)
+  out <- tempfile(fileext = ".rtf"); on.exit(unlink(out), add = TRUE)
+  assemble_rtf(
+    c(f1, f2), out,
+    cover = list(
+      title    = "Study XYZ-001",
+      subtitle = "Final Statistical Report",
+      date     = "2026-05-29",
+      version  = "v1.0",
+      meta     = c("Confidential", "Prepared by ACME Pharma")
+    ),
+    toc       = c("A", "B"),
+    overwrite = TRUE
+  )
+  txt <- paste(readLines(out, warn = FALSE), collapse = "\n")
+  expect_match(txt, "Study XYZ-001")
+  expect_match(txt, "Final Statistical Report")
+  expect_match(txt, "2026-05-29")
+  expect_match(txt, "v1\\.0")
+  expect_match(txt, "Confidential")
+  expect_match(txt, "Prepared by ACME Pharma")
+})
+
+test_that("cover can be used without a TOC", {
+  f1 <- .write_demo_rtf("X"); f2 <- .write_demo_rtf("Y")
+  on.exit(unlink(c(f1, f2)), add = TRUE)
+  out <- tempfile(fileext = ".rtf"); on.exit(unlink(out), add = TRUE)
+  assemble_rtf(
+    c(f1, f2), out,
+    cover     = list(title = "Cover Only Test"),
+    overwrite = TRUE
+  )
+  txt <- paste(readLines(out, warn = FALSE), collapse = "\n")
+  expect_match(txt, "Cover Only Test")
+  # No TOC means no HYPERLINK fields
+  expect_false(grepl("HYPERLINK", txt))
+})
+
+test_that("cover fields that are NULL / empty are silently skipped", {
+  f1 <- .write_demo_rtf("X"); f2 <- .write_demo_rtf("Y")
+  on.exit(unlink(c(f1, f2)), add = TRUE)
+  out <- tempfile(fileext = ".rtf"); on.exit(unlink(out), add = TRUE)
+  expect_invisible(
+    assemble_rtf(c(f1, f2), out,
+                 cover     = list(title = "Only Title"),
+                 overwrite = TRUE)
+  )
+})
+
+# ──────── Backward compat: toc = NULL still byte-identical ────────────────
+
+test_that("toc = NULL + cover = NULL is byte-identical to the legacy behaviour", {
+  f1 <- .write_demo_rtf("A"); f2 <- .write_demo_rtf("B")
+  on.exit(unlink(c(f1, f2)), add = TRUE)
+  out_old <- tempfile(fileext = ".rtf"); on.exit(unlink(out_old), add = TRUE)
+  out_new <- tempfile(fileext = ".rtf"); on.exit(unlink(out_new), add = TRUE)
+  assemble_rtf(c(f1, f2), out_old, overwrite = TRUE)
+  assemble_rtf(c(f1, f2), out_new,
+               toc = NULL, cover = NULL,
+               toc_page_numbering = "none",
+               overwrite = TRUE)
+  expect_identical(readLines(out_old, warn = FALSE),
+                   readLines(out_new, warn = FALSE))
+})
+
 test_that("TOC label characters get RTF-escaped (backslash, braces, unicode)", {
   f1 <- .write_demo_rtf("X"); f2 <- .write_demo_rtf("Y")
   on.exit(unlink(c(f1, f2)), add = TRUE)

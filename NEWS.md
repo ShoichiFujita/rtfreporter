@@ -1,5 +1,87 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.30
+
+### `assemble_rtf()` — multi-level TOC, auto-extraction, cover page, page numbering
+
+Building on v0.0.29's clickable TOC, this release covers the
+remaining requests for a full deliverable-package workflow.
+
+**`toc = "auto"`** — auto-extract each input file's title (the
+first centred-bold paragraph emitted by `.render_title_text()`)
+and use it as a TOC entry.  Falls back to the file's basename if
+no title is detected.
+
+```r
+assemble_rtf(c("t14_1_1.rtf", "t14_2_1.rtf"), "out.rtf",
+             toc = "auto", overwrite = TRUE)
+```
+
+**Structured / multi-level TOC** via two new helper constructors:
+
+* **`toc_heading(label, level)`** — non-clickable section heading
+  rendered bold without a page number.
+* **`toc_entry(label, file, level)`** — clickable entry pointing
+  to a per-source-file bookmark.  `file =` can be a path that
+  appears in `input_files`, an integer 1-based index, or `NULL`
+  (consume the next file in declaration order).
+
+```r
+assemble_rtf(
+  c("t14_1_1.rtf", "t14_2_1.rtf", "l16_1.rtf"),
+  "tfl_package.rtf",
+  toc = list(
+    toc_heading("EFFICACY ANALYSES"),
+    toc_entry("Table 14.1.1 Demographics"),       # auto-bound to file 1
+    toc_heading("SAFETY ANALYSES"),
+    toc_entry("Table 14.2.1 Adverse Events"),     # auto-bound to file 2
+    toc_heading("LISTINGS"),
+    toc_entry("Listing 16.1 Subject Disposition") # auto-bound to file 3
+  ),
+  overwrite = TRUE
+)
+```
+
+**`toc_page_numbering`** controls how the TOC pages number themselves:
+
+* `"none"` (default) — Arabic numbering flows continuously
+  from page 1 (TOC counts as page 1, body continues from there).
+* `"roman"` — TOC pages use lowercase Roman numerals (i, ii, iii);
+  body restarts at 1 with Arabic numerals.
+* `"decimal"` — TOC pages and body pages each start at 1.
+
+The body-restart is achieved by injecting `\pgnrestart\pgndec`
+right after the first body section's `\sectd`.
+
+**`cover = list(...)`** — optional cover page section before the
+TOC.  Recognised fields: `title`, `subtitle`, `date`, `version`,
+`meta` (character vector).  Each is rendered as a centred line
+with size hierarchy (title 22pt → meta 10pt).  Any field that is
+`NULL` or empty is silently skipped.
+
+```r
+assemble_rtf(
+  c("t14_1_1.rtf", "t14_2_1.rtf"),
+  "tfl_package.rtf",
+  cover = list(
+    title    = "Study XYZ-001",
+    subtitle = "Final Statistical Report",
+    date     = "2026-05-29",
+    version  = "v1.0",
+    meta     = c("Confidential", "Prepared by ACME Pharma")
+  ),
+  toc                = "auto",
+  toc_page_numbering = "roman",
+  overwrite          = TRUE
+)
+```
+
+### Backward compatibility
+
+`toc = NULL` AND `cover = NULL` AND `toc_page_numbering = "none"`
+still produces a byte-for-byte identical output to the v0.0.28
+behaviour — locked by a regression test.
+
 ## rtfreporter 0.0.29
 
 ### `assemble_rtf()` — clickable Table of Contents + bookmarks
