@@ -109,21 +109,74 @@ New table-object types can be supported by adding another
 example.
 }
 \examples{
-\dontrun{
-# gt input
-pages <- paginate(my_gt_tbl, max_rows = 20, split = "group_force")
+# -------------------------------------------------------------------------
+# 1. Indent-based grouping (default)
+#
+# Column 1 carries the visual hierarchy via leading whitespace:
+#   "Demographics"   - non-space first char -> opens group 1
+#   "    Age"        - leading space         -> sub-row of group 1
+#   "        Female" - deeper indent         -> still group 1
+#   "Vital signs"    - non-space first char -> opens group 2
+#   ... etc.
+# No `group_col` argument is needed; the indent IS the signal.
+# -------------------------------------------------------------------------
+df <- data.frame(
+  label = c(
+    "Demographics",
+    "    Age, mean (SD)",
+    "    Sex, n (\%)",
+    "        Female",
+    "        Male",
+    "Vital signs",
+    "    Systolic BP",
+    "    Diastolic BP",
+    "    Heart rate",
+    "Lab values",
+    "    Hemoglobin",
+    "    Platelets"
+  ),
+  v = 1:12,
+  stringsAsFactors = FALSE
+)
 
+pages <- paginate(
+  df,
+  max_rows        = 6,                  # at most 6 body rows / page
+  split           = "group_safe",       # never break a group across pages
+  blank_rows      = "between_groups",   # blank row between consecutive groups
+  blank_row_first = TRUE,               # also a blank at the page top
+  blank_row_end   = TRUE                # also a blank at the page bottom
+)
+
+length(pages)                           # 3 pages (Demo / Vital / Lab)
+lapply(pages, function(p) p$label)
+lapply(pages, attr, "rtf_blank_rows")   # e.g. page 1: c(0, 5)
+
+\dontrun{
+# -------------------------------------------------------------------------
+# 2. End-to-end: rtf_tables() picks up the blank-row attribute
+# -------------------------------------------------------------------------
 doc <- rtf_document() |>
   rtf_section(page = 1, secinfo = list(header = my_hdr)) |>
   rtf_tables(pages)         # one page per data.frame
+generate_rtfreport(doc, "demo.rtf", overwrite = TRUE)
 
-# plain data.frame input + manual split + between-group blanks
-pages <- paginate(df, max_rows = 30, split = "group_safe",
-                   blank_rows = "between_groups")
+# -------------------------------------------------------------------------
+# 3. gt input — same arguments, just hand a gt_tbl in
+# -------------------------------------------------------------------------
+pages <- paginate(my_gt_tbl, max_rows = 20, split = "group_force")
 
-# list of gt tables (e.g. one per table number)
+# -------------------------------------------------------------------------
+# 4. List of gt tables (e.g. one per table number) — recurses and flattens
+# -------------------------------------------------------------------------
 all_pages <- paginate(list(t1_gt, t2_gt), max_rows = 20,
                       split = "group_force")
+
+# -------------------------------------------------------------------------
+# 5. Explicit group_col when the grouping signal isn't column 1's indent
+# -------------------------------------------------------------------------
+pages <- paginate(df, max_rows = 30, split = "group_safe",
+                   group_col = "Visit")     # RLE on the Visit column
 }
 
 }
