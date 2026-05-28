@@ -42,12 +42,15 @@ home:
   # Keep README's H1 (which contains the logo image) on the home page.
   strip_header: false
   sidebar:
-    # Order: badges first (high-signal), then community/citation/authors.
-    # `dev` is the built-in slot pkgdown uses to inject the README's
+    # User-facing info (Links / Community / Citation / Developers /
+    # License) on top; dev-status (badges) and the dev-stage roadmap
+    # are deliberately pushed to the BOTTOM of the sidebar so they
+    # don't compete for attention on the landing page.  `dev` is the
+    # built-in slot pkgdown uses to inject the README's
     # `<!-- badges: start --> ... <!-- badges: end -->` block — DO NOT
     # override it with a custom `dev:` component or the badges will
-    # vanish.  Roadmap / dev-stage notes go into `devnotes` instead.
-    structure: [dev, devnotes, links, community, citation, authors, license]
+    # vanish.  Roadmap / dev-stage notes live in `devnotes`.
+    structure: [links, community, citation, authors, license, devnotes, dev]
     components:
       devnotes:
         title: Dev stage

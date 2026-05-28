@@ -1,40 +1,68 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400"><metadata><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/"><rdf:Description><dc:creator>RealFaviconGenerator</dc:creator><dc:source>https://realfavicongenerator.net</dc:source></rdf:Description></rdf:RDF></metadata><defs>
-    <filter id="paper-shadow" x="-5%" y="-5%" width="110%" height="115%">
-      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#1a3a5a" flood-opacity="0.25"></feDropShadow>
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="554" viewBox="0 0 480 554"><metadata><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/"><rdf:Description><dc:creator>RealFaviconGenerator</dc:creator><dc:source>https://realfavicongenerator.net</dc:source></rdf:Description></rdf:RDF></metadata><defs>
+    <linearGradient id="hexbg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2a6aa1"></stop>
+      <stop offset="100%" stop-color="#143a5b"></stop>
+    </linearGradient>
+    <filter id="paper-shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0a1c30" flood-opacity="0.45"></feDropShadow>
     </filter>
-  </defs><rect x="20" y="20" width="600" height="360" rx="6" ry="6" fill="#ffffff" stroke="#cfd8e0" stroke-width="1.5" filter="url(#paper-shadow)"></rect><g font-family="Source Sans 3, Helvetica, Arial, sans-serif" fill="#4a5a6a">
-    <text x="56" y="62" font-size="16" text-anchor="start">Protocol XYZ-001</text>
-    <text x="584" y="62" font-size="16" text-anchor="end">Page 1 of 1</text>
-    <text x="56" y="84" font-size="16" text-anchor="start">ACME Pharma</text>
-    <text x="584" y="84" font-size="16" text-anchor="end">Confidential</text>
-  </g><g font-family="Source Sans 3, Helvetica, Arial, sans-serif" fill="#1f4e79">
-    <text x="320" y="124" font-size="22" font-weight="700" text-anchor="middle">Table 14.1.1</text>
-    <text x="320" y="148" font-size="17" font-weight="600" text-anchor="middle">Demographics — Safety Population</text>
-  </g><line x1="56" y1="186" x2="584" y2="186" stroke="#1a3a5a" stroke-width="1.5"></line><g font-family="Source Sans 3, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f3a5a">
-    <text x="68" y="208" text-anchor="start">Characteristic</text>
-    <text x="296" y="208" text-anchor="middle">Placebo (N=30)</text>
-    <text x="416" y="208" text-anchor="middle">Active (N=30)</text>
-    <text x="528" y="208" text-anchor="middle">Total (N=60)</text>
-  </g><line x1="56" y1="220" x2="584" y2="220" stroke="#1a3a5a" stroke-width="1.5"></line><g font-family="Source Sans 3, Helvetica, Arial, sans-serif" font-size="14" fill="#3a4a5a">
-    <text x="68" y="244" text-anchor="start">Age, mean (SD)</text>
-    <text x="296" y="244" text-anchor="middle">52.3 (12.1)</text>
-    <text x="416" y="244" text-anchor="middle">54.1 (11.7)</text>
-    <text x="528" y="244" text-anchor="middle">53.2 (11.9)</text>
+    <clipPath id="hex-clip">
+      <polygon points="240,8 472,143 472,411 240,546 8,411 8,143"></polygon>
+    </clipPath>
+  </defs><polygon points="240,8 472,143 472,411 240,546 8,411 8,143" fill="url(#hexbg)"></polygon><g clip-path="url(#hex-clip)">
+    <!-- Landscape paper sheet -->
+    <rect x="68" y="120" width="344" height="232" rx="6" ry="6" fill="#ffffff" stroke="#9fb6c8" stroke-width="1.2" filter="url(#paper-shadow)"></rect>
 
-    <text x="68" y="268" text-anchor="start">Sex, n (%)</text>
+    <!-- Borderless header table -->
+    <g font-family="Source Sans 3, Helvetica, Arial, sans-serif" fill="#4a5a6a">
+      <text x="84" y="146" font-size="11" text-anchor="start">Protocol XYZ-001</text>
+      <text x="396" y="146" font-size="11" text-anchor="end">Page 1 of 1</text>
+      <text x="84" y="161" font-size="11" text-anchor="start">ACME Pharma</text>
+      <text x="396" y="161" font-size="11" text-anchor="end">Confidential</text>
+    </g>
 
-    <text x="86" y="290" text-anchor="start">Female</text>
-    <text x="296" y="290" text-anchor="middle">16 (53.3)</text>
-    <text x="416" y="290" text-anchor="middle">14 (46.7)</text>
-    <text x="528" y="290" text-anchor="middle">30 (50.0)</text>
+    <!-- Centred title block -->
+    <g font-family="Source Sans 3, Helvetica, Arial, sans-serif" fill="#1f4e79">
+      <text x="240" y="190" font-size="16" font-weight="700" text-anchor="middle">Table 14.1.1</text>
+      <text x="240" y="208" font-size="12" font-weight="600" text-anchor="middle">Demographics</text>
+    </g>
 
-    <text x="86" y="312" text-anchor="start">Male</text>
-    <text x="296" y="312" text-anchor="middle">14 (46.7)</text>
-    <text x="416" y="312" text-anchor="middle">16 (53.3)</text>
-    <text x="528" y="312" text-anchor="middle">30 (50.0)</text>
-  </g><text x="56" y="346" font-family="Source Sans 3, Helvetica, Arial, sans-serif" font-size="12" font-style="italic" fill="#6a7886">
-    Source: ADaM ADSL.  Percentages based on column N.
-  </text><g font-family="Source Sans 3, Helvetica, Arial, sans-serif">
-    <rect x="44" y="22" width="98" height="16" rx="3" ry="3" fill="#1f4e79"></rect>
-    <text x="93" y="34" font-size="11" font-weight="700" text-anchor="middle" fill="#ffffff" letter-spacing="0.5">rtfreporter</text>
-  </g></svg>
+    <!-- Body table: column-header top rule -->
+    <line x1="84" y1="228" x2="396" y2="228" stroke="#1a3a5a" stroke-width="1.3"></line>
+
+    <!-- Column-header labels -->
+    <g font-family="Source Sans 3, Helvetica, Arial, sans-serif" font-size="10.5" font-weight="600" fill="#1f3a5a">
+      <text x="92" y="242" text-anchor="start">Characteristic</text>
+      <text x="222" y="242" text-anchor="middle">Placebo</text>
+      <text x="294" y="242" text-anchor="middle">Active</text>
+      <text x="368" y="242" text-anchor="middle">Total</text>
+    </g>
+
+    <!-- Column-header bottom rule -->
+    <line x1="84" y1="250" x2="396" y2="250" stroke="#1a3a5a" stroke-width="1.3"></line>
+
+    <!-- Data rows (no per-row borders) -->
+    <g font-family="Source Sans 3, Helvetica, Arial, sans-serif" font-size="10" fill="#3a4a5a">
+      <text x="92" y="266" text-anchor="start">Age, mean</text>
+      <text x="222" y="266" text-anchor="middle">52.3</text>
+      <text x="294" y="266" text-anchor="middle">54.1</text>
+      <text x="368" y="266" text-anchor="middle">53.2</text>
+
+      <text x="92" y="282" text-anchor="start">Sex, n (%)</text>
+
+      <text x="102" y="298" text-anchor="start">Female</text>
+      <text x="222" y="298" text-anchor="middle">16 (53)</text>
+      <text x="294" y="298" text-anchor="middle">14 (47)</text>
+      <text x="368" y="298" text-anchor="middle">30 (50)</text>
+
+      <text x="102" y="314" text-anchor="start">Male</text>
+      <text x="222" y="314" text-anchor="middle">14 (47)</text>
+      <text x="294" y="314" text-anchor="middle">16 (53)</text>
+      <text x="368" y="314" text-anchor="middle">30 (50)</text>
+    </g>
+
+    <!-- Italic footnote -->
+    <text x="84" y="340" font-family="Source Sans 3, Helvetica, Arial, sans-serif" font-size="9" font-style="italic" fill="#6a7886">
+      Source: ADaM ADSL.
+    </text>
+  </g><text x="240" y="455" font-family="Source Sans 3, Helvetica, Arial, sans-serif" font-size="42" font-weight="700" text-anchor="middle" fill="#ffffff" letter-spacing="-0.5">rtfreporter</text><text x="240" y="485" font-family="Source Sans 3, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" text-anchor="middle" fill="#cfe1f2" letter-spacing="3">CLINICAL · TFL · RTF</text><text x="240" y="528" font-family="Source Sans 3, Helvetica, Arial, sans-serif" font-size="11" font-weight="500" text-anchor="middle" fill="#ffffff" opacity="0.32" letter-spacing="6">i c h i r i o</text><polygon points="240,8 472,143 472,411 240,546 8,411 8,143" fill="none" stroke="#0d2840" stroke-width="14" stroke-linejoin="round"></polygon></svg>
