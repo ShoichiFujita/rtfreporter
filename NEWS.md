@@ -1,5 +1,54 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.29
+
+### `assemble_rtf()` — clickable Table of Contents + bookmarks
+
+`assemble_rtf()` gains a TOC option for the common "deliverable
+package" workflow.  Pass a character vector of labels (one per
+input file) to render a clickable Table of Contents on the front
+page of the assembled document:
+
+```r
+assemble_rtf(
+  input_files = c("t14_1_1.rtf", "t14_2_1.rtf", "l16_1.rtf"),
+  output_file = "tfl_package.rtf",
+  toc         = c("Table 14.1.1 Demographics",
+                  "Table 14.2.1 Adverse Events",
+                  "Listing 16.1 Subject Disposition"),
+  overwrite   = TRUE
+)
+```
+
+* Each TOC entry is an **RTF `HYPERLINK` field** pointing to a
+  per-source-file bookmark inserted right after that section's
+  `\sectd`.  Clicking the entry in Word / Pages jumps to the
+  corresponding table.
+* Each row also ends with a `PAGEREF` field, so the page number
+  next to each entry is **calculated by the viewer** when the file
+  opens — no hard-coded numbers, no stale TOC.
+* Bookmark names auto-derive from each input file's basename
+  (sanitised to `^[A-Za-z][A-Za-z0-9_]{0,31}$`).  Duplicate-name
+  clashes (two files called `x.rtf` in different folders) are
+  resolved automatically with `_1` / `_2` suffixes.
+* `toc_leader = "dot"` (default) draws a dotted leader between
+  each label and its page number; `"none"` leaves whitespace.
+* `bookmark_prefix` (default `"tfl_"`) lets you namespace
+  bookmarks when later combining multiple assembled outputs.
+
+The pre-existing call shape (`assemble_rtf(input_files,
+output_file, overwrite)`) is unchanged.  `toc = NULL` (the
+default) produces a byte-for-byte identical output to the
+pre-v0.0.29 behaviour — covered by a regression test.
+
+The originally-proposed *combined-document page number in the
+footer* feature was **withdrawn**: injecting it into the existing
+footer would shift the rest of the footer downward, and a separate
+footer band would clash with the source documents' own footers.
+Use `{AUTO_PAGE}` / `{AUTO_TOTAL_PAGES}` in your `rtf_footer()`
+when you generate each source file instead — those are dynamic
+fields that already recompute across the assembled document.
+
 ## rtfreporter 0.0.28
 
 ### Coverage lift — Phase 1 of 3 (67% → 73%)
