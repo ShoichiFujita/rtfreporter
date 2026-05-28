@@ -1,68 +1,89 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!-- rtfreporter hex sticker (R community convention).
-     Hexagon shape, 480x554 px @ 1x scale.
-     Primary colour matches the pkgdown navbar / bslib primary: #1f4e79.
-     Sub-element: a stylised stacked document icon evoking RTF tables /
-     reports, painted in white at low opacity.
+<!-- rtfreporter logo: a landscape clinical TFL report rendered as
+     `generate_rtfreport()` would output it.  Header table (borderless),
+     centred title, body table with clinical-TFL borders (column-header
+     top+bottom + last-row bottom), footnote.
 -->
 <svg xmlns="http://www.w3.org/2000/svg"
-     width="480" height="554"
-     viewBox="0 0 480 554">
+     width="640" height="400"
+     viewBox="0 0 640 400">
 
-  <!-- ── Definitions: gradient + clip ────────────────────────────────── -->
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%"  stop-color="#2a6aa1"/>
-      <stop offset="100%" stop-color="#143a5b"/>
-    </linearGradient>
-    <clipPath id="hex">
-      <polygon points="240,8 472,143 472,411 240,546 8,411 8,143"/>
-    </clipPath>
+    <filter id="paper-shadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4"
+                    flood-color="#1a3a5a" flood-opacity="0.25"/>
+    </filter>
   </defs>
 
-  <!-- ── Hexagon body + outline ────────────────────────────────────────── -->
-  <polygon points="240,8 472,143 472,411 240,546 8,411 8,143"
-           fill="url(#bg)" stroke="#0d2840" stroke-width="14"/>
+  <!-- ── Paper background (landscape sheet) ─────────────────────────── -->
+  <rect x="20" y="20" width="600" height="360" rx="6" ry="6"
+        fill="#ffffff" stroke="#cfd8e0" stroke-width="1.5"
+        filter="url(#paper-shadow)"/>
 
-  <!-- ── Document icon (stacked sheets), subtle, behind text ─────────── -->
-  <g clip-path="url(#hex)" opacity="0.13" fill="white">
-    <!-- back sheet -->
-    <rect x="158" y="172" width="184" height="232" rx="8" ry="8"/>
-    <!-- middle sheet (offset) -->
-    <rect x="143" y="162" width="184" height="232" rx="8" ry="8"/>
-    <!-- front sheet (most offset) -->
-    <rect x="128" y="152" width="184" height="232" rx="8" ry="8"/>
+  <!-- ── Header row: borderless table, left = protocol, right = page ─ -->
+  <g font-family="Source Sans 3, Helvetica, Arial, sans-serif" fill="#4a5a6a">
+    <text x="56"  y="62" font-size="16" text-anchor="start">Protocol XYZ-001</text>
+    <text x="584" y="62" font-size="16" text-anchor="end">Page 1 of 1</text>
+    <text x="56"  y="84" font-size="16" text-anchor="start">ACME Pharma</text>
+    <text x="584" y="84" font-size="16" text-anchor="end">Confidential</text>
   </g>
 
-  <!-- ── Document-style horizontal rules on the front sheet ───────────── -->
-  <g clip-path="url(#hex)" stroke="white" stroke-width="3" stroke-linecap="round" opacity="0.45">
-    <!-- column-header bracket (top double rule) -->
-    <line x1="148" y1="186" x2="292" y2="186"/>
-    <line x1="148" y1="216" x2="292" y2="216"/>
-    <!-- data rows -->
-    <line x1="148" y1="248" x2="248" y2="248" opacity="0.55"/>
-    <line x1="148" y1="272" x2="262" y2="272" opacity="0.55"/>
-    <line x1="148" y1="296" x2="238" y2="296" opacity="0.55"/>
-    <line x1="148" y1="320" x2="270" y2="320" opacity="0.55"/>
-    <!-- table bottom rule -->
-    <line x1="148" y1="356" x2="292" y2="356"/>
+  <!-- ── Title block (centred, bold) ─────────────────────────────────── -->
+  <g font-family="Source Sans 3, Helvetica, Arial, sans-serif" fill="#1f4e79">
+    <text x="320" y="124" font-size="22" font-weight="700"
+          text-anchor="middle">Table 14.1.1</text>
+    <text x="320" y="148" font-size="17" font-weight="600"
+          text-anchor="middle">Demographics — Safety Population</text>
   </g>
 
-  <!-- ── Main wordmark ─────────────────────────────────────────────────── -->
-  <text x="240" y="448"
-        text-anchor="middle"
-        font-family="Source Sans 3, Helvetica, Arial, sans-serif"
-        font-size="62"
-        font-weight="700"
-        fill="white"
-        letter-spacing="-1">rtfreporter</text>
+  <!-- ── Content table (clinical-TFL borders) ────────────────────────── -->
+  <!-- Top rule of column-header band -->
+  <line x1="56" y1="186" x2="584" y2="186"
+        stroke="#1a3a5a" stroke-width="1.5"/>
+  <!-- Column-header labels -->
+  <g font-family="Source Sans 3, Helvetica, Arial, sans-serif"
+     font-size="15" font-weight="600" fill="#1f3a5a">
+    <text x="68"  y="208" text-anchor="start">Characteristic</text>
+    <text x="296" y="208" text-anchor="middle">Placebo (N=30)</text>
+    <text x="416" y="208" text-anchor="middle">Active (N=30)</text>
+    <text x="528" y="208" text-anchor="middle">Total (N=60)</text>
+  </g>
+  <!-- Bottom rule of column-header band -->
+  <line x1="56" y1="220" x2="584" y2="220"
+        stroke="#1a3a5a" stroke-width="1.5"/>
 
-  <!-- ── Tagline ───────────────────────────────────────────────────────── -->
-  <text x="240" y="494"
-        text-anchor="middle"
+  <!-- Data rows (no per-row borders, clinical convention) -->
+  <g font-family="Source Sans 3, Helvetica, Arial, sans-serif"
+     font-size="14" fill="#3a4a5a">
+    <text x="68"  y="244" text-anchor="start">Age, mean (SD)</text>
+    <text x="296" y="244" text-anchor="middle">52.3 (12.1)</text>
+    <text x="416" y="244" text-anchor="middle">54.1 (11.7)</text>
+    <text x="528" y="244" text-anchor="middle">53.2 (11.9)</text>
+
+    <text x="68"  y="268" text-anchor="start">Sex, n (%)</text>
+
+    <text x="86"  y="290" text-anchor="start">Female</text>
+    <text x="296" y="290" text-anchor="middle">16 (53.3)</text>
+    <text x="416" y="290" text-anchor="middle">14 (46.7)</text>
+    <text x="528" y="290" text-anchor="middle">30 (50.0)</text>
+
+    <text x="86"  y="312" text-anchor="start">Male</text>
+    <text x="296" y="312" text-anchor="middle">14 (46.7)</text>
+    <text x="416" y="312" text-anchor="middle">16 (53.3)</text>
+    <text x="528" y="312" text-anchor="middle">30 (50.0)</text>
+  </g>
+
+  <!-- ── Footnote (italic, small) ───────────────────────────────────── -->
+  <text x="56" y="346"
         font-family="Source Sans 3, Helvetica, Arial, sans-serif"
-        font-size="20"
-        font-weight="400"
-        fill="#cfe1f2"
-        letter-spacing="3">CLINICAL · TFL · RTF</text>
+        font-size="12" font-style="italic" fill="#6a7886">
+    Source: ADaM ADSL.  Percentages based on column N.
+  </text>
+
+  <!-- ── Wordmark in the corner (small, blue accent) ─────────────────── -->
+  <g font-family="Source Sans 3, Helvetica, Arial, sans-serif">
+    <rect x="44" y="22" width="98" height="16" rx="3" ry="3" fill="#1f4e79"/>
+    <text x="93" y="34" font-size="11" font-weight="700"
+          text-anchor="middle" fill="#ffffff" letter-spacing="0.5">rtfreporter</text>
+  </g>
 </svg>

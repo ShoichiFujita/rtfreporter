@@ -15,10 +15,17 @@ template:
       card: summary
 
 # Development-version banner: the package is pre-v0.1.0, so every push
-# overwrites the published docs.  Versioned history will start once
-# v0.1.0 is tagged.
+# overwrites the published docs at the root (no version subdir).
+# Versioned history will start once v0.1.0 is tagged.
+#
+# `mode: unreleased` is deliberate (NOT "release"):
+#   * pages are still published at the root (no /dev/ subdirectory),
+#   * but pkgdown does NOT suppress the README's <!-- badges ... -->
+#     block when lifting it into the sidebar `dev` slot.  Under
+#     `mode: release` the badges would be hidden, which is wrong for
+#     a pre-release codebase whose status we WANT users to see.
 development:
-  mode: release
+  mode: unreleased
   version_label: warning
   version_tooltip: >
     Development version (pre-v0.1.0).  API may change in
@@ -32,10 +39,26 @@ home:
     S3 architecture; no dependency on r2rtf, reporter, or any other RTF
     library; works on any modern R out of the box.
   # Keep README's H1 (which contains the logo image) on the home page.
+  # Keep README's H1 (which contains the logo image) on the home page.
   strip_header: false
   sidebar:
-    structure: [links, license, community, citation, authors, dev]
+    # Order: badges first (high-signal), then community/citation/authors.
+    # `dev` is the built-in slot pkgdown uses to inject the README's
+    # `<!-- badges: start --> ... <!-- badges: end -->` block — DO NOT
+    # override it with a custom `dev:` component or the badges will
+    # vanish.  Roadmap / dev-stage notes go into `devnotes` instead.
+    structure: [dev, devnotes, links, community, citation, authors, license]
     components:
+      devnotes:
+        title: Dev stage
+        text: |
+          Pre-v0.1.0 development; API may still break.
+
+          Roadmap:
+
+          - **v0.1.0** — first GitHub release, pkgdown site live.
+          - **v0.2.x** — `R CMD check --as-cran` clean, lifted coverage.
+          - **v0.3+**  — CRAN submission, `pharmaverse` candidacy.
       community:
         title: Community
         text: |
@@ -46,17 +69,6 @@ home:
           [Discussions (TBD)](https://github.com/ichirio/rtfreporter/discussions)
           ·
           [Contributing](https://github.com/ichirio/rtfreporter/blob/main/CONTRIBUTING.md)
-      dev:
-        title: Dev status
-        text: |
-          [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
-          [![R-CMD-check](https://github.com/ichirio/rtfreporter/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/ichirio/rtfreporter/actions/workflows/R-CMD-check.yaml)
-          [![pkgdown](https://github.com/ichirio/rtfreporter/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/ichirio/rtfreporter/actions/workflows/pkgdown.yaml)
-          [![Codecov](https://codecov.io/gh/ichirio/rtfreporter/graph/badge.svg)](https://app.codecov.io/gh/ichirio/rtfreporter)
-
-          - Pre-v0.1.0 development; API may break.
-          - Targets v0.1.0 for first public GitHub release.
-          - Targets CRAN and pharmaverse listing after a few v0.x cycles.
   links:
     - text: Browse source on GitHub
       href: https://github.com/ichirio/rtfreporter
