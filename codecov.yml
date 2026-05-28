@@ -1,14 +1,18 @@
 comment: false
 
+# Phase 1 baseline: package coverage is 73% (v0.0.28).  We lock a 70%
+# floor so any future PR that drops below 70% fails the check.  Patch
+# coverage is informational only — new features land with their tests
+# but we don't gate on a specific patch-level threshold.
 coverage:
   status:
     project:
       default:
-        target: auto
+        target: 70%
         threshold: 1%
-        informational: true
+        informational: false
     patch:
       default:
-        target: auto
+        target: 60%
         threshold: 1%
         informational: true
