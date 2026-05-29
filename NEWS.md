@@ -1,5 +1,30 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.34
+
+### Bug fix: `{PAGE}` now increments across sub-pages of one rtf_section
+
+In v0.0.32 `{PAGE}` was correctly switched from a dynamic field to a
+static integer, but it baked the **rtf_section's first-page number**
+into the header text — and an `rtf_section` whose `rtf_tables()` adds
+multiple sub-pages emitted a single RTF `\header` block shared across
+all of them.  Result: every sub-page in such a section showed "Page 1"
+instead of 1, 2, 3, …
+
+`generate_rtfreport()` now detects when a header or footer contains
+`{PAGE}` and promotes every sub-page boundary inside that
+rtf_section from a `\page` break to a `\sect` break, re-emitting
+`\sectd` + page settings + `{\header}` + `{\footer}` for each sub-page
+with the correct baked-in number.  AUTO-only headers stay on the cheap
+one-`\header`-per-rtf_section path (no extra section breaks emitted).
+
+Three new tests in `tests/testthat/test-page-tokens.R` lock the
+behaviour:
+* "Page 1 of 3", "Page 2 of 3", "Page 3 of 3" all present in a single
+  3-sub-page section,
+* `\sect` breaks are emitted at every sub-page boundary,
+* AUTO-only headers still emit zero internal `\sect` breaks.
+
 ## rtfreporter 0.0.33
 
 ### Bug fix: character-format leak from cover / TOC / outline paragraphs

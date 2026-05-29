@@ -96,3 +96,51 @@ test_that("{PAGE} and {AUTO_PAGE} are DIFFERENT (static vs dynamic)", {
   # (more robustly, the dynamic field is present in the output)
   expect_match(txt, "\\\\chpgn")
 })
+
+# ──────── {PAGE} increments per sub-page (v0.0.34 bug fix) ────────────────
+#
+# Pre-v0.0.34, an rtf_section with N sub-pages shared a single
+# RTF `\header` block, so `{PAGE}` was baked once with the section's
+# first-page number -- every page in the document showed "Page 1".
+# Now each sub-page is promoted to its own RTF section break, with
+# its own header carrying the correct baked-in number.
+
+test_that("{PAGE} increments across sub-pages of one rtf_section", {
+  txt <- .render_doc_for_token_test(
+    list(c(l = "X", r = "Page {PAGE} of {TOTAL_PAGES}")),
+    n_pages = 3L
+  )
+  # All three baked-in numbers must appear: "Page 1 of 3", "Page 2 of 3", "Page 3 of 3".
+  expect_match(txt, "Page 1 of 3")
+  expect_match(txt, "Page 2 of 3")
+  expect_match(txt, "Page 3 of 3")
+})
+
+test_that("{PAGE}-using sub-pages emit one \\sect per boundary", {
+  # 3 sub-pages -> 2 internal section breaks (sub-page boundary).
+  # Pre-v0.0.34 they were `\page` breaks (no \sect for internal pages).
+  txt   <- .render_doc_for_token_test(
+    list(c(l = "X", r = "Page {PAGE}")),
+    n_pages = 3L
+  )
+  lines <- strsplit(txt, "\n", fixed = TRUE)[[1L]]
+  n_sect <- sum(grepl("^\\\\sect$", lines))
+  # 3 sub-pages with per-page sections -> 2 internal \sect breaks.
+  # (The final sub-page is followed by document close, not \sect.)
+  expect_gte(n_sect, 2L)
+})
+
+test_that("AUTO-only headers stay on the cheap one-header-per-section path", {
+  # When the header only uses dynamic AUTO tokens, the old code
+  # path (one `\header` per rtf_section, `\page` between sub-pages)
+  # must still be used.  Internal `\sect` breaks must NOT appear
+  # because no static token needs them.
+  txt   <- .render_doc_for_token_test(
+    list(c(l = "X", r = "Page {AUTO_PAGE} / {AUTO_TOTAL_PAGES}")),
+    n_pages = 3L
+  )
+  lines  <- strsplit(txt, "\n", fixed = TRUE)[[1L]]
+  n_sect <- sum(grepl("^\\\\sect$", lines))
+  # No internal section breaks (only the closing document structure).
+  expect_identical(n_sect, 0L)
+})

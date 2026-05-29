@@ -883,6 +883,27 @@
 
 # -- Header / footer renderer (unchanged from original) ------------------------
 
+# Does any text cell of a normalised header/footer contain `{PAGE}`?
+# Used to decide whether each sub-page of an rtf_section needs its own
+# RTF section break so the static `{PAGE}` token can bake the actual
+# sub-page number (not the section's first-page number).
+#
+# NB: matches *only* the literal `{PAGE}` token, not `{AUTO_PAGE}` --
+#   we treat them as separate regexes by using a word-ish boundary check.
+.uses_static_page_token <- function(hf) {
+  if (is.null(hf) || length(hf$rows) == 0L) return(FALSE)
+  for (row in hf$rows) {
+    txt <- if (is.list(row) && !is.null(row$columns)) row$columns else row
+    txt <- as.character(txt)
+    for (cell in txt) {
+      if (is.na(cell)) next
+      # `{PAGE}` only -- exclude {AUTO_PAGE} via a non-A character (or BOS) before P.
+      if (grepl("(?:^|[^A-Z_])\\{PAGE\\}", cell, perl = TRUE)) return(TRUE)
+    }
+  }
+  FALSE
+}
+
 # Normalize a section header/footer value to list(rows=list(...), width_twips=NULL).
 # Accepts: NULL | plain named vector (single row) | list(rows=list(...)) | list(columns=c(...)) (legacy).
 .normalize_hf <- function(hf) {
@@ -1420,24 +1441,29 @@ generate_rtfreport <- function(report, file_path, overwrite = FALSE) {
     if (is.null(cur_footer_hf)) cur_footer_hf <- prev_footer_hf
     prev_footer_hf <- cur_footer_hf
 
-    lines <- c(lines, doc_cmd$section_defaults)
+    # Helper: emit `\sectd` + page settings + {\header} + {\footer} with
+    # the page-number tokens resolved for `pg_for_hf`.  Used either:
+    #   - once per rtf_section (header text is the same across sub-pages), or
+    #   - once per sub-page when a STATIC `{PAGE}` token is used so that
+    #     each rendered page can carry its own baked-in page number.
+    emit_section_preamble <- function(pg_for_hf) {
+      lines <<- c(lines, doc_cmd$section_defaults)
 
-    # Re-emit section-level page properties after \sectd.
-    #
-    # \sectd resets all section formatting to RTF built-in defaults, so we must
-    # explicitly re-specify:
-    #   \sbkpage      - force each section to start on a new page (required for
-    #                   per-section headers to work; without it sections are
-    #                   "continuous" and share the first section's header).
-    #   \lndscpsxn    - landscape orientation (document-level \landscape only
-    #                   applies to the first section in many RTF viewers).
-    #   \pgwsxn / \pghsxn         - section page dimensions.
-    #   \marglsxn / \margrsxn ... - section margins.
-    {
+      # Re-emit section-level page properties after \sectd.
+      #
+      # \sectd resets all section formatting to RTF built-in defaults, so we must
+      # explicitly re-specify:
+      #   \sbkpage      - force each section to start on a new page (required for
+      #                   per-section headers to work; without it sections are
+      #                   "continuous" and share the first section's header).
+      #   \lndscpsxn    - landscape orientation (document-level \landscape only
+      #                   applies to the first section in many RTF viewers).
+      #   \pgwsxn / \pghsxn         - section page dimensions.
+      #   \marglsxn / \margrsxn ... - section margins.
       pg     <- page_defaults
       is_lnd <- isTRUE(pg$orientation == "landscape")
       lnd_cmd <- if (is_lnd) "\\lndscpsxn" else ""
-      lines <- c(lines, paste0(
+      lines <<- c(lines, paste0(
         "\\sbkpage", lnd_cmd,
         "\\pgwsxn",   pg$width_twips,
         "\\pghsxn",   pg$height_twips,
@@ -1446,34 +1472,49 @@ generate_rtfreport <- function(report, file_path, overwrite = FALSE) {
         "\\margtsxn", pg$margin_top_twips,
         "\\margbsxn", pg$margin_bottom_twips
       ))
+
+      header_rtf <- .render_header_footer(cur_header_hf, writable_w, is_footer = FALSE,
+                                          current_page = pg_for_hf, total_pages = total_pages,
+                                          color_index_map = color_index_map,
+                                          font_half_points = font_half_points)
+      footer_rtf <- .render_header_footer(cur_footer_hf, writable_w, is_footer = TRUE,
+                                          current_page = pg_for_hf, total_pages = total_pages,
+                                          color_index_map = color_index_map,
+                                          font_half_points = font_half_points)
+
+      if (length(header_rtf) > 0L) {
+        lines <<- c(lines, .cmd_fmt(doc_cmd$header_wrapper,
+                                    list(content = paste0(fs_cmd,
+                                          paste(header_rtf, collapse = "")))))
+      }
+      if (length(footer_rtf) > 0L) {
+        lines <<- c(lines, .cmd_fmt(doc_cmd$footer_wrapper,
+                                    list(content = paste0(fs_cmd,
+                                          paste(footer_rtf, collapse = "")))))
+      }
     }
 
-    # Emit {\header} and {\footer} once per RTF section.
-    header_rtf <- .render_header_footer(cur_header_hf, writable_w, is_footer = FALSE,
-                                        current_page = pg_from, total_pages = total_pages,
-                                        color_index_map = color_index_map,
-                                        font_half_points = font_half_points)
-    footer_rtf <- .render_header_footer(cur_footer_hf, writable_w, is_footer = TRUE,
-                                        current_page = pg_from, total_pages = total_pages,
-                                        color_index_map = color_index_map,
-                                        font_half_points = font_half_points)
+    # Decide whether each sub-page needs its own RTF section.  The
+    # static `{PAGE}` token is baked into the header text at render
+    # time, so a single `\header` per RTF section cannot carry distinct
+    # numbers across multiple sub-pages.  When `{PAGE}` is used (in
+    # either header or footer), we promote every sub-page boundary
+    # from a `\page` break to a `\sect` break and re-emit the
+    # section preamble with the correct baked-in number.
+    needs_per_page_section <- .uses_static_page_token(cur_header_hf) ||
+                              .uses_static_page_token(cur_footer_hf)
 
-    if (length(header_rtf) > 0L) {
-      lines <- c(lines, .cmd_fmt(doc_cmd$header_wrapper,
-                                 list(content = paste0(fs_cmd,
-                                        paste(header_rtf, collapse = "")))))
-    }
-    if (length(footer_rtf) > 0L) {
-      lines <- c(lines, .cmd_fmt(doc_cmd$footer_wrapper,
-                                 list(content = paste0(fs_cmd,
-                                        paste(footer_rtf, collapse = "")))))
-    }
-
-    # Render pages belonging to this section.
     sec_pages <- seq(pg_from, pg_to)
+    if (!needs_per_page_section) {
+      emit_section_preamble(pg_from)
+    }
     for (sp_idx in seq_along(sec_pages)) {
       p_idx <- sec_pages[sp_idx]
       page  <- report$pages[[p_idx]]
+
+      if (needs_per_page_section) {
+        emit_section_preamble(p_idx)
+      }
 
       # -- Content (single rtftable or rtfplot) -----------------------------
       ct <- page$content
@@ -1494,10 +1535,17 @@ generate_rtfreport <- function(report, file_path, overwrite = FALSE) {
       }
 
       # Page break between pages; section break between sections.
+      # When per-page sections are in effect, ALL sub-page boundaries
+      # become section breaks so the next sub-page can re-emit its
+      # own header with a fresh `{PAGE}` value.
       is_last_in_section <- (sp_idx == length(sec_pages))
       is_last_section    <- (rs_idx == length(resolved_sections))
       if (!is_last_in_section) {
-        lines <- c(lines, doc_cmd$page_break)
+        if (needs_per_page_section) {
+          lines <- c(lines, doc_cmd$section_break)
+        } else {
+          lines <- c(lines, doc_cmd$page_break)
+        }
       } else if (!is_last_section) {
         lines <- c(lines, doc_cmd$section_break)
       }
