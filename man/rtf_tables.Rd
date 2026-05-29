@@ -82,14 +82,15 @@ One of `"left"` (default), `"center"`, or `"right"`.}
 elements in `tables`.  Allowed values:
 * `FALSE` (default) -- treat `gt_tbl` items as bare data.frames
   via `as.data.frame()`; ignore titles / labels / source notes.
-* `TRUE` -- pull through column labels, per-column alignment,
-  title + subtitle, and source notes (the four "shape-preserving"
-  attributes).
+* `TRUE` -- pull through every Phase-A and Phase-B attribute:
+  column labels, per-column alignment, multi-level spanner header
+  rows, per-column widths, dropping hidden columns, plus the
+  page-level title / subtitle and source notes.
 * A character vector of tokens -- selective opt-in.  Supported
   tokens: `"col_header"`, `"alignment"`, `"titles"`,
-  `"source_notes"`.  Future tokens (`"spanning"`, `"widths"`,
-  `"hidden"`, `"footnotes"`, `"stub"`) are recognised but warn
-  and are ignored until implemented.
+  `"source_notes"`, `"spanning"`, `"widths"`, `"hidden"`.  Future
+  tokens (`"footnotes"`, `"stub"`) are recognised but warn and
+  are ignored until implemented.
 Explicit `rtf_tables()` / `rtf_titles()` / `rtf_footnotes()`
 values always override gt-extracted ones.  See [as_rtftable()]
 for the rtftable-level variant.}

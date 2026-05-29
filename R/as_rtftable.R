@@ -12,10 +12,20 @@
 #' and used to fill in rtftable defaults:
 #'
 #' \describe{
-#'   \item{column labels}{from `gt_obj[["_boxhead"]]$column_label` ->
-#'     used as the `col_header`.}
-#'   \item{per-column alignment}{from
-#'     `gt_obj[["_boxhead"]]$column_align` -> used as `col_spec[[j]]$align`.}
+#'   \item{column labels (`col_header`)}{from `gt_obj[["_boxhead"]]$column_label`.}
+#'   \item{per-column alignment (`alignment`)}{from
+#'     `gt_obj[["_boxhead"]]$column_align` -> `col_spec[[j]]$align`.}
+#'   \item{multi-level spanning headers (`spanning`)}{from
+#'     `gt_obj[["_spanners"]]` -> stacked spanner rows above the
+#'     column labels in `col_header`.}
+#'   \item{per-column widths (`widths`)}{from
+#'     `gt_obj[["_boxhead"]]$column_width` -> `column_widths_twips`
+#'     (px -> twips at 96 dpi) or `col_rel_width` (%).  Mixed-unit or
+#'     partial widths are skipped.}
+#'   \item{hidden columns (`hidden`)}{columns whose
+#'     `gt_obj[["_boxhead"]]$type == "hidden"` are dropped from the
+#'     extracted data.frame, the labels, the alignment, and the
+#'     spanner column-index mapping.}
 #' }
 #'
 #' Title / subtitle and source notes also live on the `gt_tbl`, but
@@ -31,6 +41,9 @@
 #'
 #' * `"col_header"`   -- column labels
 #' * `"alignment"`    -- per-column alignment
+#' * `"spanning"`     -- multi-level spanner header rows
+#' * `"widths"`       -- per-column widths
+#' * `"hidden"`       -- drop hidden columns
 #'
 #' (`"titles"` and `"source_notes"` are recognised but apply at the
 #' [rtf_tables()] level, not here.)
@@ -98,8 +111,19 @@ as_rtftable <- function(gt_obj, read = TRUE, ...) {
                                           gt_kwargs$col_spec)
   }
 
+  # Phase B width fields: prefer user, fall back to gt.
+  for (k in c("column_widths_twips", "col_rel_width")) {
+    if (!is.null(user_args[[k]])) {
+      call_args[[k]] <- user_args[[k]]
+    } else if (!is.null(gt_kwargs[[k]])) {
+      call_args[[k]] <- gt_kwargs[[k]]
+    }
+  }
+
   # All other arguments pass through verbatim.
-  for (k in setdiff(names(user_args), c("data", "col_header", "col_spec"))) {
+  consumed <- c("data", "col_header", "col_spec",
+                "column_widths_twips", "col_rel_width")
+  for (k in setdiff(names(user_args), consumed)) {
     call_args[[k]] <- user_args[[k]]
   }
 

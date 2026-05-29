@@ -10,9 +10,10 @@ test_that(".resolve_gt_tokens(FALSE / NULL) -> empty", {
   expect_identical(rtfreporter:::.resolve_gt_tokens(NULL),  character(0))
 })
 
-test_that(".resolve_gt_tokens(TRUE) -> the four Phase-A tokens", {
+test_that(".resolve_gt_tokens(TRUE) -> Phase-A + Phase-B tokens", {
   tk <- rtfreporter:::.resolve_gt_tokens(TRUE)
-  expect_setequal(tk, c("col_header", "alignment", "titles", "source_notes"))
+  expect_setequal(tk, c("col_header", "alignment", "titles", "source_notes",
+                        "spanning", "widths", "hidden"))
 })
 
 test_that(".resolve_gt_tokens accepts a subset", {
@@ -20,13 +21,22 @@ test_that(".resolve_gt_tokens accepts a subset", {
   expect_setequal(tk, c("col_header", "titles"))
 })
 
-test_that(".resolve_gt_tokens warns on Phase-B/C tokens and silently drops them", {
+test_that(".resolve_gt_tokens warns on Phase-C tokens and silently drops them", {
+  # Phase B tokens are NOW implemented (v0.0.39); only Phase C remains
+  # in the warn-and-drop bucket.
   expect_warning(
-    tk <- rtfreporter:::.resolve_gt_tokens(c("col_header", "spanning",
-                                              "footnotes")),
+    tk <- rtfreporter:::.resolve_gt_tokens(c("col_header", "footnotes",
+                                              "stub")),
     "does not yet implement"
   )
   expect_setequal(tk, "col_header")
+})
+
+test_that(".resolve_gt_tokens accepts the Phase-B tokens with no warning", {
+  expect_silent(
+    tk <- rtfreporter:::.resolve_gt_tokens(c("spanning", "widths", "hidden"))
+  )
+  expect_setequal(tk, c("spanning", "widths", "hidden"))
 })
 
 test_that(".resolve_gt_tokens errors on unknown tokens", {
@@ -287,4 +297,243 @@ test_that("rtf_tables(read_gt) generates a valid RTF file end-to-end", {
   expect_match(txt, "MPG")
   expect_match(txt, "Demo Table")
   expect_match(txt, "Source: built-in mtcars dataset")
+})
+
+# ============================================================================
+# Phase B: spanning, widths, hidden
+# ============================================================================
+
+# ──────── .extract_visible_mask ───────────────────────────────────────────
+
+test_that(".extract_visible_mask flags hidden columns FALSE", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl", "disp")]) |>
+    gt::cols_hide(cyl)
+  m <- rtfreporter:::.extract_visible_mask(g)
+  expect_identical(m, c(TRUE, FALSE, TRUE))
+})
+
+test_that(".extract_visible_mask returns all-TRUE when no columns hidden", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl")])
+  expect_identical(rtfreporter:::.extract_visible_mask(g), c(TRUE, TRUE))
+})
+
+# ──────── .parse_one_width ────────────────────────────────────────────────
+
+test_that(".parse_one_width parses px / pct / missing / unknown forms", {
+  pw <- rtfreporter:::.parse_one_width
+  expect_identical(pw(list(list("100px"))), list(kind = "px",  value = 100))
+  expect_identical(pw("50px"),             list(kind = "px",  value = 50))
+  expect_identical(pw(" 25.5 % "),         list(kind = "pct", value = 25.5))
+  expect_identical(pw(NULL)$kind,          "missing")
+  expect_identical(pw("")$kind,            "missing")
+  expect_identical(pw(NA)$kind,            "missing")
+  expect_identical(pw("3em")$kind,         "unknown")
+})
+
+# ──────── .extract_widths ─────────────────────────────────────────────────
+
+test_that(".extract_widths returns column_widths_twips for all-px input", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl", "disp")]) |>
+    gt::cols_width(mpg ~ gt::px(100), cyl ~ gt::px(50),
+                   disp ~ gt::px(150))
+  w <- rtfreporter:::.extract_widths(g)
+  # 1 px = 15 twips
+  expect_identical(w$column_widths_twips, as.integer(c(1500, 750, 2250)))
+  expect_null(w$col_rel_width)
+})
+
+test_that(".extract_widths returns col_rel_width for all-pct input", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl", "disp")]) |>
+    gt::cols_width(mpg ~ gt::pct(40), cyl ~ gt::pct(20),
+                   disp ~ gt::pct(40))
+  w <- rtfreporter:::.extract_widths(g)
+  expect_identical(w$col_rel_width, c(40, 20, 40))
+})
+
+test_that(".extract_widths returns NULL for mixed / all-missing / partial inputs", {
+  skip_if_not_installed("gt")
+  # No widths set at all
+  g0 <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl")])
+  expect_null(rtfreporter:::.extract_widths(g0))
+  # Mixed: 1 px + 1 pct (no obvious twip conversion).
+  g1 <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl")]) |>
+    gt::cols_width(mpg ~ gt::px(100), cyl ~ gt::pct(20))
+  expect_null(rtfreporter:::.extract_widths(g1))
+  # Partial: only one of two columns has a width.
+  g2 <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl")]) |>
+    gt::cols_width(mpg ~ gt::px(100))
+  expect_null(rtfreporter:::.extract_widths(g2))
+})
+
+# ──────── .extract_spanners ───────────────────────────────────────────────
+
+test_that(".extract_spanners returns empty list when no spanners set", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl")])
+  expect_identical(rtfreporter:::.extract_spanners(g), list())
+})
+
+test_that(".extract_spanners builds one row per spanner_level (descending)", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl", "disp", "hp", "drat")]) |>
+    gt::tab_spanner(label = "Engine",      columns = c(cyl, disp)) |>
+    gt::tab_spanner(label = "Performance", columns = c(hp, drat)) |>
+    gt::tab_spanner(label = "Numeric",
+                     columns = c(cyl, disp, hp, drat),
+                     level = 2L)
+  rows <- rtfreporter:::.extract_spanners(g)
+  expect_length(rows, 2L)
+  # Top row = level 2 (Numeric covers cols 2-5)
+  expect_length(rows[[1L]], 1L)
+  expect_s3_class(rows[[1L]][[1L]], "rtf_col_cell")
+  expect_identical(rows[[1L]][[1L]]$pos,   c(2L, 5L))
+  expect_identical(rows[[1L]][[1L]]$label, "Numeric")
+  # Bottom row = level 1 with two spanners
+  expect_length(rows[[2L]], 2L)
+  expect_identical(rows[[2L]][[1L]]$pos,   c(2L, 3L))
+  expect_identical(rows[[2L]][[1L]]$label, "Engine")
+  expect_identical(rows[[2L]][[2L]]$pos,   c(4L, 5L))
+  expect_identical(rows[[2L]][[2L]]$label, "Performance")
+})
+
+test_that(".extract_spanners respects visible_mask (skips hidden columns)", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl", "disp", "hp")]) |>
+    gt::cols_hide(disp) |>
+    gt::tab_spanner(label = "Engine",      columns = c(cyl, disp)) |>
+    gt::tab_spanner(label = "Performance", columns = c(hp))
+  mask <- rtfreporter:::.extract_visible_mask(g)
+  rows <- rtfreporter:::.extract_spanners(g, visible_mask = mask)
+  # Engine originally covers (cyl, disp); disp is hidden, so it
+  # collapses to (cyl).  Performance covers (hp) -- still position 3
+  # in the VISIBLE space (mpg, cyl, hp).
+  expect_length(rows, 1L)
+  expect_length(rows[[1L]], 2L)
+  expect_identical(rows[[1L]][[1L]]$pos,   2L)         # Engine -> just cyl
+  expect_identical(rows[[1L]][[2L]]$pos,   3L)         # Perf   -> just hp
+})
+
+# ──────── .gt_to_rtftable_kwargs Phase-B integration ──────────────────────
+
+test_that("kwargs(hidden) drops hidden columns from data", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl", "disp")]) |>
+    gt::cols_hide(cyl)
+  kw <- rtfreporter:::.gt_to_rtftable_kwargs(g, tokens = "hidden")
+  expect_identical(names(kw$data), c("mpg", "disp"))
+  expect_identical(ncol(kw$data), 2L)
+})
+
+test_that("kwargs(widths) returns column_widths_twips at the correct length", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl")]) |>
+    gt::cols_width(mpg ~ gt::px(80), cyl ~ gt::px(60))
+  kw <- rtfreporter:::.gt_to_rtftable_kwargs(g, tokens = "widths")
+  expect_identical(kw$column_widths_twips, as.integer(c(1200, 900)))
+})
+
+test_that("kwargs(widths) filters widths to visible columns when 'hidden' is active", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl", "disp")]) |>
+    gt::cols_hide(cyl) |>
+    gt::cols_width(mpg ~ gt::px(80), cyl ~ gt::px(60), disp ~ gt::px(100))
+  kw <- rtfreporter:::.gt_to_rtftable_kwargs(g,
+                                              tokens = c("widths", "hidden"))
+  # cyl dropped from data; widths shrink to length 2.
+  expect_identical(ncol(kw$data), 2L)
+  expect_identical(kw$column_widths_twips, as.integer(c(1200, 1500)))
+})
+
+test_that("kwargs(spanning + col_header) stacks spanner rows above the labels", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl", "disp")]) |>
+    gt::cols_label(mpg = "MPG", cyl = "Cyl", disp = "Disp") |>
+    gt::tab_spanner(label = "Engine", columns = c(cyl, disp))
+  kw <- rtfreporter:::.gt_to_rtftable_kwargs(g,
+                                              tokens = c("col_header", "spanning"))
+  # Two-row col_header: spanner row on top, label row on bottom.
+  expect_length(kw$col_header, 2L)
+  expect_true(is.list(kw$col_header[[1L]]))
+  expect_identical(kw$col_header[[2L]], c("MPG", "Cyl", "Disp"))
+})
+
+test_that("kwargs(spanning only) falls back to data column names for the bottom row", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl", "disp")]) |>
+    gt::tab_spanner(label = "Engine", columns = c(cyl, disp))
+  kw <- rtfreporter:::.gt_to_rtftable_kwargs(g, tokens = "spanning")
+  expect_length(kw$col_header, 2L)
+  expect_identical(kw$col_header[[2L]], c("mpg", "cyl", "disp"))
+})
+
+# ──────── as_rtftable() Phase-B end-to-end ────────────────────────────────
+
+test_that("as_rtftable(gt, read=TRUE) honours hidden + widths together", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl", "disp")]) |>
+    gt::cols_hide(cyl) |>
+    gt::cols_width(mpg ~ gt::px(80), cyl ~ gt::px(60),
+                   disp ~ gt::px(100))
+  tbl <- as_rtftable(g, read = TRUE)
+  expect_identical(names(tbl$data), c("mpg", "disp"))
+  expect_identical(tbl$column_widths_twips, as.integer(c(1200, 1500)))
+})
+
+test_that("as_rtftable() user column_widths_twips beats gt's widths", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl")]) |>
+    gt::cols_width(mpg ~ gt::px(80), cyl ~ gt::px(60))
+  tbl <- as_rtftable(g, read = TRUE,
+                     column_widths_twips = c(2000L, 3000L))
+  expect_identical(tbl$column_widths_twips, c(2000L, 3000L))
+})
+
+# ──────── rtf_tables Phase-B end-to-end ───────────────────────────────────
+
+test_that("rtf_tables(read_gt = TRUE) renders spanner + labels + hidden cols", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 2)[, c("mpg", "cyl", "disp", "hp", "drat")]) |>
+    gt::cols_label(mpg = "MPG", cyl = "Cyl", disp = "Disp",
+                   hp = "HP",   drat = "DR") |>
+    gt::cols_hide(drat) |>
+    gt::tab_spanner(label = "Engine",      columns = c(cyl, disp)) |>
+    gt::tab_spanner(label = "Performance", columns = c(hp))
+  doc <- rtf_document() |>
+    rtf_section(page = 1, secinfo = list(header = NULL, footer = NULL)) |>
+    rtf_tables(list(g), read_gt = TRUE)
+  out <- tempfile(fileext = ".rtf"); on.exit(unlink(out), add = TRUE)
+  generate_rtfreport(doc, out, overwrite = TRUE)
+  txt <- paste(readLines(out, warn = FALSE), collapse = "\n")
+  # Spanner labels present
+  expect_match(txt, "Engine")
+  expect_match(txt, "Performance")
+  # Visible column labels present, hidden ones absent
+  for (lbl in c("MPG", "Cyl", "Disp", "HP")) expect_match(txt, lbl)
+  expect_false(grepl("DR\\\\cell", txt))     # hidden column not rendered
+})
+
+test_that("rtf_tables(read_gt = 'widths') feeds the widths through", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl")]) |>
+    gt::cols_width(mpg ~ gt::px(80), cyl ~ gt::px(60))
+  doc <- rtf_document() |>
+    rtf_section(page = 1, secinfo = list(header = NULL, footer = NULL)) |>
+    rtf_tables(list(g), read_gt = "widths")
+  expect_identical(doc$contents[[1L]]$column_widths_twips,
+                   as.integer(c(1200, 900)))
+})
+
+test_that("rtf_tables explicit column_widths_twips beats gt's widths", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 1)[, c("mpg", "cyl")]) |>
+    gt::cols_width(mpg ~ gt::px(80), cyl ~ gt::px(60))
+  doc <- rtf_document() |>
+    rtf_section(page = 1, secinfo = list(header = NULL, footer = NULL)) |>
+    rtf_tables(list(g), read_gt = "widths",
+               column_widths_twips = c(5000L, 6000L))
+  expect_identical(doc$contents[[1L]]$column_widths_twips, c(5000L, 6000L))
 })

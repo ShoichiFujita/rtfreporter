@@ -176,14 +176,15 @@ rtf_config <- function(doc, font_table = NULL, color_table = NULL, page = NULL,
 #'   elements in `tables`.  Allowed values:
 #'   * `FALSE` (default) -- treat `gt_tbl` items as bare data.frames
 #'     via `as.data.frame()`; ignore titles / labels / source notes.
-#'   * `TRUE` -- pull through column labels, per-column alignment,
-#'     title + subtitle, and source notes (the four "shape-preserving"
-#'     attributes).
+#'   * `TRUE` -- pull through every Phase-A and Phase-B attribute:
+#'     column labels, per-column alignment, multi-level spanner header
+#'     rows, per-column widths, dropping hidden columns, plus the
+#'     page-level title / subtitle and source notes.
 #'   * A character vector of tokens -- selective opt-in.  Supported
 #'     tokens: `"col_header"`, `"alignment"`, `"titles"`,
-#'     `"source_notes"`.  Future tokens (`"spanning"`, `"widths"`,
-#'     `"hidden"`, `"footnotes"`, `"stub"`) are recognised but warn
-#'     and are ignored until implemented.
+#'     `"source_notes"`, `"spanning"`, `"widths"`, `"hidden"`.  Future
+#'     tokens (`"footnotes"`, `"stub"`) are recognised but warn and
+#'     are ignored until implemented.
 #'   Explicit `rtf_tables()` / `rtf_titles()` / `rtf_footnotes()`
 #'   values always override gt-extracted ones.  See [as_rtftable()]
 #'   for the rtftable-level variant.
@@ -282,8 +283,8 @@ rtf_tables <- function(doc, tables,
     item <- tables[[i]]
     if (is.data.frame(item)) {
       # If this slot originated from a gt_tbl, merge the extracted
-      # col_header / col_spec into the user-supplied arguments
-      # (user always wins).
+      # col_header / col_spec / column_widths_twips / col_rel_width
+      # into the user-supplied arguments (user always wins).
       gtx <- gt_extracts[[i]]
       eff_col_header <- if (!is.null(col_header))    col_header
                        else if (!is.null(gtx) && !is.null(gtx$col_header))
@@ -292,6 +293,16 @@ rtf_tables <- function(doc, tables,
       eff_col_spec   <- if (!is.null(gtx) && !is.null(gtx$col_spec))
                          .merge_col_spec(col_spec, gtx$col_spec)
                        else col_spec
+      eff_col_widths <- if (!is.null(column_widths_twips))
+                         column_widths_twips
+                       else if (!is.null(gtx) && !is.null(gtx$column_widths_twips))
+                         gtx$column_widths_twips
+                       else NULL
+      eff_col_rel    <- if (!is.null(col_rel_width))
+                         col_rel_width
+                       else if (!is.null(gtx) && !is.null(gtx$col_rel_width))
+                         gtx$col_rel_width
+                       else NULL
       .new_rtftable(
         data                        = item,
         col_header                  = eff_col_header,
@@ -302,8 +313,8 @@ rtf_tables <- function(doc, tables,
         blank_rows                  = blank_rows,
         read_attributes             = read_attributes,
         style                       = style,
-        col_rel_width               = col_rel_width,
-        column_widths_twips         = column_widths_twips,
+        col_rel_width               = eff_col_rel,
+        column_widths_twips         = eff_col_widths,
         table_width_twips           = table_width_twips,
         table_width_pct_of_writable = table_width_pct_of_writable,
         table_width_pct             = table_width_pct,

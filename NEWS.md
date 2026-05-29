@@ -1,5 +1,52 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.39
+
+### gt integration -- Phase B
+
+Adds the three "structural" tokens from `specs/gt-integration-spec.md`
+on top of the Phase A vocabulary:
+
+* **`"spanning"`** -- multi-level spanner labels from
+  `gt_obj[["_spanners"]]` are stacked as additional rows ABOVE the
+  column labels in `col_header`.  Higher `spanner_level` -> drawn
+  higher in the rendered header.  Spanners that cover non-contiguous
+  visible columns are skipped (rtfreporter requires contiguity).
+* **`"widths"`** -- per-column widths from
+  `gt_obj[["_boxhead"]]$column_width` are translated to one of:
+  - `column_widths_twips` (when all values are `"NNpx"`), using
+    1 px = 15 twips (the 96 dpi CSS convention).
+  - `col_rel_width` (when all values are `"NN%"`).
+  - `NULL` otherwise (mixed, missing, or unparsable).
+* **`"hidden"`** -- columns whose `_boxhead$type == "hidden"` are
+  dropped from the extracted data.frame, the column labels, the
+  alignment vector, the widths, and the spanner column-index
+  mapping (so spanner rows stay aligned with the visible columns).
+
+`read_gt = TRUE` now expands to *all seven* Phase-A + Phase-B tokens
+(was four).  Adding spanning / widths / hidden tokens is automatic
+when upgrading: code that already wrote `read_gt = TRUE` becomes
+strictly more powerful with no source changes.
+
+Two-way independence:
+
+* `"hidden"` can be used by itself -- it just shrinks the data.
+* `"spanning"` without `"col_header"` falls back to using the data
+  column names as the bottom row of the header stack.
+* `"widths"` without `"hidden"` keeps the gt width vector at its
+  original length; the renderer fails fast if the count mismatches
+  the data.frame.
+
+Precedence is unchanged: explicit `rtf_tables()` /
+`rtftable()` arguments always beat the gt-extracted values, including
+the new `column_widths_twips` / `col_rel_width` slots.
+
+Test additions: 36 new tests in `tests/testthat/test-gt-adapter.R`
+covering the three new extractors, the token resolver's new return
+shape, three end-to-end render checks (including a combined
+spanner + hidden + widths integration), and the precedence rule
+for every new slot.
+
 ## rtfreporter 0.0.38
 
 ### gt integration -- Phase A (preparing v0.1.0)

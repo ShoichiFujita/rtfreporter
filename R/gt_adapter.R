@@ -41,10 +41,13 @@
 # Phase A: the four "shape-preserving" attributes.
 .GT_TOKENS_PHASE_A <- c("col_header", "alignment", "titles", "source_notes")
 
-# Future phases (declared here so users can pass them today and get a
-# clean "not yet implemented in this rtfreporter version" message rather
-# than an unrecognised-token error).
+# Phase B (v0.0.39): structural attributes that may change the rendered
+# data shape (drop hidden columns, force absolute widths) or layer extra
+# header rows (spanners).
 .GT_TOKENS_PHASE_B <- c("spanning", "widths", "hidden")
+
+# Phase C: footnotes (table-level only) and stub.  Still recognised but
+# warn-and-drop in this release.
 .GT_TOKENS_PHASE_C <- c("footnotes", "stub")
 .GT_TOKENS_ALL     <- c(.GT_TOKENS_PHASE_A,
                         .GT_TOKENS_PHASE_B,
@@ -60,7 +63,8 @@
 # tokens.  Returns character(0) when nothing is requested.
 .resolve_gt_tokens <- function(read_gt) {
   if (is.null(read_gt) || isFALSE(read_gt)) return(character(0))
-  if (isTRUE(read_gt))                       return(.GT_TOKENS_PHASE_A)
+  if (isTRUE(read_gt))                       return(c(.GT_TOKENS_PHASE_A,
+                                                       .GT_TOKENS_PHASE_B))
   if (!is.character(read_gt)) {
     stop("`read_gt` must be FALSE/TRUE or a character vector of tokens.",
          call. = FALSE)
@@ -72,7 +76,7 @@
                  paste(sQuote(.GT_TOKENS_ALL), collapse = ", ")),
          call. = FALSE)
   }
-  not_yet <- intersect(read_gt, c(.GT_TOKENS_PHASE_B, .GT_TOKENS_PHASE_C))
+  not_yet <- intersect(read_gt, .GT_TOKENS_PHASE_C)
   if (length(not_yet)) {
     warning(sprintf(
       "rtfreporter v0.0.x does not yet implement `read_gt` token(s): %s.  ",
@@ -80,7 +84,7 @@
       "These will be ignored for now.  Track at github.com/ichirio/rtfreporter.",
       call. = FALSE)
   }
-  intersect(read_gt, .GT_TOKENS_PHASE_A)
+  intersect(read_gt, c(.GT_TOKENS_PHASE_A, .GT_TOKENS_PHASE_B))
 }
 
 # Convert a value that might be markdown_text, list-of-1, or NULL into a
@@ -146,6 +150,108 @@
 }
 
 
+# ── Phase B extractors ───────────────────────────────────────────────────
+
+# Logical mask: which boxhead columns are visible (type != "hidden")?
+# Length == nrow(boxhead) == ncol(as.data.frame(gt_obj)).
+.extract_visible_mask <- function(gt_obj) {
+  boxh <- gt_obj[["_boxhead"]]
+  if (is.null(boxh) || !"type" %in% names(boxh)) return(NULL)
+  as.character(boxh$type) != "hidden"
+}
+
+# Convert one gt column_width entry to (kind, value).  Returns a list
+# `list(kind = "px"/"pct"/"unknown", value = double)`.  Missing widths
+# return `list(kind = "missing", value = NA_real_)`.
+.parse_one_width <- function(w) {
+  while (is.list(w) && length(w)) w <- w[[1L]]
+  if (is.null(w) || is.na(w) || !nzchar(as.character(w))) {
+    return(list(kind = "missing", value = NA_real_))
+  }
+  s <- trimws(as.character(w))
+  if (grepl("^[0-9.]+\\s*px$", s, ignore.case = TRUE)) {
+    v <- as.numeric(sub("\\s*px\\s*$", "", s, ignore.case = TRUE))
+    return(list(kind = "px",  value = v))
+  }
+  if (grepl("^[0-9.]+\\s*%$", s)) {
+    v <- as.numeric(sub("\\s*%\\s*$", "", s))
+    return(list(kind = "pct", value = v))
+  }
+  list(kind = "unknown", value = NA_real_)
+}
+
+# Extract per-column widths.  Returns one of:
+#   list(column_widths_twips = <int vec>)  -- all widths in px
+#   list(col_rel_width       = <num vec>)  -- all widths in %
+#   NULL                                   -- mixed, all missing, or
+#                                             unparsable
+# `widths_px_to_twips`: gt's px values map to RTF twips at 1 px = 15 twips
+# (CSS-style 96 dpi convention).
+.extract_widths <- function(gt_obj) {
+  boxh <- gt_obj[["_boxhead"]]
+  if (is.null(boxh) || !"column_width" %in% names(boxh)) return(NULL)
+  parsed <- lapply(boxh$column_width, .parse_one_width)
+  kinds  <- vapply(parsed, function(x) x$kind, character(1L))
+  vals   <- vapply(parsed, function(x) x$value, numeric(1L))
+
+  if (all(kinds == "missing"))            return(NULL)
+  if (any(kinds == "unknown"))            return(NULL)   # bail out
+  if (any(kinds == "missing"))            return(NULL)   # all-or-none
+
+  if (all(kinds == "px")) {
+    return(list(column_widths_twips = as.integer(round(vals * 15))))
+  }
+  if (all(kinds == "pct")) {
+    return(list(col_rel_width = vals))
+  }
+  # Mixed units -- conservative fallback (gt allows it for HTML, but
+  # we can't reliably translate to twips without knowing the table
+  # width).
+  NULL
+}
+
+# Extract the spanning header rows.  Returns a list of rows ready to
+# stack ABOVE the bottom label row inside an rtf_col_header.  Each row
+# is itself a list of col_cell() values.  Empty list -> no spanners.
+#
+# `visible_mask` (logical, length == nrow(boxhead)): columns that will
+# actually appear in the rendered table.  Spanners covering only
+# hidden columns are dropped.  The pos = c(from, to) in each emitted
+# col_cell is calculated against `visible_vars`, not the raw boxhead
+# order.
+.extract_spanners <- function(gt_obj, visible_mask = NULL) {
+  spans <- gt_obj[["_spanners"]]
+  if (is.null(spans) || !nrow(spans)) return(list())
+  boxh <- gt_obj[["_boxhead"]]
+  if (is.null(boxh)) return(list())
+  if (is.null(visible_mask)) visible_mask <- rep(TRUE, nrow(boxh))
+  visible_vars <- as.character(boxh$var)[visible_mask]
+  if (!length(visible_vars)) return(list())
+
+  # Group by spanner_level (descending = top-to-bottom rendering).
+  levels_desc <- sort(unique(as.integer(spans$spanner_level)), decreasing = TRUE)
+  rows <- list()
+  for (lv in levels_desc) {
+    spans_lv <- spans[as.integer(spans$spanner_level) == lv, , drop = FALSE]
+    cells <- list()
+    for (j in seq_len(nrow(spans_lv))) {
+      vars  <- as.character(spans_lv$vars[[j]])
+      vars  <- intersect(vars, visible_vars)
+      if (!length(vars)) next
+      idx <- match(vars, visible_vars)
+      # Spanners must cover a contiguous range to be valid in rtf_col_header.
+      if (any(diff(sort(idx)) != 1L)) next        # skip non-contiguous
+      pos <- if (length(idx) == 1L) idx else c(min(idx), max(idx))
+      label <- .flatten_to_chr(spans_lv$spanner_label[[j]])
+      if (is.na(label)) label <- ""
+      cells[[length(cells) + 1L]] <- col_cell(pos = pos, label = label)
+    }
+    if (length(cells)) rows[[length(rows) + 1L]] <- cells
+  }
+  rows
+}
+
+
 # ── Central mapping: gt_tbl + tokens -> list of rtftable kwargs +
 #    page-level titles / footnotes ─────────────────────────────────────
 
@@ -168,29 +274,82 @@
   }
 
   out <- list()
-  # Always pull the rendered body -- this is what we ALWAYS pass as the
-  # data.frame regardless of which extraction tokens are active.
+  # Always pull the rendered body -- this is the baseline data.frame.
   out$data <- as.data.frame(gt_obj, stringsAsFactors = FALSE)
 
+  # ---- "hidden": filter the data and shrink the boxhead alignment ----
+  # gt's `as.data.frame()` keeps hidden columns; we drop them here so
+  # every downstream extractor sees the same visible-only column space.
+  hidden_active <- "hidden" %in% tokens
+  visible_mask  <- .extract_visible_mask(gt_obj)
+  if (is.null(visible_mask)) visible_mask <- rep(TRUE, ncol(out$data))
+
+  if (hidden_active && !all(visible_mask)) {
+    boxh        <- gt_obj[["_boxhead"]]
+    keep_vars   <- as.character(boxh$var)[visible_mask]
+    keep_in_df  <- intersect(keep_vars, names(out$data))
+    out$data    <- out$data[, keep_in_df, drop = FALSE]
+  }
+  # When `hidden` is NOT active, visible_mask is forced to all-TRUE so
+  # the downstream extractors (col_header, alignment, spanning) operate
+  # on the full column space.
+  if (!hidden_active) visible_mask <- rep(TRUE, length(visible_mask))
+
+  # ---- "col_header": column labels (filtered by visible_mask) -------
   if ("col_header" %in% tokens) {
     labs <- .extract_col_labels(gt_obj)
-    if (!is.null(labs) && length(labs) == ncol(out$data)) {
-      out$col_header <- labs
+    if (!is.null(labs) && length(labs) == length(visible_mask)) {
+      labs_v <- labs[visible_mask]
+      if (length(labs_v) == ncol(out$data)) out$col_header <- labs_v
     }
   }
 
+  # ---- "alignment": per-column align (filtered by visible_mask) -----
   if ("alignment" %in% tokens) {
     aln <- .extract_col_align(gt_obj)
-    if (!is.null(aln) && length(aln) == ncol(out$data)) {
-      # Build a per-column col_spec list.  Each entry is
-      # list(col = j, align = aln[j]).  rtftable() merges this with
-      # any user-supplied col_spec (explicit wins).
-      out$col_spec <- lapply(seq_along(aln), function(j) {
-        list(col = j, align = aln[[j]])
-      })
+    if (!is.null(aln) && length(aln) == length(visible_mask)) {
+      aln_v <- aln[visible_mask]
+      if (length(aln_v) == ncol(out$data)) {
+        out$col_spec <- lapply(seq_along(aln_v), function(j) {
+          list(col = j, align = aln_v[[j]])
+        })
+      }
     }
   }
 
+  # ---- "widths": column widths -> column_widths_twips or col_rel_width
+  if ("widths" %in% tokens) {
+    w <- .extract_widths(gt_obj)
+    if (!is.null(w)) {
+      # If hidden columns are dropped, filter the width vector too.
+      if (!is.null(w$column_widths_twips)) {
+        v <- w$column_widths_twips[visible_mask]
+        if (length(v) == ncol(out$data)) out$column_widths_twips <- v
+      } else if (!is.null(w$col_rel_width)) {
+        v <- w$col_rel_width[visible_mask]
+        if (length(v) == ncol(out$data)) out$col_rel_width <- v
+      }
+    }
+  }
+
+  # ---- "spanning": multi-level spanner rows above the labels --------
+  # Built into a multi-row `col_header` argument so the renderer treats
+  # it as a stacked header.  Combines with the bottom-row labels:
+  #   * If "col_header" was already extracted, use it as bottom row.
+  #   * Else fall back to the visible data column names.
+  if ("spanning" %in% tokens) {
+    span_rows <- .extract_spanners(gt_obj, visible_mask = visible_mask)
+    if (length(span_rows)) {
+      bottom_row <- if (!is.null(out$col_header))
+                      out$col_header
+                    else
+                      names(out$data)
+      # Replace the flat character vector with a multi-row list.
+      out$col_header <- c(span_rows, list(bottom_row))
+    }
+  }
+
+  # ---- "titles" / "source_notes": page-level blocks ------------------
   if ("titles" %in% tokens) {
     out$titles_block <- .extract_titles(gt_obj)
   }
