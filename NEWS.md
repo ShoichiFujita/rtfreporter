@@ -1,5 +1,53 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.37
+
+### Bug fix: phantom rule under header on assembled file's first page
+
+When `assemble_rtf(toc = ...)` produced an assembled deliverable, the
+first page of every source-file body section showed a faint horizontal
+rule directly under the page header.
+
+Root cause: `.insert_bookmark()` placed the bookmark/outline paragraph
+**between `\sectd` and the section's page-property + header/footer
+declarations**.  RTF parsers treat a paragraph emitted in that window
+as part of the **previous** section's flow, so any lingering paragraph
+state from the previous section's last paragraph (typically a footnote
+with `\brdrt\brdrs\brdrw15`) bled onto the new section's header band
+and was rendered as a thin rule.
+
+The fix advances the insertion point past the section preamble
+(`\sectd`, `\sbkpage...`, `{\header ...}`, `{\footer ...}`) so the
+bookmark and outline paragraph land in the new section's BODY where
+they belong.
+
+### Hardened invisibility: `\sl1\slmult0` exact line spacing
+
+The outline paragraph now also emits `\sl1\slmult0` -- exact line
+spacing of 1 twip (~1/1440 inch).  This pins the paragraph's rendered
+height to ~0 px regardless of the converter's `\fs` interpretation,
+guaranteeing the outline label cannot push a borderline-fitting
+table from one page onto a second.  `\cf2\fs2` are retained as
+belt-and-braces (white text + 1-pt size).
+
+### ydisctools alignment audit -- what we kept and what we adopted
+
+After auditing Yenu's `ydisctools::assemble_rtf()` for the proven-good
+RTF idioms, the conclusions are:
+
+* **Adopted** -- white-on-white invisibility via `\cf2` (v0.0.36) and
+  exact-line-spacing belt-and-braces (v0.0.37).
+* **Adopted in spirit** -- bookmark + outline paragraph placed in a
+  position that does not bleed into the new section's header band.
+  (We place them AFTER the section preamble; ydisctools places them
+  BEFORE `\sectd`.  Both approaches avoid the bleed; placement after
+  preamble keeps the anchor on the correct page for `PAGEREF`
+  resolution.)
+* **Kept rtfreporter** -- multi-level `toc_heading()` / `toc_entry()`
+  layout, `PAGEREF` fields for dynamic TOC page numbers (ydisctools
+  bakes them statically), `\*\fldinst` per the RTF spec, full
+  per-page static `{PAGE}` token support.
+
 ## rtfreporter 0.0.36
 
 ### Outline label is now hidden via white-on-white (`\cf2\fs2`)

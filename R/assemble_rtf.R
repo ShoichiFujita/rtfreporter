@@ -45,49 +45,79 @@
   ifelse(grepl("^[A-Za-z]", s) & nzchar(s), s, paste0("bk_", s))
 }
 
-# Inject `{\*\bkmkstart NAME}{\*\bkmkend NAME}` right after the first
-# \sectd of `content`.  Optionally also emits a `\outlinelevel<N>`
-# paragraph carrying `outline_label` so PDF converters (LibreOffice,
-# Word) expose the section in the PDF outline / bookmark panel — the
-# eCTD-recommended navigation aid.  The paragraph uses 1-pt font so it
-# does not occupy visible space.
+# Inject `{\*\bkmkstart NAME}{\*\bkmkend NAME}` plus, optionally, an
+# `\outlinelevel<N>` paragraph carrying `outline_label` so PDF
+# converters (LibreOffice, Word) expose the section in the PDF outline
+# / bookmark panel — the eCTD-recommended navigation aid.
 #
-# CRITICAL: the whole outline paragraph is wrapped in `{ ... }` so the
-# character-format state (\fs2, \plain) is LOCAL to the group.  Without
-# the group, RTF carries character properties across `\par`, and the
-# 1-pt size leaks into the following body table — making all cell
-# contents invisible while leaving the borders intact.  See the v0.0.33
-# bug fix.
+# INSERTION POINT (v0.0.37 -- bug fix):
+#   The inserts are placed *after* the new section's preamble
+#   (`\sectd`, `\sbkpage...`, `{\header...}`, `{\footer...}`) and
+#   *before* the first body paragraph.  Inserting between `\sectd`
+#   and the section properties (the v0.0.31--36 layout) put a
+#   paragraph in a half-configured section, causing the previous
+#   section's lingering paragraph state (e.g. a footnote's `\brdrt`
+#   border) to bleed under the new section's header on the first
+#   page of the new section -- a "phantom rule" right below the
+#   header band.
+#
+# INVISIBILITY (matches ydisctools / Yenu's r2rtf TOC strategy):
+#   \cf2          -> white text colour (rtfreporter reserves
+#                    colour-table index 2 for white; see
+#                    .build_color_table_rtf()).  White-on-white renders
+#                    zero visible pixels regardless of font size.
+#   \fs2          -> 1-pt font, in case a converter ignores `\sl...`
+#                    and falls back to default size.
+#   \sl1\slmult0  -> EXACT line spacing of 1 twip (1/1440 inch ≈ 0 px).
+#                    Forces the paragraph's rendered height to ~0
+#                    regardless of font size, so the outline label
+#                    cannot push a borderline-fitting table from one
+#                    page to two.
+#   \sa0\sb0      -> no surrounding spacing.
+#
+# GROUP WRAPPING:
+#   The outer `{ ... }` scopes `\plain\cf2\fs2\sl1` so the format
+#   state is LOCAL to the group and cannot bleed into the following
+#   content (v0.0.33 fix).
 .insert_bookmark <- function(content, bookmark_name,
                               outline_label = NULL, outline_level = 0L) {
   sectd_idx <- which(trimws(content) == "\\sectd")[1L]
   if (is.na(sectd_idx)) return(content)
+
+  # Skip past the section preamble.  rtfreporter emits, in order:
+  #   \sectd
+  #   \sbkpage\lndscpsxn\pgwsxn...   (page geometry)
+  #   {\header ...}                  (optional)
+  #   {\footer ...}                  (optional)
+  # ...and the first BODY paragraph starts at the next \pard line.
+  # We insert immediately before that first body paragraph.
+  insert_after <- sectd_idx
+  i <- sectd_idx + 1L
+  while (i <= length(content)) {
+    line <- trimws(content[i])
+    # Section page-property line (lone command run, not a paragraph).
+    is_preamble <- grepl("^\\\\(sbkpage|pgwsxn|pghsxn|marglsxn|margrsxn|margtsxn|margbsxn|lndscpsxn|pgnrestart|pgndec|pgnlcrm)", line) ||
+                   # Headers/footers are emitted as a single `{\header ...}` line.
+                   grepl("^\\{\\\\header\\b",  line) ||
+                   grepl("^\\{\\\\footer\\b",  line)
+    if (!is_preamble) break
+    insert_after <- i
+    i <- i + 1L
+  }
+
   inserts <- character(0)
   inserts <- c(inserts,
     sprintf("{\\*\\bkmkstart %s}{\\*\\bkmkend %s}",
             bookmark_name, bookmark_name))
   if (!is.null(outline_label) && nzchar(outline_label)) {
-    # \outlinelevelN -> LibreOffice maps to PDF outline entry.
-    #
-    # Invisibility strategy (matches ydisctools / Yenu's r2rtf TOC):
-    #   \cf2  -> white text colour (rtfreporter reserves colour-table
-    #            index 2 for white -- see .build_color_table_rtf()).
-    #            White-on-white renders zero visible pixels regardless
-    #            of font size.
-    #   \fs2  -> 1-pt size keeps the line height to ~1 px so the
-    #            paragraph also takes negligible vertical space.
-    #            (We previously tried \fs0, but LibreOffice treats
-    #            size 0 as "use default" and renders the label at
-    #            ~12 pt -- which is what motivated this fix.)
-    #
-    # The outer { ... } scopes \plain\cf2\fs2 so the format state
-    # cannot bleed into the following content.
     inserts <- c(inserts,
-      sprintf("{\\pard\\plain\\cf2\\fs2\\sa0\\sb0\\outlinelevel%d %s\\par}",
+      sprintf(paste0("{\\pard\\plain\\cf2\\fs2\\sl1\\slmult0",
+                     "\\sa0\\sb0\\outlinelevel%d %s\\par}"),
               as.integer(outline_level), .toc_escape(outline_label)))
   }
-  c(content[1L:sectd_idx], inserts,
-    if (sectd_idx < length(content)) content[(sectd_idx + 1L):length(content)]
+
+  c(content[1L:insert_after], inserts,
+    if (insert_after < length(content)) content[(insert_after + 1L):length(content)]
     else character(0))
 }
 

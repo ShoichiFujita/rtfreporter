@@ -548,7 +548,7 @@ test_that("TOC label characters get RTF-escaped (backslash, braces, unicode)", {
 # The fix wraps every formatted paragraph in `{ ... }` so the format
 # state is local.  Below we lock that down structurally.
 
-test_that("outline paragraph uses \\cf2\\fs2 in a balanced group (invisible, no leak)", {
+test_that("outline paragraph uses \\cf2\\fs2\\sl1\\slmult0 in a balanced group", {
   f1 <- .write_demo_rtf("Body 1")
   f2 <- .write_demo_rtf("Body 2")
   on.exit(unlink(c(f1, f2)), add = TRUE)
@@ -557,21 +557,57 @@ test_that("outline paragraph uses \\cf2\\fs2 in a balanced group (invisible, no 
                toc       = c("Entry A", "Entry B"),
                overwrite = TRUE)
   txt <- paste(readLines(out, warn = FALSE), collapse = "\n")
-  # v0.0.36: outline label uses \cf2 (white text) + \fs2 (1pt) inside
-  # a balanced { ... } group.  White-on-white renders zero visible
-  # pixels in every PDF converter we know of (LibreOffice rendered
-  # \fs0 at default size, so explicit \fs2 + white colour is needed).
+  # v0.0.37: outline label uses
+  #   \cf2          -- white text colour (invisible)
+  #   \fs2          -- 1-pt fallback size
+  #   \sl1\slmult0  -- exact line spacing 1 twip (~0 px), guarantees
+  #                    no layout shift even if a converter ignores \fs2
+  # inside a balanced { ... } group so format state cannot leak.
   expect_match(txt,
-               "\\{\\\\pard\\\\plain\\\\cf2\\\\fs2\\\\sa0\\\\sb0\\\\outlinelevel0[^\\}]*\\\\par\\}")
-  # Bare close (no `}` after \par) would mean format state leaks.
+               "\\{\\\\pard\\\\plain\\\\cf2\\\\fs2\\\\sl1\\\\slmult0\\\\sa0\\\\sb0\\\\outlinelevel0[^\\}]*\\\\par\\}")
+  # No `}` after \par would mean format state leaks.
   expect_false(
-    grepl("\\\\cf2\\\\fs2\\\\sa0\\\\sb0\\\\outlinelevel0[^\\}]*\\\\par(?!\\})",
+    grepl("\\\\cf2\\\\fs2\\\\sl1\\\\slmult0[^\\}]*\\\\par(?!\\})",
           txt, perl = TRUE)
   )
-  # The colour-table must contain white at index 2 so `\cf2` resolves
-  # to white-on-white.  Match the actual entry text.
+  # Colour-table must contain white at index 2.
   expect_match(txt,
                "\\\\colortbl;\\\\red0\\\\green0\\\\blue0;\\\\red255\\\\green255\\\\blue255;")
+})
+
+test_that("outline paragraph is inserted AFTER section preamble (no border bleed)", {
+  # Regression for the "phantom rule under header on AE first page"
+  # bug.  Pre-v0.0.37, the outline paragraph was placed BETWEEN
+  # `\sectd` and the section properties (\sbkpage, {\header},
+  # {\footer}) -- so it was rendered in a half-configured section,
+  # picking up the previous section's lingering paragraph state.
+  # The fix moves the insertion point to AFTER all section preamble.
+  f1 <- .write_demo_rtf("Body 1")
+  f2 <- .write_demo_rtf("Body 2")
+  on.exit(unlink(c(f1, f2)), add = TRUE)
+  out <- tempfile(fileext = ".rtf"); on.exit(unlink(out), add = TRUE)
+  assemble_rtf(c(f1, f2), out,
+               toc       = c("A", "B"),
+               overwrite = TRUE)
+  lines <- readLines(out, warn = FALSE)
+
+  # For the SECOND source file (file index >= 2 in the assembled
+  # output) the order must be: \sectd, \sbkpage..., {\header...},
+  # {\footer...}, bookmark, outline paragraph.  We check that the
+  # bookmark line follows a {\footer ...} line (rtfreporter always
+  # emits a footer in `.write_demo_rtf`).
+  bm_idx <- grep("\\\\bkmkstart tfl_", lines)
+  expect_true(length(bm_idx) >= 2L)
+  # The line immediately preceding each bookmark insertion must be
+  # the footer wrapper (or the header wrapper if no footer is set).
+  for (j in bm_idx) {
+    prev <- trimws(lines[j - 1L])
+    expect_true(
+      grepl("^\\{\\\\footer\\b", prev) || grepl("^\\{\\\\header\\b", prev),
+      info = sprintf("bookmark at line %d should follow {\\footer} or {\\header}; got: %s",
+                     j, prev)
+    )
+  }
 })
 
 test_that("cover paragraphs do not emit bare \\fs0 (leak source)", {
