@@ -1,5 +1,33 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.36
+
+### Outline label is now hidden via white-on-white (`\cf2\fs2`)
+
+v0.0.35 set the PDF-outline label to `\fs0` (font size 0) hoping for
+zero rendered height.  **LibreOffice interprets `\fs0` as "use
+default"** and renders the label at the body font size (~12 pt), which
+made the source-file title appear *twice* near the top of each table
+section.
+
+Re-investigating Yenu's `ydisctools` showed the actual invisibility
+mechanism there is `\cf<white>` (white text colour), not `\fs0`.
+rtfreporter v0.0.36 adopts the same approach:
+
+* `.build_color_table_rtf()` now always emits **white at colour-table
+  index 2** (between black at 1 and any user colours at 3+).
+* `.build_color_index_map()` shifts user colour indices by +2 so the
+  hex-to-index lookup remains correct.
+* `.insert_bookmark()` (assemble_rtf) renders the outline label with
+  `\cf2\fs2` — white text at 1 pt — inside a balanced `{ ... }`
+  group.  White-on-white is invisible regardless of the PDF
+  converter's `\fs0` interpretation, and 1 pt keeps the line height
+  to ~1 px so no vertical space leaks either.
+
+Verified: the LibreOffice-rendered `output/demo/*_assembled_*.pdf`
+files no longer show the source-file title above each body section,
+and the PDF outline (bookmark panel) still lists all three sources.
+
 ## rtfreporter 0.0.35
 
 ### Outline label is now fully invisible (`\fs0`)

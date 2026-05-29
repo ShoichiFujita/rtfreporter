@@ -1165,11 +1165,18 @@
 
 # Build the RTF color table string from a character vector of hex colors.
 # Returns the RTF {\colortbl ...} string.
-# Color indices: 1 = first entry (after the implicit auto-color entry).
+#
+# Reserved color-table slots:
+#   index 1 = black (default text color)
+#   index 2 = white (used by assemble_rtf() to render the PDF-outline
+#             label as white-on-white invisible text -- see
+#             .insert_bookmark()).  Always present so assemble_rtf()
+#             can safely emit `\cf2` regardless of the user's color use.
+#
+# User colors therefore start at index 3.
 .build_color_table_rtf <- function(hex_colors) {
-  if (length(hex_colors) == 0L) {
-    return("{\\colortbl;\\red0\\green0\\blue0;}")
-  }
+  base <- "{\\colortbl;\\red0\\green0\\blue0;\\red255\\green255\\blue255;"
+  if (length(hex_colors) == 0L) return(paste0(base, "}"))
   entries <- vapply(hex_colors, function(h) {
     h <- sub("^#", "", h)
     r <- strtoi(substr(h, 1L, 2L), 16L)
@@ -1177,14 +1184,15 @@
     b <- strtoi(substr(h, 5L, 6L), 16L)
     sprintf("\\red%d\\green%d\\blue%d;", r, g, b)
   }, character(1L))
-  paste0("{\\colortbl;\\red0\\green0\\blue0;", paste(entries, collapse = ""), "}")
+  paste0(base, paste(entries, collapse = ""), "}")
 }
 
 # Build a named list mapping "#RRGGBB" -> integer color-table index (1-based).
-# Index 1 = black (auto), so user colors start at 2.
+# Index 1 = black, index 2 = white (reserved for invisible markers),
+# so user colors start at index 3.
 .build_color_index_map <- function(hex_colors) {
   if (length(hex_colors) == 0L) return(list())
-  idx <- seq_along(hex_colors) + 1L   # +1 because index 1 = black
+  idx <- seq_along(hex_colors) + 2L   # +2 because index 1 = black, 2 = white
   stats::setNames(as.list(idx), hex_colors)
 }
 

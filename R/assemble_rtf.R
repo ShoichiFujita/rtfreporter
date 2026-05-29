@@ -69,15 +69,21 @@
   if (!is.null(outline_label) && nzchar(outline_label)) {
     # \outlinelevelN -> LibreOffice maps to PDF outline entry.
     #
-    # \fs0 (size 0) makes the text completely invisible on screen while
-    # LO still recognises the paragraph as a heading via \outlinelevel.
-    # Previous versions used \fs2 (1pt) which was faintly visible.
-    # ydisctools (Yenu's r2rtf TOC helper) uses the same \fs0 trick.
-    # \sa0\sb0 keep the paragraph's footprint negligible: no surrounding
-    # spacing.  The outer { ... } scopes \plain\fs0 so it cannot bleed
-    # into the following content.
+    # Invisibility strategy (matches ydisctools / Yenu's r2rtf TOC):
+    #   \cf2  -> white text colour (rtfreporter reserves colour-table
+    #            index 2 for white -- see .build_color_table_rtf()).
+    #            White-on-white renders zero visible pixels regardless
+    #            of font size.
+    #   \fs2  -> 1-pt size keeps the line height to ~1 px so the
+    #            paragraph also takes negligible vertical space.
+    #            (We previously tried \fs0, but LibreOffice treats
+    #            size 0 as "use default" and renders the label at
+    #            ~12 pt -- which is what motivated this fix.)
+    #
+    # The outer { ... } scopes \plain\cf2\fs2 so the format state
+    # cannot bleed into the following content.
     inserts <- c(inserts,
-      sprintf("{\\pard\\plain\\fs0\\sa0\\sb0\\outlinelevel%d %s\\par}",
+      sprintf("{\\pard\\plain\\cf2\\fs2\\sa0\\sb0\\outlinelevel%d %s\\par}",
               as.integer(outline_level), .toc_escape(outline_label)))
   }
   c(content[1L:sectd_idx], inserts,

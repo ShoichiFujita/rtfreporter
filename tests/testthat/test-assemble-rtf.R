@@ -548,7 +548,7 @@ test_that("TOC label characters get RTF-escaped (backslash, braces, unicode)", {
 # The fix wraps every formatted paragraph in `{ ... }` so the format
 # state is local.  Below we lock that down structurally.
 
-test_that("outline paragraph wraps \\fs0 in a group (no leak into body)", {
+test_that("outline paragraph uses \\cf2\\fs2 in a balanced group (invisible, no leak)", {
   f1 <- .write_demo_rtf("Body 1")
   f2 <- .write_demo_rtf("Body 2")
   on.exit(unlink(c(f1, f2)), add = TRUE)
@@ -557,19 +557,21 @@ test_that("outline paragraph wraps \\fs0 in a group (no leak into body)", {
                toc       = c("Entry A", "Entry B"),
                overwrite = TRUE)
   txt <- paste(readLines(out, warn = FALSE), collapse = "\n")
-  # Outline paragraph must be a fully-balanced group.  v0.0.35
-  # switched \fs2 (1pt visible) to \fs0 (size 0, invisible) so that
-  # the outline label is not even faintly readable on screen.
+  # v0.0.36: outline label uses \cf2 (white text) + \fs2 (1pt) inside
+  # a balanced { ... } group.  White-on-white renders zero visible
+  # pixels in every PDF converter we know of (LibreOffice rendered
+  # \fs0 at default size, so explicit \fs2 + white colour is needed).
   expect_match(txt,
-               "\\{\\\\pard\\\\plain\\\\fs0\\\\sa0\\\\sb0\\\\outlinelevel0[^\\}]*\\\\par\\}")
-  # Bare \fs0 followed by \par WITHOUT a closing `}` would mean the
-  # size-0 setting leaks across the paragraph boundary.  Forbid that.
+               "\\{\\\\pard\\\\plain\\\\cf2\\\\fs2\\\\sa0\\\\sb0\\\\outlinelevel0[^\\}]*\\\\par\\}")
+  # Bare close (no `}` after \par) would mean format state leaks.
   expect_false(
-    grepl("\\\\fs0\\\\sa0\\\\sb0\\\\outlinelevel0[^\\}]*\\\\par(?!\\})",
+    grepl("\\\\cf2\\\\fs2\\\\sa0\\\\sb0\\\\outlinelevel0[^\\}]*\\\\par(?!\\})",
           txt, perl = TRUE)
   )
-  # And the old 1-pt size must no longer appear in this context.
-  expect_false(grepl("\\\\fs2\\\\sa0\\\\sb0\\\\outlinelevel0", txt))
+  # The colour-table must contain white at index 2 so `\cf2` resolves
+  # to white-on-white.  Match the actual entry text.
+  expect_match(txt,
+               "\\\\colortbl;\\\\red0\\\\green0\\\\blue0;\\\\red255\\\\green255\\\\blue255;")
 })
 
 test_that("cover paragraphs do not emit bare \\fs0 (leak source)", {
