@@ -8,6 +8,59 @@ test_that("rtf_theme() requires the optional R6 package", {
   expect_s3_class(th, "R6")
 })
 
+test_that("rtf_theme() validates border zone arguments at construction", {
+  skip_if_not_installed("R6")
+  expect_error(rtf_theme(border_header   = "nope"), "border_header.*rtf_border")
+  expect_error(rtf_theme(border_spanning = 1L),     "border_spanning.*rtf_border")
+  expect_error(rtf_theme(border_body     = TRUE),   "border_body.*rtf_border")
+  expect_error(rtf_theme(border_first_row = NA),    "border_first_row.*rtf_border")
+  expect_error(rtf_theme(border_last_row  = list()),"border_last_row.*rtf_border")
+})
+
+test_that("print(rtf_theme) reports the borders and state", {
+  skip_if_not_installed("R6")
+  th <- rtf_theme_tfl()
+  txt <- paste(capture.output(print(th)), collapse = "\n")
+  expect_match(txt, "<rtf_theme")
+  expect_match(txt, "header.*<rtf_border>")
+  expect_match(txt, "spanning.*none")
+  expect_match(txt, "header_align.*inherit")
+  expect_match(txt, "header_bold.*FALSE")
+})
+
+test_that("print(rtf_theme) shows explicit header_align when set", {
+  skip_if_not_installed("R6")
+  th <- rtf_theme(header_align = "right")
+  txt <- paste(capture.output(print(th)), collapse = "\n")
+  expect_match(txt, "header_align : right")
+})
+
+test_that("rtf_theme() accepts every initialize parameter end-to-end", {
+  skip_if_not_installed("R6")
+  th <- rtf_theme(
+    border_header = rtf_border_top(),
+    border_body   = rtf_border_bottom(),
+    header_italic = TRUE,
+    italic        = TRUE,
+    underline     = TRUE,
+    cell_padding_left_twips  = 50L,
+    cell_padding_right_twips = 50L,
+    row_height_twips         = 240L
+  )
+  expect_true(th$header_italic)
+  expect_true(th$italic)
+  expect_true(th$underline)
+  expect_identical(th$cell_padding_left_twips,  50L)
+  expect_identical(th$cell_padding_right_twips, 50L)
+  expect_identical(th$row_height_twips,         240L)
+  expect_s3_class(th$border_body, "rtf_border")
+})
+
+test_that(".refresh_theme is a no-op for a tbl without theme", {
+  tbl <- rtftable(data.frame(A = 1L))
+  expect_identical(rtfreporter:::.refresh_theme(tbl), tbl)
+})
+
 test_that("rtf_theme_tfl() returns the canonical TFL preset as an R6 theme", {
   skip_if_not_installed("R6")
   th <- rtf_theme_tfl()

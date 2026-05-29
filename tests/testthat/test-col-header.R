@@ -200,3 +200,136 @@ test_that("incremental builder produces the same internal shape as one-shot cons
     add_col_header_row(c("Item", "N", "M", "N", "M"))
   expect_identical(unclass(one_shot), unclass(built))
 })
+
+# ──────── col_cell text-decoration flags propagate ────────────────────────
+
+test_that("col_cell() preserves bold / italic / underline / align", {
+  c1 <- col_cell(1, "X", align = "right", bold = TRUE,
+                  italic = TRUE, underline = TRUE)
+  expect_true(c1$bold)
+  expect_true(c1$italic)
+  expect_true(c1$underline)
+  expect_identical(c1$align, "right")
+  # Default-FALSE decorations leave the field absent.
+  c2 <- col_cell(1, "X")
+  expect_null(c2$bold)
+  expect_null(c2$italic)
+  expect_null(c2$underline)
+  expect_null(c2$align)
+})
+
+# ──────── print methods ───────────────────────────────────────────────────
+
+test_that("print.rtf_col_cell prints single-position cells", {
+  txt <- paste(capture.output(print(col_cell(2, "Label"))), collapse = "\n")
+  expect_match(txt, "<col_cell pos=2")
+  expect_match(txt, "label=")
+  expect_match(txt, "Label")
+})
+
+test_that("print.rtf_col_cell prints range, decorations, and align", {
+  cc <- col_cell(c(2, 4), "Group", align = "center",
+                 bold = TRUE, italic = TRUE, underline = TRUE)
+  txt <- paste(capture.output(print(cc)), collapse = "\n")
+  expect_match(txt, "pos=2\\.\\.4")
+  expect_match(txt, "align=center")
+  expect_match(txt, "\\[biu\\]")
+})
+
+test_that("print.rtf_col_header summarises a multi-row header", {
+  hd <- rtf_col_header(
+    list(col_cell(c(1, 2), "Pair"), col_cell(3, "Solo")),
+    c("A", "B", "C")
+  )
+  txt <- paste(capture.output(print(hd)), collapse = "\n")
+  expect_match(txt, "<rtf_col_header.*2 rows>")
+  expect_match(txt, "cells:")
+  expect_match(txt, "Pair@1-2")
+  expect_match(txt, "Solo@3")
+  expect_match(txt, "labels:")
+})
+
+test_that("print.rtf_col_header reports single-row in singular form", {
+  hd <- rtf_col_header(c("A", "B"))
+  txt <- paste(capture.output(print(hd)), collapse = "\n")
+  expect_match(txt, "1 row>")
+})
+
+# ──────── .pos_row_to_spans error branches ────────────────────────────────
+
+test_that(".pos_row_to_spans returns empty for an empty row", {
+  res <- rtfreporter:::.pos_row_to_spans(list(), ncol_df = 3L)
+  expect_identical(res, list())
+})
+
+test_that(".pos_row_to_spans errors on missing pos", {
+  expect_error(
+    rtfreporter:::.pos_row_to_spans(list(list(label = "X")), ncol_df = 3L),
+    "missing `pos`"
+  )
+})
+
+test_that(".pos_row_to_spans errors on pos with > 2 elements", {
+  expect_error(
+    rtfreporter:::.pos_row_to_spans(
+      list(list(pos = c(1L, 2L, 3L), label = "X")), ncol_df = 5L),
+    "scalar or a length-2"
+  )
+})
+
+test_that(".pos_row_to_spans errors on inverted range (from > to)", {
+  expect_error(
+    rtfreporter:::.pos_row_to_spans(
+      list(list(pos = c(3L, 1L), label = "X")), ncol_df = 5L),
+    "must be <="
+  )
+})
+
+test_that(".pos_row_to_spans errors when range is outside the data column range", {
+  expect_error(
+    rtfreporter:::.pos_row_to_spans(
+      list(list(pos = c(1L, 6L), label = "X")), ncol_df = 5L),
+    "outside data column"
+  )
+  expect_error(
+    rtfreporter:::.pos_row_to_spans(
+      list(list(pos = 0L, label = "X")), ncol_df = 5L),
+    "outside data column"
+  )
+})
+
+test_that(".pos_row_to_spans errors on overlapping cells", {
+  expect_error(
+    rtfreporter:::.pos_row_to_spans(
+      list(list(pos = c(1L, 3L), label = "A"),
+           list(pos = c(2L, 4L), label = "B")),
+      ncol_df = 5L),
+    "overlaps"
+  )
+})
+
+test_that(".pos_row_to_spans fills gaps with empty cells + preserves decoration", {
+  res <- rtfreporter:::.pos_row_to_spans(
+    list(list(pos = c(2L, 3L), label = "X", bold = TRUE)),
+    ncol_df = 5L
+  )
+  # gap at column 1, the X span at 2..3, and the renderer treats trailing
+  # gaps as not necessary (the row stops at the last covered column).
+  expect_identical(res[[1L]]$from, 1L)
+  expect_identical(res[[1L]]$to,   1L)
+  expect_identical(res[[1L]]$label, "")
+  expect_identical(res[[2L]]$from, 2L)
+  expect_identical(res[[2L]]$to,   3L)
+  expect_identical(res[[2L]]$label, "X")
+  expect_true(isTRUE(res[[2L]]$bold))
+})
+
+test_that(".pos_row_to_spans fills cells whose label is NULL", {
+  # When the caller passes a cell without `label`, the helper sets "" as
+  # the default.
+  res <- rtfreporter:::.pos_row_to_spans(
+    list(list(pos = 2L)),
+    ncol_df = 3L
+  )
+  expect_identical(res[[2L]]$label, "")
+})
