@@ -68,13 +68,16 @@
             bookmark_name, bookmark_name))
   if (!is.null(outline_label) && nzchar(outline_label)) {
     # \outlinelevelN -> LibreOffice maps to PDF outline entry.
-    # Tiny visible text (\fs2 = 1pt) so LO recognises it as a heading
-    # paragraph.  \sa0\sb0 + \fi0\li0\ri0 keep the paragraph's footprint
-    # negligible: ~1 pixel tall, no surrounding spacing.
-    # The outer { ... } scopes \plain\fs2 so it cannot bleed into the
-    # following content.
+    #
+    # \fs0 (size 0) makes the text completely invisible on screen while
+    # LO still recognises the paragraph as a heading via \outlinelevel.
+    # Previous versions used \fs2 (1pt) which was faintly visible.
+    # ydisctools (Yenu's r2rtf TOC helper) uses the same \fs0 trick.
+    # \sa0\sb0 keep the paragraph's footprint negligible: no surrounding
+    # spacing.  The outer { ... } scopes \plain\fs0 so it cannot bleed
+    # into the following content.
     inserts <- c(inserts,
-      sprintf("{\\pard\\plain\\fs2\\sa0\\sb0\\outlinelevel%d %s\\par}",
+      sprintf("{\\pard\\plain\\fs0\\sa0\\sb0\\outlinelevel%d %s\\par}",
               as.integer(outline_level), .toc_escape(outline_label)))
   }
   c(content[1L:sectd_idx], inserts,

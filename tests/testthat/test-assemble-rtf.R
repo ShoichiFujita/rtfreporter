@@ -548,7 +548,7 @@ test_that("TOC label characters get RTF-escaped (backslash, braces, unicode)", {
 # The fix wraps every formatted paragraph in `{ ... }` so the format
 # state is local.  Below we lock that down structurally.
 
-test_that("outline paragraph wraps \\fs2 in a group (no leak into body)", {
+test_that("outline paragraph wraps \\fs0 in a group (no leak into body)", {
   f1 <- .write_demo_rtf("Body 1")
   f2 <- .write_demo_rtf("Body 2")
   on.exit(unlink(c(f1, f2)), add = TRUE)
@@ -557,15 +557,19 @@ test_that("outline paragraph wraps \\fs2 in a group (no leak into body)", {
                toc       = c("Entry A", "Entry B"),
                overwrite = TRUE)
   txt <- paste(readLines(out, warn = FALSE), collapse = "\n")
-  # Outline paragraph must be a fully-balanced group.
+  # Outline paragraph must be a fully-balanced group.  v0.0.35
+  # switched \fs2 (1pt visible) to \fs0 (size 0, invisible) so that
+  # the outline label is not even faintly readable on screen.
   expect_match(txt,
-               "\\{\\\\pard\\\\plain\\\\fs2\\\\sa0\\\\sb0\\\\outlinelevel0[^\\}]*\\\\par\\}")
-  # Bare \fs2 followed by \par WITHOUT a closing `}` would mean the
-  # 1-pt size leaks across the paragraph boundary.  Forbid that pattern.
+               "\\{\\\\pard\\\\plain\\\\fs0\\\\sa0\\\\sb0\\\\outlinelevel0[^\\}]*\\\\par\\}")
+  # Bare \fs0 followed by \par WITHOUT a closing `}` would mean the
+  # size-0 setting leaks across the paragraph boundary.  Forbid that.
   expect_false(
-    grepl("\\\\fs2\\\\sa0\\\\sb0\\\\outlinelevel0[^\\}]*\\\\par(?!\\})",
+    grepl("\\\\fs0\\\\sa0\\\\sb0\\\\outlinelevel0[^\\}]*\\\\par(?!\\})",
           txt, perl = TRUE)
   )
+  # And the old 1-pt size must no longer appear in this context.
+  expect_false(grepl("\\\\fs2\\\\sa0\\\\sb0\\\\outlinelevel0", txt))
 })
 
 test_that("cover paragraphs do not emit bare \\fs0 (leak source)", {
@@ -592,9 +596,9 @@ test_that("cover paragraphs do not emit bare \\fs0 (leak source)", {
 test_that("body table fs values survive cover+TOC prefix (no leak)", {
   # Direct end-to-end check: the body table content from each source
   # must keep its own font sizing intact after assembly.  We just
-  # confirm the body's \fs20 / \fs22 cell-content markers from
-  # rtfreporter's table renderer still appear after the cover + TOC
-  # prefix has been inserted.
+  # confirm the body's table-cell content from rtfreporter's table
+  # renderer still appears after the cover + TOC prefix has been
+  # inserted.
   f1 <- .write_demo_rtf("Body 1")
   f2 <- .write_demo_rtf("Body 2")
   on.exit(unlink(c(f1, f2)), add = TRUE)
@@ -608,6 +612,10 @@ test_that("body table fs values survive cover+TOC prefix (no leak)", {
   # still appear after the cover + TOC prefix.
   expect_match(txt, "Body 1")
   expect_match(txt, "Body 2")
-  # Sanity: no \fs0 anywhere (pre-fix the cover emitted it).
-  expect_false(grepl("\\\\fs0(\\\\|\\s|\\})", txt))
+  # Sanity: the cover-style "\fs0\par" closing must not appear (it was
+  # the original leak source -- v0.0.33 wrapped cover paragraphs in
+  # groups instead).  The outline paragraph's `\fs0\sa0\sb0...\par}`
+  # is allowed (and necessary) because it's already wrapped in a
+  # `{ ... }` group; we already test that structure above.
+  expect_false(grepl("\\\\fs0\\\\par", txt))
 })

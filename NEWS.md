@@ -1,5 +1,22 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.35
+
+### Outline label is now fully invisible (`\fs0`)
+
+`.insert_bookmark()`'s outline-label paragraph now uses `\fs0` (font
+size 0) instead of `\fs2` (1 pt).  v0.0.31's 1-pt text was faintly
+visible at the top of each source-file body section; the new size-0
+text occupies no rendered space at all while LibreOffice still
+recognises the paragraph as a heading via `\outlinelevel`, so the PDF
+outline / bookmark panel is unchanged.
+
+This matches the trick used by Yenu's `ydisctools` (which combines
+`\fs0` with a white `\cf` colour for double safety).
+
+The corresponding regression test in `tests/testthat/test-assemble-rtf.R`
+was updated to expect the `\fs0`-shaped balanced group.
+
 ## rtfreporter 0.0.34
 
 ### Bug fix: `{PAGE}` now increments across sub-pages of one rtf_section
