@@ -166,6 +166,7 @@ reference:
     contents:
       - rtftable
       - rtfplot
+      - as_rtftable
 
   - title: Headers, footers and tokens
     contents:
