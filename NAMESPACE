@@ -65,10 +65,6 @@ export(rtf_table_style)
 export(rtf_table_style_with)
 export(rtf_table_style_tfl)
 
-# Shared mutable theme (R6 — optional, requires the R6 package)
-export(rtf_theme)
-export(rtf_theme_tfl)
-
 # Border builder helper
 export(rtf_border_with)
 

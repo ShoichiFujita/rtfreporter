@@ -1,5 +1,53 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.41
+
+### Breaking change: removed `rtf_theme()` and the R6 dependency
+
+`rtf_theme()` was a small R6 class kept for the "broadcast-mutable
+defaults" use case -- mutate `theme$header_bold <- TRUE` once and
+every referencing table picks the change up at the next render.
+In practice this is also straightforward to do with the immutable
+S3 [rtf_table_style()] (build a fresh style once, then pass it
+to every table you build), and the second class was carrying its
+own weight in maintenance, in coverage drag (R6 method bodies
+are hard for `covr` to instrument cleanly), and in a `globalVariables("self")`
+hack to silence `R CMD check`.
+
+Removed:
+
+* `rtf_theme()`, `rtf_theme_tfl()`, the `theme =` argument of
+  [rtftable()], the `.refresh_theme()` renderer hook, the
+  `R6` Suggests entry, the `globalVariables("self")` declaration.
+* `vignettes/class-systems.Rmd` (the S3-vs-R6 tour was the only
+  remaining R6 user once the class itself was gone).
+
+Migration:
+
+```r
+# Before (R6)
+theme <- rtf_theme(header_bold = FALSE)
+t1 <- rtftable(df1, theme = theme)
+t2 <- rtftable(df2, theme = theme)
+theme$header_bold <- TRUE      # broadcast: both tables follow
+
+# After (S3, snapshot)
+style <- rtf_table_style(header_bold = TRUE)
+t1 <- rtftable(df1, style = style)
+t2 <- rtftable(df2, style = style)
+```
+
+The pipe API was always S3-only, so no pipe-style code is affected.
+
+### Test coverage lifted past 90%
+
+The full suite gained 17 targeted "fill-in" tests in a new
+`tests/testthat/test-coverage-fillins.R`, plus the rtf_theme
+removal dropped a chunk of hard-to-instrument R6 code from the
+denominator.  Net: total coverage `87.71% -> 91.88%`
+(test count `1092 -> 1085` -- net negative because removing R6
+also removed 31 tests).
+
 ## rtfreporter 0.0.40
 
 ### gt integration -- Phase C (completes the v0.1.0 roadmap)

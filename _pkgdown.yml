@@ -116,11 +116,6 @@ navbar:
           href: articles/external-api.html
         - text: "Internal class design (S3)"
           href: articles/internal-design.html
-        # ── For R-language learners (de-emphasised, separate section) ──
-        - text: -------
-        - text: "For R-language learners"
-        - text: "S3 vs R6 — a hands-on tour"
-          href: articles/class-systems.html
     news:
       text: Changelog
       href: news/index.html
@@ -214,15 +209,6 @@ reference:
       - rtf_table_style_with
       - rtf_table_style_tfl
 
-  - title: Shared mutable theme (R6, optional)
-    desc: >
-      Reference-semantics theme — mutate once, every referencing table
-      reflects the change at the next render.  Requires the optional
-      `R6` package.
-    contents:
-      - rtf_theme
-      - rtf_theme_tfl
-
   - title: Visual preview (S3 plot methods)
     desc: >
       Quick base-graphics wireframes of rtfreporter objects, for
@@ -274,15 +260,6 @@ articles:
     contents:
       - articles/external-api
       - articles/internal-design
-
-  - title: For R-language learners
-    desc: >
-      Side material that uses rtfreporter's own implementation as a
-      teaching example for R's class systems.  Not required reading
-      for package users.
-    navbar: ~
-    contents:
-      - class-systems
 
 # News configuration:
 # Until v0.1.0 we are publishing every dev release as one rolling section

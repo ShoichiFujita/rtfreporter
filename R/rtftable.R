@@ -268,7 +268,6 @@
   blank_rows = NULL,
   read_attributes = TRUE,
   style = NULL,
-  theme = NULL,
   col_rel_width = NULL,
   column_widths_twips = NULL,
   table_width_twips = NULL,
@@ -283,38 +282,6 @@
   cell_padding_right_twips = 0L,
   cell_valign = "bottom"
 ) {
-  # Capture the raw construction kwargs BEFORE any defaulting has happened,
-  # so that .refresh_theme() can re-run the constructor with an up-to-date
-  # theme snapshot at render time.  Only stored on the result when a theme
-  # is present (the common no-theme path pays nothing).
-  raw_args <- if (!is.null(theme)) list(
-    col_header = col_header, col_header_align = col_header_align,
-    spanning_header = spanning_header, col_spec = col_spec,
-    border = border, blank_rows = blank_rows,
-    read_attributes = read_attributes,
-    col_rel_width = col_rel_width, column_widths_twips = column_widths_twips,
-    table_width_twips = table_width_twips,
-    table_width_pct_of_writable = table_width_pct_of_writable,
-    table_width_pct = table_width_pct, table_align = table_align,
-    row_height_twips = row_height_twips, row_height_exact = row_height_exact,
-    header_row_height_twips = header_row_height_twips,
-    blank_row_height_twips = blank_row_height_twips,
-    cell_padding_left_twips = cell_padding_left_twips,
-    cell_padding_right_twips = cell_padding_right_twips,
-    cell_valign = cell_valign
-  ) else NULL
-
-  # -- theme (R6, optional) -- broadcast mutable defaults -----------------
-  # The theme is materialised as an rtf_table_style snapshot here AND the
-  # R6 reference is retained on the result so the renderer can re-snapshot
-  # on every render.  Explicit `style =` always wins over the theme.
-  if (!is.null(theme)) {
-    if (!inherits(theme, "rtf_theme")) {
-      stop("`theme` must be an rtf_theme R6 object.", call. = FALSE)
-    }
-    if (is.null(style)) style <- theme$as_style()
-  }
-
   # -- Resolve defaults from a shared style template, when supplied ---
   # The style provides defaults; explicit arguments always override.
   if (!is.null(style)) {
@@ -456,9 +423,7 @@
       blank_row_height_twips      = if (!is.null(blank_row_height_twips)) as.integer(blank_row_height_twips) else NULL,
       cell_padding_left_twips     = as.integer(cell_padding_left_twips),
       cell_padding_right_twips    = as.integer(cell_padding_right_twips),
-      cell_valign                 = cell_valign,
-      theme                       = theme,
-      .raw_args                   = raw_args
+      cell_valign                 = cell_valign
     ),
     class = "rtftable"
   )

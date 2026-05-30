@@ -115,9 +115,6 @@ plot.rtftable <- function(x, width = 8, ...) {
   oldpar <- graphics::par(mar = c(2, 2, 3, 2), xpd = NA)
   on.exit(graphics::par(oldpar), add = TRUE)
 
-  # Materialise theme defaults before measuring.
-  x <- .refresh_theme(x)
-
   # Column widths (relative).
   ref_df <- if (!is.null(x$data_list)) x$data_list[[1L]] else x$data
   ncols  <- if (is.null(ref_df)) 0L else ncol(ref_df)

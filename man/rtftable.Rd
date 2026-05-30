@@ -14,7 +14,6 @@ rtftable(
   blank_rows = NULL,
   read_attributes = TRUE,
   style = NULL,
-  theme = NULL,
   col_rel_width = NULL,
   column_widths_twips = NULL,
   table_width_twips = NULL,
@@ -63,7 +62,7 @@ contain: `col` (integer), `align` (`"left"`/`"center"`/`"right"`),
 - `"tfl"`: clinical TFL preset (header top+bottom, last-row bottom).
 - `"none"`: no borders.
 - An `rtf_table_border` object from `rtf_table_border()`.
-- An `rtf_table_style` R6 object (its border zones are used).}
+- An `rtf_table_style` object (its border zones are used).}
 
 \item{blank_rows}{Specification of blank separator rows. Accepts:
 - Integer vector of positions (`0` = before first row, `k` = after
@@ -83,14 +82,7 @@ argument is `NULL`. Set `FALSE` to ignore attributes.}
 \item{style}{Optional shared `rtf_table_style` (S3).  Provides default
 values for borders, alignment, cell padding, etc.; explicit arguments
 to `rtftable()` always override.  Snapshot semantics: each
-`rtftable()` call captures the style's current state at construction.
-For a *broadcast-mutable* theme, see [rtf_theme()].}
-
-\item{theme}{Optional shared `rtf_theme` (R6, requires the optional
-`R6` package).  Like `style =` but a reference is stored on the
-rtftable; the renderer re-reads the theme's current state on every
-render, so mutating the theme propagates to every referencing
-table.  Explicit `rtftable()` arguments always beat the theme.}
+`rtftable()` call captures the style's current state at construction.}
 
 \item{col_rel_width}{Numeric vector of relative column widths (e.g.
 `c(2, 1, 1)` makes the first column twice as wide as the others).}

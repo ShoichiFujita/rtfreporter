@@ -103,12 +103,7 @@ test_that("rtftable() rejects invalid alignment values", {
   )
 })
 
-# ──────── theme / style validation ────────────────────────────────────────
-
-test_that("rtftable() rejects a non-rtf_theme `theme`", {
-  expect_error(rtftable(data.frame(A = 1L), theme = list()),
-               "rtf_theme R6 object")
-})
+# ──────── style validation ────────────────────────────────────────────────
 
 test_that("rtftable() rejects a non-rtf_table_style `style`", {
   expect_error(rtftable(data.frame(A = 1L), style = "tfl"),
