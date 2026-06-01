@@ -26,7 +26,8 @@ rtftable(
   blank_row_height_twips = NULL,
   cell_padding_left_twips = 0L,
   cell_padding_right_twips = 0L,
-  cell_valign = "bottom"
+  cell_valign = "bottom",
+  cell_styles = NULL
 )
 }
 \arguments{
@@ -118,6 +119,20 @@ since v0.0.21; cell content sits flush against the cell border).}
 
 \item{cell_valign}{Vertical alignment: `"bottom"` (default), `"top"`,
 or `"center"`.}
+
+\item{cell_styles}{`NULL` (default), or a list of length `nrow(data)`.
+Each element is either `NULL` (no per-cell override for that row) or a
+named list with optional vectors of length `ncol(data)`:
+\describe{
+  \item{`bold`}{logical -- overrides `col_spec[[j]]$bold` when non-`NA`.}
+  \item{`italic`}{logical -- overrides `col_spec[[j]]$italic`.}
+  \item{`underline`}{logical -- overrides `col_spec[[j]]$underline`.}
+  \item{`indent_twips`}{integer -- overrides `col_spec[[j]]$indent_twips`
+    (replaces, does not add to, the column default).}
+}
+`NA` entries within a vector mean "no override; use the column default".
+This argument is populated automatically by [as_rtftable()] when reading
+from a `gt_tbl` or gtsummary table with `read = TRUE`.}
 }
 \value{
 An `rtftable` (S3) object suitable for use in `rtf_tables()`.

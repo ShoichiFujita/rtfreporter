@@ -162,9 +162,16 @@ as_rtftable <- function(gt_obj, read = TRUE, ...) {
     }
   }
 
+  # Phase D: cell_styles -- prefer user, fall back to gt-extracted.
+  if (!is.null(user_args$cell_styles)) {
+    call_args$cell_styles <- user_args$cell_styles
+  } else if (!is.null(gt_kwargs$cell_styles)) {
+    call_args$cell_styles <- gt_kwargs$cell_styles
+  }
+
   # All other arguments pass through verbatim.
   consumed <- c("data", "col_header", "col_spec",
-                "column_widths_twips", "col_rel_width")
+                "column_widths_twips", "col_rel_width", "cell_styles")
   for (k in setdiff(names(user_args), consumed)) {
     call_args[[k]] <- user_args[[k]]
   }

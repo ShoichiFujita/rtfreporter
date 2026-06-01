@@ -12,10 +12,12 @@ test_that(".resolve_gt_tokens(FALSE / NULL) -> empty", {
 
 test_that(".resolve_gt_tokens(TRUE) -> every implemented token", {
   tk <- rtfreporter:::.resolve_gt_tokens(TRUE)
-  # Phase A + Phase B + Phase C = 9 tokens (v0.0.40 ships all of them).
+  # Phase A + B + C + D = 12 tokens (v0.0.42 ships Phase D: styles,
+  # footnote_marks, strip_html).
   expect_setequal(tk, c("col_header", "alignment", "titles", "source_notes",
                         "spanning", "widths", "hidden",
-                        "footnotes", "stub"))
+                        "footnotes", "stub",
+                        "styles", "footnote_marks", "strip_html"))
 })
 
 test_that(".resolve_gt_tokens accepts a subset", {
@@ -736,4 +738,128 @@ test_that("rtf_tables(read_gt=TRUE) renders stub group rows + footnote block", {
   expect_match(txt, "Sub A")
   expect_match(txt, "Footnote text")
   expect_match(txt, "Source text")
+})
+
+
+# ──────── Phase D: styles / footnote_marks / strip_html ──────────────────────
+
+test_that("Phase D: cell_styles extracted from _styles (bold + indent)", {
+  skip_if_not_installed("gt")
+  df <- data.frame(a = c("x", "y", "z"), b = c(1L, 2L, 3L),
+                   stringsAsFactors = FALSE)
+  g <- gt::gt(df) |>
+    gt::tab_style(style = gt::cell_text(weight = "bold"),
+                  locations = gt::cells_body(rows = 1)) |>
+    gt::tab_style(style = gt::cell_text(indent = gt::px(20)),
+                  locations = gt::cells_body(rows = 2))
+
+  tbl <- as_rtftable(g, read = TRUE)
+  cs  <- tbl$cell_styles
+
+  expect_false(is.null(cs))
+  # Row 1: bold should be TRUE for all columns
+  expect_true(all(isTRUE(cs[[1L]]$bold[1L]),
+                  isTRUE(cs[[1L]]$bold[2L])))
+  # Row 2: indent should be 20px * 15 = 300 twips for all columns
+  expect_equal(cs[[2L]]$indent_twips[1L], 300L)
+  expect_equal(cs[[2L]]$indent_twips[2L], 300L)
+  # Row 3: no override (NULL)
+  expect_null(cs[[3L]])
+})
+
+test_that("Phase D: cell_styles applied -- bold row generates \b in RTF", {
+  skip_if_not_installed("gt")
+  df <- data.frame(x = c("hello", "world"), stringsAsFactors = FALSE)
+  g  <- gt::gt(df) |>
+    gt::tab_style(style = gt::cell_text(weight = "bold"),
+                  locations = gt::cells_body(rows = 1))
+
+  tbl <- as_rtftable(g, read = TRUE)
+  doc <- rtf_document() |>
+    rtf_section(page = 1, secinfo = list(header = NULL, footer = NULL)) |>
+    rtf_tables(list(tbl))
+
+  out <- tempfile(fileext = ".rtf"); on.exit(unlink(out), add = TRUE)
+  generate_rtfreport(doc, out, overwrite = TRUE)
+  txt <- paste(readLines(out, warn = FALSE), collapse = "")
+  # Bold markup must appear somewhere in the output
+  expect_match(txt, "\\\\b ")
+})
+
+test_that("Phase D: indent applied -- \\\\li > baseline in RTF", {
+  skip_if_not_installed("gt")
+  df <- data.frame(x = c("flat", "indented"), stringsAsFactors = FALSE)
+  g  <- gt::gt(df) |>
+    gt::tab_style(style = gt::cell_text(indent = gt::px(20)),
+                  locations = gt::cells_body(rows = 2))
+
+  tbl <- as_rtftable(g, read = TRUE)
+  doc <- rtf_document() |>
+    rtf_section(page = 1, secinfo = list(header = NULL, footer = NULL)) |>
+    rtf_tables(list(tbl))
+
+  out <- tempfile(fileext = ".rtf"); on.exit(unlink(out), add = TRUE)
+  generate_rtfreport(doc, out, overwrite = TRUE)
+  txt <- paste(readLines(out, warn = FALSE), collapse = "")
+  # \li300 or higher (300 = 20px * 15 twips/px) must appear for the indented row
+  expect_match(txt, "\\li[3-9][0-9]{2,}")
+})
+
+test_that("Phase D: footnote_marks injected into data cells as superscript", {
+  skip_if_not_installed("gt")
+  df <- data.frame(a = c("x", "y"), b = c(1L, 2L), stringsAsFactors = FALSE)
+  g  <- gt::gt(df) |>
+    gt::tab_footnote(footnote = "Note one",
+                     locations = gt::cells_body(rows = 1, columns = a))
+
+  tbl <- as_rtftable(g, read = c("col_header", "footnote_marks"))
+  # The cell value for (row=1, col=a) should contain the mark
+  expect_match(tbl$data$a[1L], "\\^\\{1\\}", fixed = FALSE)
+  # Other cells unchanged
+  expect_false(grepl("^{", tbl$data$a[2L], fixed = TRUE))
+})
+
+test_that("Phase D: .strip_html_from_df removes tags, converts <br> to newline", {
+  # Test the helper directly -- no gt object needed.
+  df  <- data.frame(a = c("<b>bold</b>", "plain", "<br/>line2",
+                           "<span style='color:red'>red</span>"),
+                    b = c(1L, 2L, 3L, 4L),   # integer column: must be untouched
+                    stringsAsFactors = FALSE)
+  out <- rtfreporter:::.strip_html_from_df(df)
+  expect_equal(out$a[1L], "bold")
+  expect_equal(out$a[2L], "plain")
+  expect_equal(out$a[3L], "\nline2")
+  expect_equal(out$a[4L], "red")
+  # Integer column unchanged
+  expect_equal(out$b, c(1L, 2L, 3L, 4L))
+})
+
+test_that("Phase D: cell_styles NULL when read = FALSE", {
+  skip_if_not_installed("gt")
+  df <- data.frame(x = 1:3)
+  g  <- gt::gt(df) |>
+    gt::tab_style(style = gt::cell_text(weight = "bold"),
+                  locations = gt::cells_body(rows = 1))
+  tbl <- as_rtftable(g, read = FALSE)
+  expect_null(tbl$cell_styles)
+})
+
+test_that("Phase D: rtftable() cell_styles argument wires through to renderer", {
+  df <- data.frame(a = c("row1", "row2"), b = c(10L, 20L))
+  cs <- list(
+    list(bold = c(TRUE, FALSE), italic = c(NA, NA),
+         underline = c(NA, NA), indent_twips = c(NA_integer_, NA_integer_)),
+    NULL
+  )
+  tbl <- rtftable(df, cell_styles = cs)
+  expect_equal(tbl$cell_styles, cs)
+
+  # Render and verify \b appears for row 1 col 1
+  doc <- rtf_document() |>
+    rtf_section(page = 1, secinfo = list(header = NULL, footer = NULL)) |>
+    rtf_tables(list(tbl))
+  out <- tempfile(fileext = ".rtf"); on.exit(unlink(out), add = TRUE)
+  generate_rtfreport(doc, out, overwrite = TRUE)
+  txt <- paste(readLines(out, warn = FALSE), collapse = "")
+  expect_match(txt, "\\b ")
 })

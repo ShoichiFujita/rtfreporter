@@ -280,7 +280,8 @@
   blank_row_height_twips = NULL,
   cell_padding_left_twips = 0L,
   cell_padding_right_twips = 0L,
-  cell_valign = "bottom"
+  cell_valign = "bottom",
+  cell_styles = NULL
 ) {
   # -- Resolve defaults from a shared style template, when supplied ---
   # The style provides defaults; explicit arguments always override.
@@ -402,6 +403,24 @@
     stop("`cell_valign` must be 'top', 'center', or 'bottom'.", call. = FALSE)
   }
 
+  # Validate and normalise cell_styles.
+  # Must be NULL or a list of length == total data rows.
+  total_rows <- if (!is.null(data_single)) nrow(data_single)
+                else sum(vapply(data_list, nrow, integer(1L)))
+  cell_styles_resolved <- NULL
+  if (!is.null(cell_styles)) {
+    if (!is.list(cell_styles)) {
+      stop("`cell_styles` must be a list (one element per data row) or NULL.",
+           call. = FALSE)
+    }
+    if (length(cell_styles) != total_rows) {
+      stop(sprintf(
+        "`cell_styles` length (%d) must equal the number of data rows (%d).",
+        length(cell_styles), total_rows), call. = FALSE)
+    }
+    cell_styles_resolved <- cell_styles
+  }
+
   structure(
     list(
       data                        = data_single,
@@ -423,7 +442,8 @@
       blank_row_height_twips      = if (!is.null(blank_row_height_twips)) as.integer(blank_row_height_twips) else NULL,
       cell_padding_left_twips     = as.integer(cell_padding_left_twips),
       cell_padding_right_twips    = as.integer(cell_padding_right_twips),
-      cell_valign                 = cell_valign
+      cell_valign                 = cell_valign,
+      cell_styles                 = cell_styles_resolved
     ),
     class = "rtftable"
   )

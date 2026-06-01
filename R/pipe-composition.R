@@ -323,6 +323,9 @@ rtf_tables <- function(doc, tables,
                        else if (!is.null(gtx) && !is.null(gtx$col_rel_width))
                          gtx$col_rel_width
                        else NULL
+      # Phase D: cell_styles from gt extraction (user has no rtf_tables()-level
+      # override; cell_styles can only be set on individual rtftable() objects).
+      eff_cell_styles <- if (!is.null(gtx)) gtx$cell_styles else NULL
       .new_rtftable(
         data                        = item,
         col_header                  = eff_col_header,
@@ -345,7 +348,8 @@ rtf_tables <- function(doc, tables,
         blank_row_height_twips      = blank_row_height_twips,
         cell_padding_left_twips     = cell_padding_left_twips,
         cell_padding_right_twips    = cell_padding_right_twips,
-        cell_valign                 = cell_valign
+        cell_valign                 = cell_valign,
+        cell_styles                 = eff_cell_styles
       )
     } else {
       item

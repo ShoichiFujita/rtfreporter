@@ -65,9 +65,34 @@
 #   2. _stubhead$label is used as the column-header label for the stub
 #      column (boxhead type == "stub") when col_header is also active.
 .GT_TOKENS_PHASE_C <- c("footnotes", "stub")
+
+# Phase D (v0.0.42): per-cell styles from `_styles`, footnote-mark injection
+# into data cells, and HTML tag removal from rendered cell values.
+#
+# "styles"         -- reads `_styles` for locname=="data" cells.  Extracts
+#                     bold (weight="bold"), italic (style="italic"), underline
+#                     (decorate contains "underline"), and indent (indent="Npx")
+#                     from cell_text style items and stores them in the returned
+#                     `cell_styles` list (format: list per row, vectors per col).
+#                     Populates `rtftable$cell_styles` via as_rtftable() /
+#                     rtf_tables().
+#
+# "footnote_marks" -- reads `_footnotes` for locname=="data" cells.  Appends
+#                     the mark character (as rtfreporter `^{mark}` superscript
+#                     markup) to each affected data cell value.  The mark
+#                     sequence is derived from the `footnotes_marks` option
+#                     ("numbers" by default).
+#
+# "strip_html"     -- strips HTML tags from character cell values.  Replaces
+#                     `<br>` / `<br/>` with a newline (rendered as RTF \line);
+#                     all other tags are dropped.  Applied after footnote-mark
+#                     injection so marks are not accidentally stripped.
+.GT_TOKENS_PHASE_D <- c("styles", "footnote_marks", "strip_html")
+
 .GT_TOKENS_ALL     <- c(.GT_TOKENS_PHASE_A,
                         .GT_TOKENS_PHASE_B,
-                        .GT_TOKENS_PHASE_C)
+                        .GT_TOKENS_PHASE_C,
+                        .GT_TOKENS_PHASE_D)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────
@@ -434,9 +459,15 @@
   }
   visible_mask <- !drop_mask
 
+  # visible_vars: variable names that survive the hidden/stub mask.
+  # Used by Phase D extractors that need to map colname -> column index.
+  visible_vars <- if (!is.null(boxh) && "var" %in% names(boxh))
+                    as.character(boxh$var)[visible_mask]
+                  else
+                    names(out$data)
+
   if (any(drop_mask)) {
-    keep_vars   <- as.character(boxh$var)[visible_mask]
-    keep_in_df  <- intersect(keep_vars, names(out$data))
+    keep_in_df  <- intersect(visible_vars, names(out$data))
     out$data    <- out$data[, keep_in_df, drop = FALSE]
   }
 
@@ -540,7 +571,255 @@
     out$footnotes_block <- c(fn_texts, src_notes)
   }
 
+  # ---- Phase D: footnote_marks, styles, strip_html ────────────────────
+  # Order matters:
+  #   1. "footnote_marks" -- inject mark characters into data cell values
+  #      BEFORE HTML stripping so the ^{...} markup survives the strip pass.
+  #   2. "strip_html"     -- strip HTML from (now mark-annotated) cell values.
+  #   3. "styles"         -- extract per-cell formatting from _styles.
+  #      Done last because it does not modify data; it only produces the
+  #      cell_styles list used by the rtftable renderer.
+
+  if ("footnote_marks" %in% tokens) {
+    out$data <- .inject_footnote_marks(out$data, gt_obj,
+                                       visible_mask = visible_mask,
+                                       visible_vars = visible_vars)
+  }
+
+  if ("strip_html" %in% tokens) {
+    out$data <- .strip_html_from_df(out$data)
+  }
+
+  if ("styles" %in% tokens) {
+    cs <- .extract_cell_styles(gt_obj,
+                                visible_mask = visible_mask,
+                                visible_vars = visible_vars,
+                                n_data_rows  = nrow(out$data))
+    if (!is.null(cs)) out$cell_styles <- cs
+  }
+
   out
+}
+
+
+# ── Phase D extractors ───────────────────────────────────────────────────
+
+# Parse a gt "Npx" indent string to integer twips (96 dpi: 1px = 15 twips).
+.parse_gt_indent_px <- function(x) {
+  s <- trimws(as.character(x))
+  v <- suppressWarnings(as.numeric(sub("\\s*px\\s*$", "", s, ignore.case = TRUE)))
+  if (is.na(v)) return(NA_integer_)
+  as.integer(round(v * 15))
+}
+
+# Extract per-cell styles from gt_obj[["_styles"]] for body (locname=="data")
+# cells.  Returns NULL when no relevant styles are present.
+#
+# Output: list of length nrow(data) where each element is NULL or a named list:
+#   list(bold         = logical(ncol),  # NA = no override
+#        italic       = logical(ncol),
+#        underline    = logical(ncol),
+#        indent_twips = integer(ncol))
+.extract_cell_styles <- function(gt_obj, visible_mask = NULL,
+                                  visible_vars = NULL, n_data_rows = NULL) {
+  styles_df <- gt_obj[["_styles"]]
+  if (is.null(styles_df) || !nrow(styles_df)) return(NULL)
+
+  data_st <- styles_df[styles_df$locname == "data", , drop = FALSE]
+  if (!nrow(data_st)) return(NULL)
+
+  # Build visible_vars if not provided
+  boxh <- gt_obj[["_boxhead"]]
+  if (is.null(visible_vars)) {
+    all_vars <- if (!is.null(boxh)) as.character(boxh$var) else character()
+    visible_vars <- if (!is.null(visible_mask) && length(visible_mask) == length(all_vars))
+                     all_vars[visible_mask]
+                   else
+                     all_vars
+  }
+  ncols <- length(visible_vars)
+  if (ncols == 0L) return(NULL)
+
+  rownums <- as.integer(data_st$rownum)
+  valid   <- !is.na(rownums)
+  data_st <- data_st[valid, , drop = FALSE]
+  rownums <- rownums[valid]
+  if (!nrow(data_st)) return(NULL)
+
+  max_row <- if (!is.null(n_data_rows)) n_data_rows else max(rownums)
+  result  <- vector("list", max_row)
+
+  for (k in seq_len(nrow(data_st))) {
+    row_i <- rownums[k]
+    if (row_i < 1L || row_i > max_row) next
+
+    colnm <- as.character(data_st$colname[k])
+    col_j <- match(colnm, visible_vars)
+    if (is.na(col_j)) next
+
+    sty_list <- data_st$styles[[k]]
+    if (is.null(sty_list) || !length(sty_list)) next
+
+    for (sty_item in sty_list) {
+      if (!inherits(sty_item, "cell_text")) next
+
+      # Ensure the row slot is initialised
+      if (is.null(result[[row_i]])) {
+        result[[row_i]] <- list(
+          bold         = rep(NA,           ncols),
+          italic       = rep(NA,           ncols),
+          underline    = rep(NA,           ncols),
+          indent_twips = rep(NA_integer_,  ncols)
+        )
+      }
+      r <- result[[row_i]]
+
+      if (!is.null(sty_item$weight)) {
+        r$bold[col_j] <- identical(as.character(sty_item$weight), "bold")
+      }
+      if (!is.null(sty_item$style)) {
+        r$italic[col_j] <- identical(as.character(sty_item$style), "italic")
+      }
+      if (!is.null(sty_item$decorate)) {
+        r$underline[col_j] <- grepl("underline",
+                                    as.character(sty_item$decorate),
+                                    fixed = TRUE)
+      }
+      if (!is.null(sty_item$indent)) {
+        twips <- .parse_gt_indent_px(sty_item$indent)
+        if (!is.na(twips)) r$indent_twips[col_j] <- twips
+      }
+      result[[row_i]] <- r
+    }
+  }
+
+  if (all(vapply(result, is.null, logical(1L)))) return(NULL)
+  result
+}
+
+
+# Generate the sequence of footnote-mark characters used by gt for `n`
+# unique footnotes under the given `marks_option` setting.
+.gt_footnote_mark_seq <- function(n, marks_option = "numbers") {
+  if (n <= 0L) return(character(0))
+  if (is.null(marks_option)) marks_option <- "numbers"
+  opt <- trimws(as.character(marks_option))
+
+  if (opt == "numbers") return(as.character(seq_len(n)))
+  if (opt == "letters") {
+    out <- character(n)
+    for (i in seq_len(n)) {
+      rpt <- (i - 1L) %/% 26L + 1L
+      out[i] <- paste(rep(letters[((i - 1L) %% 26L) + 1L], rpt), collapse = "")
+    }
+    return(out)
+  }
+  # "standard" / "extended" and anything else
+  base <- c("*", "†", "‡", "§", "¶", "#")
+  out  <- character(n)
+  for (i in seq_len(n)) {
+    idx  <- ((i - 1L) %% 6L) + 1L
+    rpt  <- (i - 1L) %/% 6L + 1L
+    out[i] <- paste(rep(base[idx], rpt), collapse = "")
+  }
+  out
+}
+
+# Inject footnote-mark superscripts into the data.frame cell values.
+# Marks are appended as rtfreporter `^{mark}` superscript markup.
+#
+# Returns a modified copy of `data` (or the original if nothing to do).
+.inject_footnote_marks <- function(data, gt_obj, visible_mask = NULL,
+                                    visible_vars = NULL) {
+  fn_df <- gt_obj[["_footnotes"]]
+  if (is.null(fn_df) || !nrow(fn_df)) return(data)
+
+  # Only data-cell entries
+  fn_data <- fn_df[fn_df$locname == "data", , drop = FALSE]
+  if (!nrow(fn_data)) return(data)
+
+  # Build visible_vars if not provided
+  boxh <- gt_obj[["_boxhead"]]
+  if (is.null(visible_vars)) {
+    all_vars <- if (!is.null(boxh)) as.character(boxh$var) else character()
+    visible_vars <- if (!is.null(visible_mask) && length(visible_mask) == length(all_vars))
+                     all_vars[visible_mask]
+                   else
+                     all_vars
+  }
+  if (!length(visible_vars)) return(data)
+
+  # Retrieve footnotes_marks option from gt_obj[["_options"]]
+  marks_opt <- "numbers"
+  opts_df   <- gt_obj[["_options"]]
+  if (!is.null(opts_df) && "parameter" %in% names(opts_df)) {
+    m_rows <- opts_df[opts_df$parameter == "footnotes_marks", , drop = FALSE]
+    if (nrow(m_rows) > 0L && !is.null(m_rows$value)) {
+      v <- m_rows$value[[1L]]
+      if (!is.null(v)) marks_opt <- as.character(v)
+    }
+  }
+
+  # All unique footnote texts in the order they appear in fn_df (cross all
+  # locnames so the mark sequence matches gt's rendered output).
+  all_fn_texts <- character()
+  for (i in seq_len(nrow(fn_df))) {
+    texts_i <- fn_df$footnotes[[i]]
+    if (is.null(texts_i) || !length(texts_i)) next
+    for (t in texts_i) {
+      tv <- .flatten_to_chr(t)
+      if (!is.na(tv) && !tv %in% all_fn_texts) {
+        all_fn_texts <- c(all_fn_texts, tv)
+      }
+    }
+  }
+  if (!length(all_fn_texts)) return(data)
+  marks <- .gt_footnote_mark_seq(length(all_fn_texts), marks_opt)
+
+  # Apply marks to data cells
+  modified <- data
+  for (k in seq_len(nrow(fn_data))) {
+    row_i  <- as.integer(fn_data$rownum[k])
+    colnm  <- as.character(fn_data$colname[k])
+    if (is.na(row_i) || row_i < 1L || row_i > nrow(modified)) next
+    col_j  <- match(colnm, visible_vars)
+    if (is.na(col_j) || col_j > ncol(modified)) next
+
+    texts_k <- fn_data$footnotes[[k]]
+    if (is.null(texts_k) || !length(texts_k)) next
+
+    # Build the combined mark string for all footnotes on this cell
+    mark_str <- paste(vapply(texts_k, function(t) {
+      tv    <- .flatten_to_chr(t)
+      if (is.na(tv)) return("")
+      idx   <- match(tv, all_fn_texts)
+      if (is.na(idx)) return("")
+      paste0("^{", marks[idx], "}")
+    }, character(1L)), collapse = "")
+
+    if (nzchar(mark_str)) {
+      cur <- as.character(modified[[col_j]][row_i])
+      modified[[col_j]][row_i] <- paste0(cur, mark_str)
+    }
+  }
+  modified
+}
+
+
+# Strip HTML tags from all character columns of a data.frame.
+# <br> / <br/> are first replaced with \n (which rtfreporter maps to \line).
+# All other tags are removed.  Non-character columns are left unchanged.
+.strip_html_from_df <- function(data) {
+  for (j in seq_len(ncol(data))) {
+    col <- data[[j]]
+    if (!is.character(col)) next
+    # Replace <br> variants with newline
+    col <- gsub("<br\\s*/?>", "\n", col, ignore.case = TRUE, perl = TRUE)
+    # Strip remaining tags
+    col <- gsub("<[^>]+>", "", col, perl = TRUE)
+    data[[j]] <- col
+  }
+  data
 }
 
 

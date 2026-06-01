@@ -74,6 +74,19 @@
 #' @param cell_padding_right_twips Right cell padding in twips (default 0).
 #' @param cell_valign Vertical alignment: `"bottom"` (default), `"top"`,
 #'   or `"center"`.
+#' @param cell_styles `NULL` (default), or a list of length `nrow(data)`.
+#'   Each element is either `NULL` (no per-cell override for that row) or a
+#'   named list with optional vectors of length `ncol(data)`:
+#'   \describe{
+#'     \item{`bold`}{logical -- overrides `col_spec[[j]]$bold` when non-`NA`.}
+#'     \item{`italic`}{logical -- overrides `col_spec[[j]]$italic`.}
+#'     \item{`underline`}{logical -- overrides `col_spec[[j]]$underline`.}
+#'     \item{`indent_twips`}{integer -- overrides `col_spec[[j]]$indent_twips`
+#'       (replaces, does not add to, the column default).}
+#'   }
+#'   `NA` entries within a vector mean "no override; use the column default".
+#'   This argument is populated automatically by [as_rtftable()] when reading
+#'   from a `gt_tbl` or gtsummary table with `read = TRUE`.
 #'
 #' @return An `rtftable` (S3) object suitable for use in `rtf_tables()`.
 #'
@@ -106,7 +119,8 @@ rtftable <- function(data, col_header = NULL, col_header_align = NULL,
                      row_height_twips = NULL, row_height_exact = FALSE,
                      header_row_height_twips = NULL, blank_row_height_twips = NULL,
                      cell_padding_left_twips = 0L, cell_padding_right_twips = 0L,
-                     cell_valign = "bottom") {
+                     cell_valign = "bottom",
+                     cell_styles = NULL) {
   .new_rtftable(
     data                        = data,
     col_header                  = col_header,
@@ -129,7 +143,8 @@ rtftable <- function(data, col_header = NULL, col_header_align = NULL,
     blank_row_height_twips      = blank_row_height_twips,
     cell_padding_left_twips     = cell_padding_left_twips,
     cell_padding_right_twips    = cell_padding_right_twips,
-    cell_valign                 = cell_valign
+    cell_valign                 = cell_valign,
+    cell_styles                 = cell_styles
   )
 }
 

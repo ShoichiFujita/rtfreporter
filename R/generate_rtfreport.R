@@ -613,9 +613,14 @@
 }
 
 # Render one data row.
+# row_cell_styles: NULL, or a list with optional logical/integer vectors
+#   $bold, $italic, $underline, $indent_twips -- each of length ncols.
+#   NA values mean "no override; fall back to col_spec".
+#   Non-NA values win over col_spec for that column.
 .render_data_row <- function(vals, cellx, border_spec, row_height_twips,
                               pad_l, pad_r, valign_cmd, col_spec,
-                              table_align = "left") {
+                              table_align = "left",
+                              row_cell_styles = NULL) {
   ncols <- length(cellx)
   cell_defs     <- .build_cell_defs(cellx, border_spec, valign_cmd)
   cell_contents <- vapply(seq_len(ncols), function(j) {
@@ -627,6 +632,22 @@
     itl         <- isTRUE(spec$italic)
     ul          <- isTRUE(spec$underline)
     indent      <- as.integer(spec$indent_twips %||% 0L)
+    # Per-cell style overrides: non-NA entries win over col_spec defaults.
+    if (!is.null(row_cell_styles)) {
+      cs <- row_cell_styles
+      if (!is.null(cs$bold) && j <= length(cs$bold) &&
+          !is.na(cs$bold[j]))
+        bold   <- isTRUE(cs$bold[j])
+      if (!is.null(cs$italic) && j <= length(cs$italic) &&
+          !is.na(cs$italic[j]))
+        itl    <- isTRUE(cs$italic[j])
+      if (!is.null(cs$underline) && j <= length(cs$underline) &&
+          !is.na(cs$underline[j]))
+        ul     <- isTRUE(cs$underline[j])
+      if (!is.null(cs$indent_twips) && j <= length(cs$indent_twips) &&
+          !is.na(cs$indent_twips[j]))
+        indent <- as.integer(cs$indent_twips[j])
+    }
     .build_cell_content(text, align, bold, itl, ul, indent, pad_l, pad_r)
   }, character(1L))
   .build_row(cell_defs, cell_contents, row_height_twips, table_align)
@@ -636,11 +657,14 @@
 
 # Render one data.frame section of an rtftable (headers + data rows).
 # Used by both single-DF and multi-DF render paths.
+# cell_styles: NULL, or a list of length nrow(df) where each element is
+#   NULL (no override) or list($bold, $italic, $underline, $indent_twips).
 .render_rtftable_section <- function(
     df, col_headers, cellx, border, col_spec,
     hdr_h, data_h, blank_h, blank_set,
     pad_l, pad_r, valign_cmd,
-    spanning_header, table_align = "left") {
+    spanning_header, table_align = "left",
+    cell_styles = NULL) {
 
   ncols <- length(cellx)
   nrows <- nrow(df)
@@ -726,9 +750,12 @@
     if (i == nrows && !is.null(border$last_row)) {
       row_border <- .effective_row_border(row_border, border$last_row)
     }
+    rcs <- if (!is.null(cell_styles) && i <= length(cell_styles))
+             cell_styles[[i]] else NULL
     lines <- c(lines, .render_data_row(
       as.list(df[i, , drop = FALSE]),
-      cellx, row_border, data_h, pad_l, pad_r, valign_cmd, col_spec, table_align
+      cellx, row_border, data_h, pad_l, pad_r, valign_cmd, col_spec, table_align,
+      row_cell_styles = rcs
     ))
     if (i %in% blank_set) lines <- c(lines, .blank_row_rtf())
   }
@@ -785,12 +812,20 @@
 
   if (!is.null(tbl$data_list)) {
     # -- Multi-DF mode ----------------------------------------------------------
-    lines <- character()
+    lines  <- character()
+    cs_all <- tbl$cell_styles   # flat list covering all rows across DFs
+    row_offset <- 0L
     for (df_i in seq_along(tbl$data_list)) {
       df      <- tbl$data_list[[df_i]]
       # Per-DF header (NULL -> use column names of this DF).
       hdr_spec    <- tbl$col_header_list[[df_i]]
       col_headers <- hdr_spec %||% list(names(df))
+      n_this <- nrow(df)
+
+      # Slice the cell_styles window for this DF section.
+      cs_section <- if (!is.null(cs_all) && row_offset < length(cs_all)) {
+        cs_all[seq_len(n_this) + row_offset]
+      } else NULL
 
       lines <- c(lines, .render_rtftable_section(
         df          = df,
@@ -806,13 +841,15 @@
         pad_r       = pad_r,
         valign_cmd  = valign_cmd,
         spanning_header = tbl$spanning_header,
-        table_align     = table_align
+        table_align     = table_align,
+        cell_styles     = cs_section
       ))
+      row_offset <- row_offset + n_this
     }
     return(lines)
   }
 
-  # -- Single-DF mode (existing behaviour) ------------------------------------
+  # -- Single-DF mode ---------------------------------------------------------
   df          <- tbl$data
   col_headers <- tbl$col_header %||% list(names(df))
 
@@ -830,7 +867,8 @@
     pad_r       = pad_r,
     valign_cmd  = valign_cmd,
     spanning_header = tbl$spanning_header,
-    table_align     = table_align
+    table_align     = table_align,
+    cell_styles     = tbl$cell_styles
   )
 }
 
