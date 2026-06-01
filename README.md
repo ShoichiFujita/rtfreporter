@@ -108,8 +108,7 @@ backward-incompatible ways before v0.1.0. A short-term roadmap:
 - v0.3+ — CRAN submission, `pharmaverse` candidacy.
 
 See [`NEWS.md`](NEWS.md) for the user-facing changelog and
-[`CHANGELOG.md`](https://github.com/ichirio/rtfreporter/blob/main/CHANGELOG.md)
-for detailed per-version notes.
+[`CHANGELOG.md`](CHANGELOG.md) for detailed per-version notes.
 
 ## Contributing & bug reports
 
