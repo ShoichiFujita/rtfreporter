@@ -6,12 +6,20 @@
 #' across `paginate()` (page splitting) and `rtf_tables(read_gt = )`
 #' (metadata extraction):
 #'
-#' 1. **Read the table's metadata.**  For a `gt_tbl` (or any gtsummary
-#'    table, converted first via `gtsummary::as_gt()`), the column labels,
-#'    per-column alignment, spanning headers, widths, hidden-column removal,
-#'    stub / row-group structure, per-cell styles (bold / italic / underline
-#'    / indent), in-cell footnote marks, title / subtitle and source notes
-#'    are all extracted.  See [as_rtftable()] for the token list.
+#' 1. **Read the table's metadata.**  The supported source families are:
+#'    * **gt** -- a `gt_tbl`, or any **gtsummary** table (converted first via
+#'      `gtsummary::as_gt()`).  Column labels, per-column alignment, spanning
+#'      headers, widths, hidden-column removal, stub / row-group structure,
+#'      per-cell styles (bold / italic / underline / indent), in-cell footnote
+#'      marks, title / subtitle and source notes are extracted.  See
+#'      [as_rtftable()] for the gt token list.
+#'    * **rtables / tern** -- any `VTableTree` (`TableTree` / `ElementaryTable`;
+#'      tern's analysis functions all return one).  Read through
+#'      `formatters::matrix_form()`: leaf + spanning column headers, per-column
+#'      alignment, the row-label stub with its indentation, main title +
+#'      subtitles, the main / provenance footers and referential footnote
+#'      texts, and the in-cell numeric footnote marks (rewritten to
+#'      rtfreporter superscript markup).
 #' 2. **Paginate.**  The rendered body is split into per-page chunks using
 #'    the same strategies the old `paginate()` offered (`split`, `max_rows`,
 #'    `group_col`, blank-row controls, ...).  Per-cell styles are sliced to
@@ -23,16 +31,19 @@
 #' [rtf_tables()] consumes automatically -- so no `read_gt` flag is needed
 #' anymore.
 #'
-#' Supported inputs: `gt_tbl`, gtsummary tables, plain `data.frame` /
-#' tibble, or a `list` of any of these (the list is flattened, names
-#' propagated as `name`, `name.1`, `name.2`, ...).  Figures are out of
-#' scope -- use [rtf_figures()] for those.
+#' Supported inputs: `gt_tbl`, gtsummary tables, rtables/tern `VTableTree`
+#' tables, plain `data.frame` / tibble, or a `list` of any of these (the list
+#' is flattened, names propagated as `name`, `name.1`, `name.2`, ...).
+#' Figures are out of scope -- use [rtf_figures()] for those.
 #'
-#' @param x A `gt_tbl`, a gtsummary table, a `data.frame` / tibble, or a
-#'   `list` of these.
-#' @param read Passed to the gt metadata reader: `TRUE` (default, read
-#'   everything), `FALSE` (treat as a bare data.frame), or a character
-#'   vector of tokens.  Ignored for non-gt inputs.  See [as_rtftable()].
+#' @param x A `gt_tbl`, a gtsummary table, an rtables/tern `VTableTree`, a
+#'   `data.frame` / tibble, or a `list` of these.
+#' @param read Controls metadata extraction: `TRUE` (default, read
+#'   everything), `FALSE` (treat as a bare data.frame body), or a character
+#'   vector of tokens.  Ignored for plain data.frame inputs.  The token
+#'   vocabulary differs by source -- see [as_rtftable()] (gt) and the
+#'   package docs for the rtables tokens (`"col_header"`, `"alignment"`,
+#'   `"spanning"`, `"titles"`, `"footnotes"`, `"indent"`, `"footnote_marks"`).
 #' @param max_rows,split,split_rows,group_col,cont_label,blank_rows,blank_row_first,blank_row_end,align_count_pct
 #'   Pagination controls.  Identical meaning to the (now deprecated)
 #'   `paginate()`.  `split = "none"` (default) keeps the whole table as a
@@ -82,8 +93,8 @@ as_rtftables <- function(x,
   user_args <- list(...)
 
   # ---- list input: recurse, concatenate, propagate names ----------------
-  if (is.list(x) && !is.data.frame(x) &&
-      !.is_gt_tbl(x) && !.is_gtsummary_tbl(x)) {
+  if (is.list(x) && !is.data.frame(x) && !isS4(x) &&
+      !.is_gt_tbl(x) && !.is_gtsummary_tbl(x) && !.is_rtables_tbl(x)) {
     if (length(x) == 0L) return(list())
     in_names <- names(x)
     out <- list()
@@ -117,6 +128,13 @@ as_rtftables <- function(x,
   if (.is_gt_tbl(x)) {
     tokens          <- .resolve_gt_tokens(read)
     kw              <- .gt_to_rtftable_kwargs(x, tokens = tokens)
+    body            <- kw$data
+    cell_styles     <- kw$cell_styles
+    titles_block    <- kw$titles_block
+    footnotes_block <- kw$footnotes_block
+  } else if (.is_rtables_tbl(x)) {
+    tokens          <- .resolve_rtables_tokens(read)
+    kw              <- .rtables_to_rtftable_kwargs(x, tokens = tokens)
     body            <- kw$data
     cell_styles     <- kw$cell_styles
     titles_block    <- kw$titles_block

@@ -6,13 +6,22 @@ All notable changes to rtfreporter are documented in this file. Changes are reco
 
 ## v0.1.0 (TBD - when ready for public release)
 
-> **Status**: Currently in development as v0.0.44. Will be released as v0.1.0 when complete.
+> **Status**: Currently in development as v0.0.45. Will be released as v0.1.0 when complete.
 
-### ✨ Features (v0.0.38–v0.0.44) — gt & gtsummary integration
+### ✨ Features (v0.0.38–v0.0.45) — gt, gtsummary & rtables/tern integration
 
 rtfreporter can now build RTF tables directly from
-[gt](https://gt.rstudio.com), [gtsummary](https://www.danieldsjoberg.com/gtsummary/)
-and (via gt) [tfrmt](https://gsk-biostatistics.github.io/tfrmt/) tables.
+[gt](https://gt.rstudio.com), [gtsummary](https://www.danieldsjoberg.com/gtsummary/),
+(via gt) [tfrmt](https://gsk-biostatistics.github.io/tfrmt/), and the
+[rtables](https://insightsengineering.github.io/rtables/) /
+[tern](https://insightsengineering.github.io/tern/) family.
+
+* **rtables / tern** (v0.0.45): any `VTableTree` is read through
+  `formatters::matrix_form()` -- leaf + spanning column headers, per-column
+  alignment, the row-label stub with indentation, titles / subtitles, the
+  main / provenance footers and referential footnote texts, and in-cell
+  `{N}` marks rewritten to `^{N}`.  `formatters`, `rtables`, `tern` added to
+  `Suggests`.
 
 * **`as_rtftables()`** is the single entry point: it reads a table
   object's metadata **and** paginates the body, returning a list of

@@ -108,10 +108,8 @@ test_that("as_rtftable() accepts tbl_regression", {
 })
 
 test_that("as_rtftable() errors informatively for non-gt/non-gtsummary input", {
-  expect_error(as_rtftable(data.frame(a = 1)),
-               "gt_tbl or a gtsummary")
-  expect_error(as_rtftable(list()),
-               "gt_tbl or a gtsummary")
+  expect_error(as_rtftable(data.frame(a = 1)), "gt_tbl")
+  expect_error(as_rtftable(list()),            "gt_tbl")
 })
 
 

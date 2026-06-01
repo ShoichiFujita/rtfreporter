@@ -1,5 +1,34 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.45
+
+### New: rtables / tern input
+
+`as_rtftables()` (and `as_rtftable()`) now accept any rtables `VTableTree`
+-- the `TableTree` / `ElementaryTable` objects produced by **rtables** and
+by **tern** analysis functions.  The table is read through its canonical
+`formatters::matrix_form()` representation, so the extracted content
+matches what rtables itself renders:
+
+* Leaf and multi-level **spanning column headers** (from nested
+  `split_cols_by()`).
+* Per-column **alignment**.
+* The **row-label stub** with its **indentation** (mapped to per-cell
+  `indent_twips`); rtables label / group-header rows come through as
+  ordinary rows (already interleaved by `matrix_form()`).
+* **Titles**: main title + subtitles.
+* **Footnotes**: referential footnote texts plus the main and provenance
+  footers, appended to the page footnote block.
+* In-cell **footnote marks** `{N}` (e.g. `"37.7 {1}"`) rewritten to
+  rtfreporter `^{N}` superscript markup.
+
+`read = TRUE` (default) reads all of the above; pass a character vector of
+tokens (`"col_header"`, `"alignment"`, `"spanning"`, `"titles"`,
+`"footnotes"`, `"indent"`, `"footnote_marks"`) for selective control, or
+`read = FALSE` for the formatted body only.
+
+`rtables`, `formatters` and `tern` are added to `Suggests`.
+
 ## rtfreporter 0.0.44
 
 ### New: `as_rtftables()` -- one entry point for gt / gtsummary -> RTF

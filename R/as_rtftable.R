@@ -123,10 +123,13 @@ as_rtftable <- function(gt_obj, read = TRUE, ...) {
   if (.is_gtsummary_tbl(gt_obj)) {
     gt_obj <- .gtsummary_to_gt(gt_obj)
   }
-  if (!.is_gt_tbl(gt_obj)) {
-    stop("`gt_obj` must be a gt_tbl or a gtsummary table object.", call. = FALSE)
+  is_gt  <- .is_gt_tbl(gt_obj)
+  is_rtb <- .is_rtables_tbl(gt_obj)
+  if (!is_gt && !is_rtb) {
+    stop("`gt_obj` must be a gt_tbl, a gtsummary table, or an ",
+         "rtables/tern table (VTableTree).", call. = FALSE)
   }
-  if (!requireNamespace("gt", quietly = TRUE)) {
+  if (is_gt && !requireNamespace("gt", quietly = TRUE)) {
     stop("`as_rtftable()` requires the `gt` package.  Install it with ",
          "install.packages(\"gt\").", call. = FALSE)
   }

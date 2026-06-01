@@ -1,8 +1,8 @@
 ---
-title: "gt & gtsummary -> rtfreporter: building RTF tables"
+title: "gt, gtsummary & rtables -> rtfreporter: building RTF tables"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{gt & gtsummary -> rtfreporter: building RTF tables}
+  %\VignetteIndexEntry{gt, gtsummary & rtables -> rtfreporter: building RTF tables}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -119,6 +119,46 @@ HTML/CSS styling that RTF cannot reproduce; those visual details are
 dropped (see *Limitations* below).  Everything structural -- column
 labels, spanning headers, the stub / group rows, footnote texts and
 marks -- comes through.
+
+## rtables & tern
+
+`as_rtftables()` also accepts any **rtables** `VTableTree` -- including the
+tables produced by **tern** analysis functions, which are rtables objects.
+They are read through `formatters::matrix_form()`, so nested column splits
+become spanning headers, the row-label stub keeps its indentation, and the
+titles / footers / referential footnotes flow through.  In-cell footnote
+marks `{N}` are rewritten to `^{N}`.
+
+```{r, eval = requireNamespace("rtables", quietly = TRUE) && requireNamespace("formatters", quietly = TRUE)}
+library(rtables)
+
+lyt <- basic_table(title = "Table 2", main_footer = "Source: ADSL") |>
+  split_cols_by("ARM") |>
+  split_rows_by("RACE") |>
+  analyze("AGE", afun = function(x) {
+    in_rows("Mean (SD)" = rcell(c(mean(x), sd(x)), format = "xx.x (xx.x)"))
+  })
+
+set.seed(1)
+adsl <- data.frame(
+  ARM  = rep(c("Placebo", "Active"), each = 30),
+  RACE = rep(c("WHITE", "BLACK", "ASIAN"), 20),
+  AGE  = rnorm(60, 45, 8)
+)
+tern_like <- build_table(lyt, adsl)
+
+doc <- rtf_document() |>
+  rtf_section(page = 1, secinfo = list(header = NULL, footer = NULL)) |>
+  rtf_tables(as_rtftables(tern_like))
+
+out <- tempfile(fileext = ".rtf")
+generate_rtfreport(doc, out, overwrite = TRUE)
+file.exists(out)
+```
+
+The rtables `read` tokens are `"col_header"`, `"alignment"`, `"spanning"`,
+`"titles"`, `"footnotes"`, `"indent"`, `"footnote_marks"`; `read = TRUE`
+(default) reads them all.
 
 ## Splitting a long table across pages
 
