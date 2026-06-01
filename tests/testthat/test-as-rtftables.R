@@ -124,6 +124,46 @@ test_that("as_rtftable() delegates to as_rtftables and returns one rtftable", {
   expect_false(is.list(rt) && is.null(attr(rt, "class")))
 })
 
+# ── rtf_tables() overrides on as_rtftables() output ───────────────────────────
+
+test_that("explicit rtf_tables() args override as_rtftables(read=FALSE) output", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 2)[, c("mpg", "cyl")]) |>
+    gt::cols_label(mpg = "MPG")
+  doc <- rtf_document() |>
+    rtf_section(page = 1, secinfo = list(header = NULL, footer = NULL)) |>
+    rtf_tables(as_rtftables(g, read = FALSE),
+               col_rel_width = c(3, 1), table_align = "center")
+  expect_identical(doc$contents[[1L]]$col_rel_width, c(3, 1))
+  expect_identical(doc$contents[[1L]]$table_align, "center")
+})
+
+test_that("rtf_tables() overrides only explicit fields, keeps gt metadata", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 2)[, c("mpg", "cyl")]) |>
+    gt::cols_label(mpg = "MPG", cyl = "Cyl") |>
+    gt::cols_align("right")
+  doc <- rtf_document() |>
+    rtf_section(page = 1, secinfo = list(header = NULL, footer = NULL)) |>
+    rtf_tables(as_rtftables(g, read = TRUE), col_rel_width = c(4, 1))
+  # overridden
+  expect_identical(doc$contents[[1L]]$col_rel_width, c(4, 1))
+  # kept from gt
+  expect_identical(unlist(doc$contents[[1L]]$col_header[[1L]]), c("MPG", "Cyl"))
+  expect_identical(doc$contents[[1L]]$col_spec[[1L]]$align, "right")
+})
+
+test_that("col_spec override merges per-column over gt-derived spec", {
+  skip_if_not_installed("gt")
+  g <- gt::gt(head(mtcars, 2)[, c("mpg", "cyl")]) |> gt::cols_align("right")
+  doc <- rtf_document() |>
+    rtf_section(page = 1, secinfo = list(header = NULL, footer = NULL)) |>
+    rtf_tables(as_rtftables(g, read = TRUE),
+               col_spec = list(list(col = 1, align = "left")))
+  expect_identical(doc$contents[[1L]]$col_spec[[1L]]$align, "left")   # overridden
+  expect_identical(doc$contents[[1L]]$col_spec[[2L]]$align, "right")  # kept
+})
+
 # ── paginate() deprecation ────────────────────────────────────────────────────
 
 test_that("paginate() is deprecated but still functional", {

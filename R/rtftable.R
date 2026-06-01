@@ -448,3 +448,124 @@
     class = "rtftable"
   )
 }
+
+
+# Apply explicitly-passed rtf_tables() formatting overrides onto a pre-built
+# rtftable, in place of the table's own / gt-derived values.  `ov` is a named
+# list containing ONLY the arguments the caller passed explicitly (see
+# rtf_tables()); fields absent from `ov` are left untouched.  Each value is
+# normalised exactly as the rtftable() constructor would.
+.override_rtftable_fields <- function(tbl, ov) {
+  if (length(ov) == 0L) return(tbl)
+  has <- function(k) k %in% names(ov)
+
+  ref_df    <- if (!is.null(tbl$data_list)) tbl$data_list[[1L]] else tbl$data
+  ncol_df   <- if (!is.null(ref_df)) ncol(ref_df) else length(tbl$col_spec)
+  col_names <- if (!is.null(ref_df)) names(ref_df) else NULL
+
+  # -- column / table widths and placement (stored verbatim) --------------
+  if (has("col_rel_width"))        tbl$col_rel_width <- ov$col_rel_width
+  if (has("column_widths_twips"))  tbl$column_widths_twips <-
+      if (is.null(ov$column_widths_twips)) NULL else as.integer(ov$column_widths_twips)
+  if (has("table_width_twips"))    tbl$table_width_twips <- ov$table_width_twips
+  if (has("table_width_pct_of_writable"))
+    tbl$table_width_pct_of_writable <- ov$table_width_pct_of_writable
+  if (has("table_width_pct") && !is.null(ov$table_width_pct)) {
+    pct <- as.numeric(ov$table_width_pct)
+    if (is.na(pct) || pct <= 0 || pct > 100) {
+      stop("`table_width_pct` must be a number in (0, 100].", call. = FALSE)
+    }
+    tbl$table_width_pct_of_writable <- pct / 100
+  }
+  if (has("table_align")) {
+    if (!ov$table_align %in% c("left", "center", "right")) {
+      stop("`table_align` must be 'left', 'center', or 'right'.", call. = FALSE)
+    }
+    tbl$table_align <- ov$table_align
+  }
+
+  # -- row heights ---------------------------------------------------------
+  if (has("row_height_twips"))
+    tbl$row_height_twips <- if (is.null(ov$row_height_twips)) NULL
+                            else as.integer(ov$row_height_twips)
+  if (has("row_height_exact")) {
+    if (!is.logical(ov$row_height_exact) || length(ov$row_height_exact) != 1L) {
+      stop("`row_height_exact` must be TRUE or FALSE.", call. = FALSE)
+    }
+    tbl$row_height_exact <- ov$row_height_exact
+  }
+  if (has("header_row_height_twips"))
+    tbl$header_row_height_twips <- if (is.null(ov$header_row_height_twips)) NULL
+                                   else as.integer(ov$header_row_height_twips)
+  if (has("blank_row_height_twips"))
+    tbl$blank_row_height_twips <- if (is.null(ov$blank_row_height_twips)) NULL
+                                  else as.integer(ov$blank_row_height_twips)
+
+  # -- cell padding / valign ----------------------------------------------
+  if (has("cell_padding_left_twips"))
+    tbl$cell_padding_left_twips <- as.integer(ov$cell_padding_left_twips)
+  if (has("cell_padding_right_twips"))
+    tbl$cell_padding_right_twips <- as.integer(ov$cell_padding_right_twips)
+  if (has("cell_valign")) {
+    if (!ov$cell_valign %in% c("top", "center", "bottom")) {
+      stop("`cell_valign` must be 'top', 'center', or 'bottom'.", call. = FALSE)
+    }
+    tbl$cell_valign <- ov$cell_valign
+  }
+
+  # -- border (needs normalisation) ---------------------------------------
+  if (has("border")) tbl$border <- .normalize_table_border(ov$border)
+
+  # -- spanning header (stored verbatim) ----------------------------------
+  if (has("spanning_header")) tbl$spanning_header <- ov$spanning_header
+
+  # -- column header (single- vs multi-DF) --------------------------------
+  if (has("col_header")) {
+    if (!is.null(tbl$data_list)) {
+      tbl$col_header_list <- .normalize_multi_col_header(
+        ov$col_header, length(tbl$data_list), ncol_df = ncol_df)
+    } else {
+      tbl$col_header <- .normalize_col_header_rows(ov$col_header, ncol_df)
+    }
+  }
+
+  # -- blank rows (resolve against the table's data) ----------------------
+  if (has("blank_rows")) {
+    if (is.null(ov$blank_rows)) {
+      tbl$blank_rows <- NULL
+    } else if (!is.null(tbl$data)) {
+      tbl$blank_rows <- .resolve_blank_rows(ov$blank_rows, tbl$data)
+    } else {
+      v <- as.integer(ov$blank_rows)
+      tbl$blank_rows <- sort(unique(v))
+    }
+  }
+
+  # -- per-column spec: merge user fields over the existing spec ----------
+  if (has("col_spec") && !is.null(ov$col_spec)) {
+    for (spec in ov$col_spec) {
+      if (!is.list(spec) || is.null(spec$col)) {
+        stop("Each element of `col_spec` must be a list with a `col` key.",
+             call. = FALSE)
+      }
+      idx <- if (is.character(spec$col)) match(spec$col, col_names)
+             else as.integer(spec$col)
+      if (is.na(idx) || idx < 1L || idx > length(tbl$col_spec)) next
+      for (f in setdiff(names(spec), "col")) tbl$col_spec[[idx]][[f]] <- spec[[f]]
+    }
+  }
+
+  # -- column-header alignment (top-priority override of the cascade) -----
+  if (has("col_header_align") && !is.null(ov$col_header_align)) {
+    cha <- ov$col_header_align
+    for (j in seq_along(tbl$col_spec)) {
+      tbl$col_spec[[j]]$header_align <- if (length(cha) == 1L) cha else cha[[j]]
+    }
+  }
+
+  # NB: `style` is a construction-time defaults seed and is NOT applied as a
+  # post-hoc override to a pre-built rtftable; pass it to rtftable() /
+  # as_rtftables() instead.
+
+  tbl
+}

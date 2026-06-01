@@ -114,9 +114,14 @@ becomes exactly one page**, holding a single table or figure.
 }
 \details{
 Table-formatting arguments (`col_rel_width`, `border`, `row_height_twips`,
-...) accepted by this function are applied **only to bare `data.frame`
-elements** of `tables`. Elements already constructed via `rtftable()` or
-`rtfplot()` carry their own settings and are not overridden.
+...) accepted by this function are used to build any bare `data.frame`
+element of `tables`, and -- when passed **explicitly** -- also override the
+matching field of any pre-built `rtftable()` element (for example the
+output of [as_rtftables()]).  Arguments left at their default are not
+applied to pre-built tables, so those keep their own / gt-derived settings.
+`rtfplot()` elements are never modified.  (The `style` argument seeds
+construction-time defaults only; it is not applied as an override to a
+pre-built table.)
 }
 \examples{
 \dontrun{

@@ -31,16 +31,28 @@ test_that("rtf_tables() promotes bare data.frames and applies shared formatting"
   expect_identical(doc$contents[[2L]]$col_rel_width, c(1, 2))
 })
 
-test_that("pre-built rtftable() objects keep their own settings", {
+test_that("explicit rtf_tables() args override pre-built rtftable settings", {
   df1 <- data.frame(A = 1:3, B = c("x", "y", "z"))
   df2 <- data.frame(ID = c(10, 20, 30), Value = c(100, 200, 300))
   custom_tbl <- rtftable(df2, col_rel_width = c(3, 1))
 
+  # col_rel_width is passed explicitly -> overrides BOTH the bare data.frame
+  # build and the pre-built rtftable's own c(3, 1).
   doc <- rtf_tables(rtf_document(), list(df1, custom_tbl),
                     col_rel_width = c(1, 2))
-
   expect_identical(doc$contents[[1L]]$col_rel_width, c(1, 2))
-  expect_identical(doc$contents[[2L]]$col_rel_width, c(3, 1))
+  expect_identical(doc$contents[[2L]]$col_rel_width, c(1, 2))
+})
+
+test_that("pre-built rtftable() keeps settings NOT explicitly overridden", {
+  df2 <- data.frame(ID = c(10, 20, 30), Value = c(100, 200, 300))
+  custom_tbl <- rtftable(df2, col_rel_width = c(3, 1),
+                         table_align = "center")
+
+  # Only table_align is passed -> col_rel_width stays the table's own c(3, 1).
+  doc <- rtf_tables(rtf_document(), list(custom_tbl), table_align = "right")
+  expect_identical(doc$contents[[1L]]$col_rel_width, c(3, 1))
+  expect_identical(doc$contents[[1L]]$table_align, "right")
 })
 
 test_that("multi-content-per-page is rejected", {

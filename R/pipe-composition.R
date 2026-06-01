@@ -136,9 +136,14 @@ rtf_config <- function(doc, font_table = NULL, color_table = NULL, page = NULL,
 #' becomes exactly one page**, holding a single table or figure.
 #'
 #' Table-formatting arguments (`col_rel_width`, `border`, `row_height_twips`,
-#' ...) accepted by this function are applied **only to bare `data.frame`
-#' elements** of `tables`. Elements already constructed via `rtftable()` or
-#' `rtfplot()` carry their own settings and are not overridden.
+#' ...) accepted by this function are used to build any bare `data.frame`
+#' element of `tables`, and -- when passed **explicitly** -- also override the
+#' matching field of any pre-built `rtftable()` element (for example the
+#' output of [as_rtftables()]).  Arguments left at their default are not
+#' applied to pre-built tables, so those keep their own / gt-derived settings.
+#' `rtfplot()` elements are never modified.  (The `style` argument seeds
+#' construction-time defaults only; it is not applied as an override to a
+#' pre-built table.)
 #'
 #' @param doc An rtf_document object.
 #' @param tables A list where each element is one page's content. Each
@@ -252,6 +257,23 @@ rtf_tables <- function(doc, tables,
     stop("`tables` must be a list", call. = FALSE)
   }
 
+  # Which table-formatting arguments did the caller pass EXPLICITLY?  These
+  # override the corresponding fields of any pre-built rtftable item (e.g.
+  # the output of as_rtftables()); arguments left at their default do not
+  # touch the rtftable's own / gt-derived values.  Detection via match.call()
+  # so we can tell "passed border = 'tfl'" from "defaulted to 'tfl'".
+  .fmt_args <- c("col_header", "col_header_align", "spanning_header",
+                 "col_spec", "border", "blank_rows", "style",
+                 "col_rel_width", "column_widths_twips", "table_width_twips",
+                 "table_width_pct_of_writable", "table_width_pct",
+                 "table_align", "row_height_twips", "row_height_exact",
+                 "header_row_height_twips", "blank_row_height_twips",
+                 "cell_padding_left_twips", "cell_padding_right_twips",
+                 "cell_valign")
+  .explicit <- intersect(names(match.call())[-1L], .fmt_args)
+  .overrides <- if (length(.explicit))
+                  mget(.explicit, envir = environment()) else list()
+
   .is_content_item <- function(x) {
     is.data.frame(x) ||
       inherits(x, "rtftable") ||
@@ -353,8 +375,13 @@ rtf_tables <- function(doc, tables,
         cell_valign                 = cell_valign,
         cell_styles                 = eff_cell_styles
       )
+    } else if (inherits(item, "rtftable")) {
+      # Pre-built rtftable (e.g. from as_rtftables()): apply only the
+      # explicitly-passed rtf_tables() formatting arguments as overrides;
+      # everything else keeps the table's own / gt-derived settings.
+      .override_rtftable_fields(item, .overrides)
     } else {
-      item
+      item   # rtfplot or anything else passes through untouched
     }
   })
   names(tables) <- tables_names
