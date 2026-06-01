@@ -23,6 +23,9 @@ library(testthat)
 .make_tbl_regression <- function() {
   skip_if_not_installed("gtsummary")
   skip_if_not_installed("gt")
+  # tbl_regression() pulls model terms via broom / broom.helpers.
+  skip_if_not_installed("broom")
+  skip_if_not_installed("broom.helpers")
   df <- data.frame(
     y = c(1, 0, 1, 1, 0, 1),
     x = c(25, 35, 45, 55, 65, 30)

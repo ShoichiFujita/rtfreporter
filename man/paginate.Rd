@@ -6,7 +6,7 @@
 \alias{paginate.gt_tbl}
 \alias{paginate.list}
 \alias{paginate.data.frame}
-\title{Split a table object into per-page data.frames}
+\title{Split a table object into per-page data.frames (deprecated)}
 \usage{
 paginate(x, ...)
 
@@ -16,102 +16,19 @@ paginate(x, ...)
 
 \method{paginate}{list}(x, ...)
 
-\method{paginate}{data.frame}(
-  x,
-  max_rows = NULL,
-  split = c("none", "rows", "group_safe", "group_force", "by_value"),
-  split_rows = NULL,
-  group_col = NULL,
-  cont_label = " (Cont.)",
-  blank_rows = NULL,
-  blank_row_first = FALSE,
-  blank_row_end = FALSE,
-  align_count_pct = FALSE,
-  ...
-)
+\method{paginate}{data.frame}(x, ...)
 }
 \arguments{
 \item{x}{A supported table object: a `gt_tbl` (from [gt::gt()]), a plain
 `data.frame` / tibble, or a `list` of either.  List names are
-propagated to the output (one input → one page keeps the input
-name; one input → many pages produces `name.1`, `name.2`, ...).}
+propagated to the output (one input -> one page keeps the input
+name; one input -> many pages produces `name.1`, `name.2`, ...).}
 
-\item{...}{Method-specific extras.  Currently unused by all built-in
-methods; reserved for future extensions.}
-
-\item{max_rows}{Integer.  Maximum body rows allowed per page.  **Required** for
-any `split` mode other than `"none"`.  When `split = "by_value"`
-it is optional (`NULL` = never force-split a group; otherwise a
-group that exceeds `max_rows` is internally split with `(Cont.)`).}
-
-\item{split}{Page-splitting strategy.  One of:
-
-  * `"none"` (default) — return the whole input as a single page.
-  * `"rows"` — force-split at the explicit row indices in
-    `split_rows`.
-  * `"group_safe"` — pack whole groups onto each page; spill
-    to the next page when the current group would overflow
-    `max_rows`.  A single group that on its own exceeds
-    `max_rows` is force-split with `(Cont.)` continuation rows.
-  * `"group_force"` — force-split every `max_rows` rows; when the
-    cut lands inside a group, insert a `(Cont.)` header row at
-    the top of the next page repeating the group label without
-    the summary value.
-  * `"by_value"` — **one page per detected group**, never packed.
-    Each returned page is named by the group's label, so a
-    downstream `rtf_tables(pages, auto_section = TRUE)` builds one
-    RTF section per value (e.g. one section per study visit).
-    Falls back to `"group_force"` *within* a group when it
-    exceeds `max_rows`.}
-
-\item{split_rows}{Integer vector of 1-based row indices at which to start a new
-page.  Only used when `split = "rows"`.}
-
-\item{group_col}{Identifies the column whose values define the groups.  One of:
-
-  * `NULL` (default) — **indent-based detection**.  A row whose
-    first column starts with a non-space character opens a new
-    top-level group; rows whose first column starts with
-    whitespace are sub-rows of the current group.  Sub-rows can
-    themselves carry deeper indentation (sub-sub-rows etc.); only
-    top-level rows act as group boundaries.
-  * a character column name — RLE on `df[[name]]`.  Consecutive
-    identical values become one group; the value is the group
-    label (used by `split = "by_value"` as the page name).
-  * a 1-based integer column index — same as the character form.}
-
-\item{cont_label}{Suffix appended to the group label on continuation pages.
-Default `" (Cont.)"`.  Only relevant when a group is force-split
-(`split = "group_force"`, `"group_safe"` overflow, or
-`"by_value"` overflow).}
-
-\item{blank_rows}{Blank-row specification applied **within** each page.  Resolved
-  positions are stored as the page's `rtf_blank_rows` attribute,
-  which `rtftable(read_attributes = TRUE)` consumes.  Accepts:
-
-  * `NULL` (default) — no blank rows added from this argument.
-  * integer vector — explicit positions (`0` = before first data
-    row; `k` = after data row `k`).
-  * `"between_groups"` — auto-insert a blank at every group
-    transition within the page (same indent-based detection as
-    the split modes).
-  * a `list(...)` combining any of the above (positions unioned).}
-
-\item{blank_row_first}{Logical (default `FALSE`).  When `TRUE`, every returned page
-also gets a blank row at the **top** (position `0`).  Combine
-with `blank_rows = "between_groups"` to get "blank before each
-group, including the first row of every page".}
-
-\item{blank_row_end}{Logical (default `FALSE`).  When `TRUE`, every returned page
-also gets a blank row at the **bottom** (after the page's last
-data row).  Useful when the last row needs visual separation
-from the page footer.}
-
-\item{align_count_pct}{Logical (default `FALSE`).  When `TRUE`, every character column
-other than column 1 is passed through [realign_count_pct()]
-before splitting.  Cells matching `"n (xx.x)"` are re-padded to
-a uniform display width so they line up in a monospaced
-renderer; non-matching cells are returned unchanged.}
+\item{...}{Pagination controls, forwarded to the internal splitter and shared
+with [as_rtftables()]: `max_rows`, `split`, `split_rows`,
+`group_col`, `cont_label`, `blank_rows`, `blank_row_first`,
+`blank_row_end`, `align_count_pct`.  See [as_rtftables()] for the
+full description of each.}
 }
 \value{
 A list of data.frames (tibbles if the input was a tibble or
@@ -129,12 +46,17 @@ A list of data.frames (tibbles if the input was a tibble or
   RTF section per page name.
 }
 \description{
+**Deprecated.**  Use [as_rtftables()] instead, which both paginates *and*
+reads the source table's metadata (column labels, alignment, spanning
+headers, per-cell styles, titles, footnotes) into ready-to-render
+[rtftable()] page objects.  `paginate()` only ever extracted the rendered
+body, so gt metadata was silently lost when paginating a `gt_tbl`.
+
 Single entry point that converts various supported table objects into a
 list of data.frames, one per page, ready to be passed to [rtf_tables()]
 (each data.frame carries an `rtf_blank_rows` attribute that
 `rtftable(read_attributes = TRUE)` consumes automatically).
-}
-\details{
+
 Dispatch is by S3 class:
 * `paginate.gt_tbl()` -- for [gt::gt()] tables.  Requires the optional
   `gt` package; an informative error is raised otherwise.

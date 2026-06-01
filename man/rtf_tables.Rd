@@ -86,22 +86,24 @@ Default `FALSE`.}
 \item{section_label_align}{Alignment for the auto-appended section label row.
 One of `"left"` (default), `"center"`, or `"right"`.}
 
-\item{read_gt}{Controls extraction of metadata from any `gt_tbl`
-elements in `tables`.  Allowed values:
+\item{read_gt}{**Legacy.**  Controls metadata extraction when a raw
+`gt_tbl` is handed *directly* to `rtf_tables()` (no pagination).  For
+new code, prefer converting up front with [as_rtftables()], which
+paginates *and* reads metadata, then pass the resulting list here --
+the page-level titles / footnotes flow through automatically (via the
+`rtf_titles` / `rtf_footnotes` attributes) with `read_gt` left at its
+default.  Allowed values:
 * `FALSE` (default) -- treat `gt_tbl` items as bare data.frames
   via `as.data.frame()`; ignore titles / labels / source notes.
-* `TRUE` -- pull through every Phase-A and Phase-B attribute:
-  column labels, per-column alignment, multi-level spanner header
-  rows, per-column widths, dropping hidden columns, plus the
-  page-level title / subtitle and source notes.
-* A character vector of tokens -- selective opt-in.  Supported
-  tokens: `"col_header"`, `"alignment"`, `"titles"`,
-  `"source_notes"`, `"spanning"`, `"widths"`, `"hidden"`.  Future
-  tokens (`"footnotes"`, `"stub"`) are recognised but warn and
-  are ignored until implemented.
+* `TRUE` -- pull through every gt attribute: column labels,
+  per-column alignment, multi-level spanner header rows, per-column
+  widths, hidden-column removal, stub / row groups, per-cell styles,
+  in-cell footnote marks, plus page-level title / subtitle and source
+  notes.
+* A character vector of tokens -- selective opt-in.  See
+  [as_rtftable()] for the token list.
 Explicit `rtf_tables()` / `rtf_titles()` / `rtf_footnotes()`
-values always override gt-extracted ones.  See [as_rtftable()]
-for the rtftable-level variant.}
+values always override gt-extracted ones.}
 }
 \value{
 Modified rtf_document with appended contents.

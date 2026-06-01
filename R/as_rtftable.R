@@ -119,7 +119,7 @@
 #'
 #' @export
 as_rtftable <- function(gt_obj, read = TRUE, ...) {
-  # Accept gtsummary tables: convert to gt first, then proceed as normal.
+  # Accept gtsummary tables: convert to gt first, then validate.
   if (.is_gtsummary_tbl(gt_obj)) {
     gt_obj <- .gtsummary_to_gt(gt_obj)
   }
@@ -131,52 +131,10 @@ as_rtftable <- function(gt_obj, read = TRUE, ...) {
          "install.packages(\"gt\").", call. = FALSE)
   }
 
-  tokens     <- .resolve_gt_tokens(read)
-  gt_kwargs  <- .gt_to_rtftable_kwargs(gt_obj, tokens = tokens)
-  user_args  <- list(...)
-
-  # data: gt-derived data.frame is what we use.  No way to override
-  # without breaking the abstraction.
-  call_args <- list(data = gt_kwargs$data)
-
-  # col_header: prefer user, fall back to gt.
-  if (!is.null(user_args$col_header)) {
-    call_args$col_header <- user_args$col_header
-  } else if (!is.null(gt_kwargs$col_header)) {
-    call_args$col_header <- gt_kwargs$col_header
-  }
-
-  # col_spec: deep-merge per-column.  Each user col_spec entry wins for
-  # the fields it specifies; gt's `align` fills the gaps.
-  if (!is.null(gt_kwargs$col_spec) || !is.null(user_args$col_spec)) {
-    call_args$col_spec <- .merge_col_spec(user_args$col_spec,
-                                          gt_kwargs$col_spec)
-  }
-
-  # Phase B width fields: prefer user, fall back to gt.
-  for (k in c("column_widths_twips", "col_rel_width")) {
-    if (!is.null(user_args[[k]])) {
-      call_args[[k]] <- user_args[[k]]
-    } else if (!is.null(gt_kwargs[[k]])) {
-      call_args[[k]] <- gt_kwargs[[k]]
-    }
-  }
-
-  # Phase D: cell_styles -- prefer user, fall back to gt-extracted.
-  if (!is.null(user_args$cell_styles)) {
-    call_args$cell_styles <- user_args$cell_styles
-  } else if (!is.null(gt_kwargs$cell_styles)) {
-    call_args$cell_styles <- gt_kwargs$cell_styles
-  }
-
-  # All other arguments pass through verbatim.
-  consumed <- c("data", "col_header", "col_spec",
-                "column_widths_twips", "col_rel_width", "cell_styles")
-  for (k in setdiff(names(user_args), consumed)) {
-    call_args[[k]] <- user_args[[k]]
-  }
-
-  do.call(rtftable, call_args)
+  # Single-page convenience: delegate to as_rtftables() (split = "none")
+  # and unwrap the one-element list.  All metadata extraction, merging and
+  # per-cell styling lives in one place.
+  as_rtftables(gt_obj, read = read, split = "none", ...)[[1L]]
 }
 
 

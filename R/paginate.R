@@ -51,7 +51,14 @@
 
 # -- Generic -----------------------------------------------------------------
 
-#' Split a table object into per-page data.frames
+#' Split a table object into per-page data.frames (deprecated)
+#'
+#' @description
+#' **Deprecated.**  Use [as_rtftables()] instead, which both paginates *and*
+#' reads the source table's metadata (column labels, alignment, spanning
+#' headers, per-cell styles, titles, footnotes) into ready-to-render
+#' [rtftable()] page objects.  `paginate()` only ever extracted the rendered
+#' body, so gt metadata was silently lost when paginating a `gt_tbl`.
 #'
 #' Single entry point that converts various supported table objects into a
 #' list of data.frames, one per page, ready to be passed to [rtf_tables()]
@@ -74,95 +81,15 @@
 #' @param x
 #'   A supported table object: a `gt_tbl` (from [gt::gt()]), a plain
 #'   `data.frame` / tibble, or a `list` of either.  List names are
-#'   propagated to the output (one input → one page keeps the input
-#'   name; one input → many pages produces `name.1`, `name.2`, ...).
-#'
-#' @param max_rows
-#'   Integer.  Maximum body rows allowed per page.  **Required** for
-#'   any `split` mode other than `"none"`.  When `split = "by_value"`
-#'   it is optional (`NULL` = never force-split a group; otherwise a
-#'   group that exceeds `max_rows` is internally split with `(Cont.)`).
-#'
-#' @param split
-#'   Page-splitting strategy.  One of:
-#'
-#'   * `"none"` (default) — return the whole input as a single page.
-#'   * `"rows"` — force-split at the explicit row indices in
-#'     `split_rows`.
-#'   * `"group_safe"` — pack whole groups onto each page; spill
-#'     to the next page when the current group would overflow
-#'     `max_rows`.  A single group that on its own exceeds
-#'     `max_rows` is force-split with `(Cont.)` continuation rows.
-#'   * `"group_force"` — force-split every `max_rows` rows; when the
-#'     cut lands inside a group, insert a `(Cont.)` header row at
-#'     the top of the next page repeating the group label without
-#'     the summary value.
-#'   * `"by_value"` — **one page per detected group**, never packed.
-#'     Each returned page is named by the group's label, so a
-#'     downstream `rtf_tables(pages, auto_section = TRUE)` builds one
-#'     RTF section per value (e.g. one section per study visit).
-#'     Falls back to `"group_force"` *within* a group when it
-#'     exceeds `max_rows`.
-#'
-#' @param split_rows
-#'   Integer vector of 1-based row indices at which to start a new
-#'   page.  Only used when `split = "rows"`.
-#'
-#' @param group_col
-#'   Identifies the column whose values define the groups.  One of:
-#'
-#'   * `NULL` (default) — **indent-based detection**.  A row whose
-#'     first column starts with a non-space character opens a new
-#'     top-level group; rows whose first column starts with
-#'     whitespace are sub-rows of the current group.  Sub-rows can
-#'     themselves carry deeper indentation (sub-sub-rows etc.); only
-#'     top-level rows act as group boundaries.
-#'   * a character column name — RLE on `df[[name]]`.  Consecutive
-#'     identical values become one group; the value is the group
-#'     label (used by `split = "by_value"` as the page name).
-#'   * a 1-based integer column index — same as the character form.
-#'
-#' @param cont_label
-#'   Suffix appended to the group label on continuation pages.
-#'   Default `" (Cont.)"`.  Only relevant when a group is force-split
-#'   (`split = "group_force"`, `"group_safe"` overflow, or
-#'   `"by_value"` overflow).
-#'
-#' @param blank_rows
-#'   Blank-row specification applied **within** each page.  Resolved
-#'   positions are stored as the page's `rtf_blank_rows` attribute,
-#'   which `rtftable(read_attributes = TRUE)` consumes.  Accepts:
-#'
-#'   * `NULL` (default) — no blank rows added from this argument.
-#'   * integer vector — explicit positions (`0` = before first data
-#'     row; `k` = after data row `k`).
-#'   * `"between_groups"` — auto-insert a blank at every group
-#'     transition within the page (same indent-based detection as
-#'     the split modes).
-#'   * a `list(...)` combining any of the above (positions unioned).
-#'
-#' @param blank_row_first
-#'   Logical (default `FALSE`).  When `TRUE`, every returned page
-#'   also gets a blank row at the **top** (position `0`).  Combine
-#'   with `blank_rows = "between_groups"` to get "blank before each
-#'   group, including the first row of every page".
-#'
-#' @param blank_row_end
-#'   Logical (default `FALSE`).  When `TRUE`, every returned page
-#'   also gets a blank row at the **bottom** (after the page's last
-#'   data row).  Useful when the last row needs visual separation
-#'   from the page footer.
-#'
-#' @param align_count_pct
-#'   Logical (default `FALSE`).  When `TRUE`, every character column
-#'   other than column 1 is passed through [realign_count_pct()]
-#'   before splitting.  Cells matching `"n (xx.x)"` are re-padded to
-#'   a uniform display width so they line up in a monospaced
-#'   renderer; non-matching cells are returned unchanged.
+#'   propagated to the output (one input -> one page keeps the input
+#'   name; one input -> many pages produces `name.1`, `name.2`, ...).
 #'
 #' @param ...
-#'   Method-specific extras.  Currently unused by all built-in
-#'   methods; reserved for future extensions.
+#'   Pagination controls, forwarded to the internal splitter and shared
+#'   with [as_rtftables()]: `max_rows`, `split`, `split_rows`,
+#'   `group_col`, `cont_label`, `blank_rows`, `blank_row_first`,
+#'   `blank_row_end`, `align_count_pct`.  See [as_rtftables()] for the
+#'   full description of each.
 #'
 #' @return
 #'   A list of data.frames (tibbles if the input was a tibble or
@@ -277,7 +204,20 @@
 #' }
 #'
 #' @export
-paginate <- function(x, ...) UseMethod("paginate")
+paginate <- function(x, ...) {
+  .warn_paginate_deprecated()
+  UseMethod("paginate")
+}
+
+# Emit the paginate() deprecation warning at most once per session (so a
+# script that paginates many tables -- and the test suite -- is not flooded).
+.paginate_depr_env <- new.env(parent = emptyenv())
+.warn_paginate_deprecated <- function() {
+  if (isTRUE(.paginate_depr_env$warned)) return(invisible())
+  .paginate_depr_env$warned <- TRUE
+  .Deprecated("as_rtftables", package = "rtfreporter")
+  invisible()
+}
 
 
 # -- Default -- error with helpful message -----------------------------------
@@ -297,23 +237,24 @@ paginate.default <- function(x, ...) {
 #' @rdname paginate
 #' @export
 paginate.gt_tbl <- function(x, ...) {
+  paginate.data.frame(.extract_gt_body(x), ...)
+}
+
+
+# Extract a gt_tbl's rendered body as a plain tibble/data.frame with gt's
+# non-breaking spaces normalised to regular spaces (so indent-based group
+# detection works).  Shared by paginate.gt_tbl() and as_rtftables().
+.extract_gt_body <- function(x) {
   if (!requireNamespace("gt", quietly = TRUE)) {
-    stop("paginate() on a gt_tbl requires the `gt` package.  ",
+    stop("Reading a gt_tbl requires the `gt` package.  ",
          "Install it with `install.packages(\"gt\")`.",
          call. = FALSE)
   }
-  # gt::extract_body() returns a tibble.  Keep it AS a tibble (do NOT
-  # force as.data.frame): downstream the per-page chunks retain tibble
-  # class, which matches the gt-native workflow.  paginate.data.frame()
-  # dispatches on this just fine because tibble inherits from data.frame.
   body <- gt::extract_body(x, output = "rtf")
-  # Non-breaking spaces from gt -> regular spaces, so indent-based
-  # group detection works against the body cells.  (gt emits U+00A0
-  # for padding / indenting by default.)  `[<-` preserves tibble class.
   body[] <- lapply(body, function(col) {
     if (is.character(col)) gsub("\u00a0", " ", col, fixed = TRUE) else col
   })
-  paginate.data.frame(body, ...)
+  body
 }
 
 
@@ -352,7 +293,16 @@ paginate.list <- function(x, ...) {
 
 #' @rdname paginate
 #' @export
-paginate.data.frame <- function(x,
+paginate.data.frame <- function(x, ...) {
+  .paginate_df(x, ...)
+}
+
+
+# Internal core: the data.frame pagination algorithm.  Non-deprecated entry
+# point shared by paginate.data.frame() and as_rtftables().  Returns a list
+# of per-page data.frames, each carrying `rtf_blank_rows` and
+# `rtf_paginate_meta` attributes (and names() when the split is value-based).
+.paginate_df <- function(x,
                                  max_rows    = NULL,
                                  split       = c("none", "rows",
                                                   "group_safe", "group_force",

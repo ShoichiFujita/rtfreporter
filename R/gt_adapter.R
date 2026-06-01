@@ -771,7 +771,7 @@
               else
                 gsub("<[^>]+>", "", sp)
       # Drop zero-width space (U+200B) and non-breaking space (U+00A0).
-      mark <- trimws(gsub("[​ ]", "", mark))
+      mark <- trimws(gsub("[\u200b\u00a0]", "", mark))
       if (!nzchar(mark)) "" else paste0("^{", mark, "}")
     }, character(1L), USE.NAMES = FALSE)
     regmatches(s, m)[[1L]] <- repl

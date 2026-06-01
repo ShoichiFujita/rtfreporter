@@ -19,6 +19,10 @@ export(rtfplot)
 # gt integration (Phase A -- v0.0.38; see specs/gt-integration-spec.md)
 export(as_rtftable)
 
+# Unified table-object -> rtftable page converter (v0.0.44; supersedes
+# paginate() + rtf_tables(read_gt=))
+export(as_rtftables)
+
 # Header / footer constructors
 export(rtf_header)
 export(rtf_footer)
