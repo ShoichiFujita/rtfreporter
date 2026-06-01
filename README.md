@@ -88,6 +88,14 @@ doc <- rtf_document() %>%
 generate_rtfreport(doc, "T_14_1_1.rtf", overwrite = TRUE)
 ```
 
+<p align="center">
+  <img src="man/figures/readme-30s-example.png"
+       alt="The generated T_14_1_1.rtf opened in a word processor: a clinical TFL-style table with running header, title block, column headers, three subject rows, a source-note footnote, and a page footer."
+       width="600" />
+</p>
+
+<p align="center"><sub><em>The generated <code>T_14_1_1.rtf</code>, opened in a word processor.</em></sub></p>
+
 ## Documentation
 
 The full pkgdown site is at <https://ichirio.github.io/rtfreporter/>:
