@@ -75,6 +75,44 @@
 # Is `x` a gt_tbl?  Cheap class check; does not import gt.
 .is_gt_tbl <- function(x) inherits(x, "gt_tbl")
 
+# Is `x` a gtsummary table?  Cheap class check; does not import gtsummary.
+# gtsummary tables carry the "gtsummary" class (all tbl_summary, tbl_regression,
+# tbl_merge, tbl_stack, etc. share it as a parent class).
+.is_gtsummary_tbl <- function(x) inherits(x, "gtsummary")
+
+# Convert a gtsummary table to a gt_tbl via gtsummary::as_gt().
+#
+# This is the ONLY conversion path -- we rely entirely on gtsummary's own
+# gt-rendering layer rather than reading gtsummary's internal slots directly.
+# The caller receives a standard gt_tbl and can then feed it into the existing
+# gt adapter pipeline.
+#
+# Limitation note (communicated in the exported docs):
+#   gtsummary applies cell-level formatting (indent, bold group headers,
+#   strikethrough, etc.) via gt's tab_style() / tab_options(), which populates
+#   the `_styles` slot in the resulting gt_tbl.  The current gt adapter does
+#   NOT read `_styles`, so these formatting details are NOT transferred to RTF.
+#   Footnote anchor marks inside cells are similarly lost; the footnote texts
+#   themselves are transferred to the page footnote block.
+.gtsummary_to_gt <- function(x) {
+  if (!requireNamespace("gtsummary", quietly = TRUE)) {
+    stop(
+      "Reading from a gtsummary table requires the `gtsummary` package. ",
+      "Install it with install.packages(\"gtsummary\").",
+      call. = FALSE
+    )
+  }
+  gt_obj <- gtsummary::as_gt(x)
+  if (!.is_gt_tbl(gt_obj)) {
+    stop(
+      "gtsummary::as_gt() did not return a gt_tbl. ",
+      "Please file an issue at https://github.com/ichirio/rtfreporter.",
+      call. = FALSE
+    )
+  }
+  gt_obj
+}
+
 # Resolve a `read_gt` argument to a character vector of recognised
 # tokens.  Returns character(0) when nothing is requested.
 .resolve_gt_tokens <- function(read_gt) {

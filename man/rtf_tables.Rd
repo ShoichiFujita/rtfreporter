@@ -47,7 +47,15 @@ element must be one of:
   `as.data.frame()` and treated like a `data.frame`. Pass
   `read_gt = TRUE` (or a vector of tokens) to also pull through
   gt's column labels, alignment, title/subtitle, and source notes.
-  See `read_gt` below.}
+  See `read_gt` below.
+- **gtsummary table** (`tbl_summary`, `tbl_regression`, `tbl_merge`,
+  `tbl_stack`, etc.): automatically converted to a `gt_tbl` via
+  `gtsummary::as_gt()` before any further processing. Pass
+  `read_gt = TRUE` to pull through column labels, titles, source
+  notes, footnotes, spanning headers, and hidden-column removal.
+  Note: cell-level formatting (row indentation, bold group-header
+  rows, footnote marks in cells) is **not** transferred to RTF.
+  See [as_rtftable()] for details on gtsummary limitations.}
 
 \item{col_header, col_header_align, spanning_header, col_spec, border, blank_rows, read_attributes, style}{Per-table content settings applied to bare `data.frame` elements. See [rtftable()] for details.}
 

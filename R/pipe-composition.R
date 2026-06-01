@@ -151,6 +151,14 @@ rtf_config <- function(doc, font_table = NULL, color_table = NULL, page = NULL,
 #'     `read_gt = TRUE` (or a vector of tokens) to also pull through
 #'     gt's column labels, alignment, title/subtitle, and source notes.
 #'     See `read_gt` below.
+#'   - **gtsummary table** (`tbl_summary`, `tbl_regression`, `tbl_merge`,
+#'     `tbl_stack`, etc.): automatically converted to a `gt_tbl` via
+#'     `gtsummary::as_gt()` before any further processing. Pass
+#'     `read_gt = TRUE` to pull through column labels, titles, source
+#'     notes, footnotes, spanning headers, and hidden-column removal.
+#'     Note: cell-level formatting (row indentation, bold group-header
+#'     rows, footnote marks in cells) is **not** transferred to RTF.
+#'     See [as_rtftable()] for details on gtsummary limitations.
 #' @param col_rel_width,column_widths_twips,table_width_twips,table_width_pct_of_writable,table_width_pct,table_align Column-width and table-width settings applied to bare `data.frame` elements. See [rtftable()] for details.
 #' @param col_header,col_header_align,spanning_header,col_spec,border,blank_rows,read_attributes,style Per-table content settings applied to bare `data.frame` elements. See [rtftable()] for details.
 #' @param row_height_twips,row_height_exact,header_row_height_twips,blank_row_height_twips Row-height settings applied to bare `data.frame` elements. See [rtftable()] for details.
@@ -246,7 +254,8 @@ rtf_tables <- function(doc, tables,
     is.data.frame(x) ||
       inherits(x, "rtftable") ||
       inherits(x, "rtfplot") ||
-      .is_gt_tbl(x)
+      .is_gt_tbl(x) ||
+      .is_gtsummary_tbl(x)
   }
 
   # Validate each page-level item: exactly one content per page.
@@ -254,13 +263,24 @@ rtf_tables <- function(doc, tables,
     item <- tables[[i]]
     if (!.is_content_item(item)) {
       stop("Item ", i,
-           " must be a data.frame, rtftable(), rtfplot(), or gt_tbl object. ",
+           " must be a data.frame, rtftable(), rtfplot(), gt_tbl, or",
+           " gtsummary table object. ",
            "Each list element corresponds to exactly one page (one content).",
            call. = FALSE)
     }
   }
 
-  # -- gt_tbl handling: extract requested attributes (Phase A) ----------
+  # -- gtsummary pre-conversion: gtsummary tables -> gt_tbl ---------------
+  # Done before gt extraction so the existing gt pipeline handles them
+  # uniformly.  Conversion uses gtsummary::as_gt() (the package's own
+  # rendering layer); no gtsummary-internal slots are read directly.
+  for (i in seq_along(tables)) {
+    if (.is_gtsummary_tbl(tables[[i]])) {
+      tables[[i]] <- .gtsummary_to_gt(tables[[i]])
+    }
+  }
+
+  # -- gt_tbl handling: extract requested attributes ----------------------
   # `read_gt` is normalised once; the resolved token vector is used both
   # for per-table extraction and for the page-level title / source-note
   # pull-through done after table promotion.
