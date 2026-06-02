@@ -8,7 +8,7 @@
 [![Codecov test coverage](https://codecov.io/gh/ichirio/rtfreporter/graph/badge.svg)](https://app.codecov.io/gh/ichirio/rtfreporter)
 [![pkgdown](https://github.com/ichirio/rtfreporter/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/ichirio/rtfreporter/actions/workflows/pkgdown.yaml)
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 <!-- badges: end -->
 
 `rtfreporter` is an R toolkit for generating **Rich Text Format (RTF)
@@ -185,4 +185,4 @@ Issues and pull requests are very welcome at
 
 ## License
 
-MIT © 2026 Yoichi Masui. See [`LICENSE.md`](LICENSE.md).
+Apache License 2.0 © 2026 Yoichi Masui. See [`LICENSE.md`](LICENSE.md).

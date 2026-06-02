@@ -79,7 +79,7 @@ home:
       href: https://github.com/ichirio/rtfreporter/issues
     - text: Release notes (NEWS.md)
       href: news/index.html
-    - text: License (MIT)
+    - text: License (Apache 2.0)
       href: https://github.com/ichirio/rtfreporter/blob/main/LICENSE.md
 
 navbar:
@@ -134,7 +134,7 @@ footer:
     # on the pkgdown version-label badge in the navbar (configured via
     # `development.version_label`).
     package: "[rtfreporter](https://github.com/ichirio/rtfreporter) (development version)"
-    license: "[MIT licensed](https://github.com/ichirio/rtfreporter/blob/main/LICENSE.md)"
+    license: "[Apache 2.0 licensed](https://github.com/ichirio/rtfreporter/blob/main/LICENSE.md)"
 
 reference:
   - title: Pipe-composition API

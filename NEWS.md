@@ -1,5 +1,22 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.47
+
+### License changed to Apache 2.0
+
+Relicensed from MIT to **Apache License 2.0** to align with the pharmaverse
+ecosystem (admiral, rtables, tern, ... are Apache 2.0) and to provide an
+explicit patent grant, which is preferred in regulated / corporate
+settings.  `DESCRIPTION` now reads `License: Apache License (>= 2)`; the
+full text is in `LICENSE.md`.  Done while the package has a single
+copyright holder, so no contributor relicensing consent was required.
+
+### Project infrastructure
+
+* Added GitHub pull-request and issue templates (`.github/`).
+* `CONTRIBUTING.md` documents how to become a contributor, the
+  issue → merge lifecycle, the CI workflows, and project tracking.
+
 ## rtfreporter 0.0.46
 
 ### Fixes & changes to the gt / gtsummary / tfrmt reading path

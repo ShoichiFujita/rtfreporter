@@ -1,7 +1,7 @@
 Package: rtfreporter
 Type: Package
 Title: Clinical RTF Reporting Toolkit for Tables, Listings and Figures
-Version: 0.0.46
+Version: 0.0.47
 Authors@R:
     person(given  = "Yoichi",
            family = "Masui",
@@ -15,7 +15,7 @@ Description: A standalone toolkit for generating Rich Text Format (RTF)
     page-number fields, embedded PNG/JPEG figures, and clinical-style
     borders. Uses only S3 classes and base R; depends on no other
     RTF-generation packages such as 'r2rtf' or 'reporter'.
-License: MIT + file LICENSE
+License: Apache License (>= 2)
 URL: https://github.com/ichirio/rtfreporter,
     https://ichirio.github.io/rtfreporter/
 BugReports: https://github.com/ichirio/rtfreporter/issues
