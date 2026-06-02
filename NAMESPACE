@@ -16,7 +16,8 @@ S3method(print, rtf_document)
 export(rtftable)
 export(rtfplot)
 
-# gt integration (Phase A -- v0.0.38; see specs/gt-integration-spec.md)
+# gt / gtsummary / rtables integration (see vignette("gt-integration") and
+# the "Adding a table-object adapter" article)
 export(as_rtftable)
 
 # Unified table-object -> rtftable page converter (v0.0.44; supersedes

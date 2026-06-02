@@ -22,7 +22,6 @@
 ^README_files$
 ^output$
 ^data-raw$
-^specs$
 ^vignettes/articles$
 ^vignettes/articles/.*\.html$
 ^vignettes/articles/.*_files$

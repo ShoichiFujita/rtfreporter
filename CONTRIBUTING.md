@@ -119,6 +119,12 @@ Versions follow `MAJOR.MINOR.PATCH`.  **All of the rules below apply from
 v0.1.0 onward.**  (The pre-v0.1.0 `0.0.x` history and its `*-alpha`
 releases are throw-away experiments — see *First release* below.)
 
+> **Gotcha:** the `DESCRIPTION` `Version:` field must be **digits and dots
+> only** (e.g. `0.1.0`).  A suffix such as `0.1.0-alpha` makes R raise a
+> `Malformed package version` error.  Use the suffix-free number in
+> `DESCRIPTION`; the `-alpha`/`-rc` style, if ever needed, belongs only on
+> the git tag / GitHub Release name.
+
 ### What each position means
 
 - **Development version — `vX.Y.Z` (Z ≥ 1).**  The rolling, in-progress

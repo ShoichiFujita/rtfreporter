@@ -1,28 +1,21 @@
-# Copilot Instructions for rtfreporter
+# Copilot instructions for rtfreporter
 
-このリポジトリでは R と Python の両パッケージを管理しています。
-作業前に必ず `specs/release_guidelines.md` を参照してください。
+This repository **is the R package** `rtfreporter` (`DESCRIPTION` is at the
+repository root — there is no nested package directory and no other
+language package).
 
-## 重要ルール（必ず守ること）
+Please follow the project's standard contributor guidance rather than
+duplicating it here:
 
-### リポジトリ構成
-- `r/rtfreporter/` — Rパッケージ
-- `python/` — Pythonパッケージ
+- **Orientation & invariants:** [AGENTS.md](../AGENTS.md)
+- **Workflow, code style, branching, versioning & releases:**
+  [CONTRIBUTING.md](../CONTRIBUTING.md)
+- **Architecture & how to extend it:**
+  `vignettes/articles/architecture.Rmd`,
+  `vignettes/articles/extending-adapters.Rmd`
 
-### GitHub Release 作成時
-1. **R の `DESCRIPTION` の `Version` は数字とピリオドのみ**（例: `0.0.2`）。`-alpha` などのサフィックスは付けない。
-2. **RとPython、それぞれ個別のtar.gzをアセットとして添付する**。リポジトリ全体の Source code は使わない。
-   - R用: `tar -czf rtfreporter_X.Y.Z.tar.gz -C "r" "rtfreporter"`
-   - Python用: `tar -czf rtfreporter_python_X.Y.Z.tar.gz -C "." "python"`
-3. **vignette のビルド済みHTMLを `r/rtfreporter/inst/doc/` に含めてからtar.gzを作成する**。
-   ```r
-   rmarkdown::render(
-     'r/rtfreporter/vignettes/rtfreporter-quickstart.Rmd',
-     output_dir = 'r/rtfreporter/inst/doc',
-     output_format = 'rmarkdown::html_vignette'
-   )
-   file.copy('r/rtfreporter/vignettes/rtfreporter-quickstart.Rmd',
-             'r/rtfreporter/inst/doc/')
-   ```
-
-詳細は `specs/release_guidelines.md` を参照。
+Key invariants: S3 throughout (no R6); zero hard runtime dependencies
+(`Imports: methods` only, optional packages in `Suggests` guarded by
+`requireNamespace()`); twips as the only internal length unit; ASCII-only
+R code; `NAMESPACE` is hand-managed (regenerate `man/*.Rd` with
+`devtools::document()`).
