@@ -6,6 +6,46 @@ very welcome at <https://github.com/ichirio/rtfreporter>.
 By participating in this project you agree to abide by its
 [Code of Conduct](CODE_OF_CONDUCT.md).
 
+## Becoming a contributor
+
+There is **no application or invitation step** — anyone can contribute:
+
+1. Open or comment on an [issue](https://github.com/ichirio/rtfreporter/issues)
+   to report a bug or propose a change.  (Issue forms guide you: *Bug
+   report* / *Feature request*.)
+2. For anything non-trivial, agree the approach on the issue first.
+3. Fork the repo, create a topic branch, make the change, and open a
+   pull request (the PR template's checklist walks you through it).
+4. Address review feedback; once CI is green and a maintainer approves,
+   it is merged.
+
+After a couple of merged, good-quality PRs you may be offered **write
+access / maintainer status** (the ability to push branches, label issues,
+and review PRs) — just ask, or it will be offered.  Contributions of every
+size are valued, including docs, tests, and bug reports.
+
+## Issue → merge lifecycle
+
+```
+issue ──▶ discuss / agree approach ──▶ branch off main ──▶ open PR
+   ▲                                                          │
+   │                                                          ▼
+   └──────────────── (changes requested) ◀── review + green CI
+                                                              │
+                                                              ▼
+                                                      merge to main
+                                                       (issue closed
+                                                        via "Closes #N")
+```
+
+* **Issue** — describe the problem/idea; a maintainer triages and labels it
+  (`bug`, `enhancement`, `good first issue`, ...).
+* **Branch + PR** — see *Branching & collaboration* below.  Reference the
+  issue with `Closes #N` so it auto-closes on merge.
+* **Review + CI** — all three GitHub Actions workflows must pass (see
+  *Continuous integration*) and at least one maintainer approves.
+* **Merge** — the maintainer merges to `main`; the branch is deleted.
+
 ## Reporting bugs
 
 Open an issue at
@@ -59,9 +99,11 @@ contributor to several.
   releasable: green on all CI workflows (R-CMD-check, test-coverage,
   pkgdown) and `0 errors / 0 warnings` on `devtools::check()`.  The
   current *development version* lives here.
-- **Never commit directly to `main`** (once there is more than one
-  contributor).  Enable branch protection on `main`: require a pull
-  request, passing CI, and at least one approving review before merge.
+- **Direct commits to `main`.**  Branch protection is **not yet enabled**
+  while the project has a single maintainer (so `main` currently accepts
+  direct pushes).  As soon as there is more than one contributor it will be
+  turned on: require a pull request, passing CI, and at least one approving
+  review before merge.  Contributors should use a PR regardless.
 - **One topic branch per change**, cut from the latest `main`.  Use a
   short, descriptive name with a type prefix:
 
@@ -86,6 +128,38 @@ contributor to several.
   must be patched after a newer major has shipped, create a long-lived
   `release/v<MAJOR>` branch for back-ports.  This is not needed during
   normal single-line development.
+
+## Continuous integration (GitHub Actions)
+
+Three workflows run on every push to `main` and on every pull request
+(under `.github/workflows/`).  A PR is mergeable only when all three are
+green.
+
+| Workflow | File | What it does |
+|----------|------|--------------|
+| **R-CMD-check** | `R-CMD-check.yaml` | `R CMD check` on a matrix of OS / R versions (the standard `r-lib/actions` recipe).  Must be 0 errors / 0 warnings. |
+| **test-coverage** | `test-coverage.yaml` | Runs the testthat suite under `covr` and uploads coverage to Codecov. |
+| **pkgdown** | `pkgdown.yaml` | Builds the documentation site and (on `main` / on a published release) deploys it to the `gh-pages` branch. |
+
+All three also accept `workflow_dispatch` (run-on-demand from the Actions
+tab).  Releases additionally re-trigger pkgdown on `release: published`.
+Before pushing, reproduce CI locally with `devtools::document()`,
+`devtools::test()` and `devtools::check()`.
+
+## Project tracking (GitHub Projects / labels)
+
+Lightweight tracking lives on GitHub:
+
+* **Labels** classify issues/PRs: `bug`, `enhancement`,
+  `good first issue`, `documentation`, `help wanted`.  Start with a
+  *good first issue* if you are new.
+* **Milestones** group issues for a target release (e.g. `v0.1.0`),
+  mirroring the major/minor entries in `NEWS.md` / `CHANGELOG.md`.
+* **GitHub Projects (board)** — an optional kanban (`Backlog → In progress
+  → In review → Done`) for planning a release.  Issues and PRs are added
+  as cards; the *In review* column maps to "open PR, CI green, awaiting
+  review".  This is for coordination only; the source of truth for *what
+  shipped* remains `NEWS.md`.
 
 ## Code style
 
