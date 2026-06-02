@@ -45,6 +45,69 @@ Concretely:
   rtf_tables() |> generate_rtfreport()` — the same vocabulary every
   time, so building a 50-TFL deliverable is a loop.
 
+If the supported layout matches your team's house style, you get
+publication-ready deliverables with almost no configuration.  If your
+deliverables need a substantially different layout, another tool may
+serve you better — and that trade-off is intentional.  We would rather do
+one well-defined style really well than do everything passably.  You are
+warmly welcome to use rtfreporter for the styles it supports.
+
+## Bring your own table tool
+
+The clinical-table ecosystem has several excellent builders —
+[tfrmt](https://gsk-biostatistics.github.io/tfrmt/),
+[gtsummary](https://www.danieldsjoberg.com/gtsummary/),
+[rtables](https://insightsengineering.github.io/rtables/) /
+[tern](https://insightsengineering.github.io/tern/), and
+[gt](https://gt.rstudio.com) — and, honestly, no single de-facto
+standard has emerged yet.  rtfreporter does not ask you to pick one, to
+switch, or to re-state your table in yet another vocabulary.
+
+Whatever your team already uses to compute and format the numbers,
+[`as_rtftables()`](https://ichirio.github.io/rtfreporter/reference/as_rtftables.html)
+reads that object — its column labels, alignment, spanning headers,
+titles, footnotes and per-cell styling — and carries the metadata
+through to RTF.  You keep your preferred workhorse for the statistics;
+rtfreporter handles the last mile to a clinical RTF page.
+
+```r
+library(gtsummary)
+trial |>
+  tbl_summary(by = trt) |>
+  as_rtftables() |>                       # gt / gtsummary / rtables / tern / data.frame
+  (\(pages) rtf_document() |>
+     rtf_section(page = 1, secinfo = list(header = my_header)) |>
+     rtf_tables(pages))() |>
+  generate_rtfreport("T_14_1_1.rtf", overwrite = TRUE)
+```
+
+## Why RTF?
+
+RTF is an old format, and we are perfectly aware of that.  Producing
+`.docx` directly, or rendering straight to PDF, is entirely possible and
+in some respects more modern.  We chose RTF on purpose, for the most
+old-fashioned of reasons: **it is the simplest thing that fully meets the
+need.**
+
+For clinical deliverables the workflow we care about is
+**RTF → (optional post-processing) → PDF**, and that route is still
+genuinely useful today:
+
+- **Simple grammar.**  RTF is plain text with a small, well-understood
+  command vocabulary.  That keeps the renderer small and auditable —
+  which matters in a regulated setting.
+- **Easy to patch when you must.**  Because the output is just text, a
+  last-minute correction can be made by hand or by a small script,
+  without round-tripping through a binary editor.
+- **Universally openable.**  Every word processor opens RTF and exports
+  it to PDF, so the final step fits whatever your organisation already
+  uses.
+
+A PDF-first or DOCX-first toolkit could do the same job, perhaps more
+elegantly or with more features.  But for *our* needs — which are modest,
+specific, and well-defined — RTF remains the easiest path that is
+**necessary and sufficient**.  Simplicity, here, is the feature.
+
 ## Installation
 
 The package is not on CRAN yet. Install the development version from GitHub:
