@@ -55,9 +55,9 @@ make_header <- function(table_no, title2) {
 }
 make_footer <- function(source_object, built_with) {
   rtf_footer(c(l = paste0(
-    "Layout adapted from the pharmaverse / NEST TLG catalogs.  ",
-    "Source object: ", source_object, " (built with ", built_with, "); ",
-    "read into RTF with rtfreporter::as_rtftables().  Data simulated.")))
+    "Source object: ", source_object, " (", built_with, "), ",
+    "converted to RTF by rtfreporter.  ",
+    "Simulated data; layout after the pharmaverse / NEST TLG catalogs.")))
 }
 
 .write <- function(doc, file) {
@@ -77,7 +77,7 @@ dm_tbl <- adsl |>
     rtf_section(page = 1, secinfo = list(
       header = make_header("14.1.1", "Demographic and Baseline Characteristics"),
       footer = make_footer("gt_tbl", "gtsummary::tbl_summary()"))) |>
-    rtf_tables(as_rtftables(dm_tbl, align_count_pct = TRUE),
+    rtf_tables(as_rtftables(dm_tbl, align_count_pct = TRUE, blank_rows = "between_groups"),
                titles = list(c("Demographic and Baseline Characteristics",
                                "Safety Analysis Set"))),
   "tlg-demographics.rtf")
@@ -96,7 +96,7 @@ ae_tbl <- build_table(ae_lyt, as.data.frame(adae),
     rtf_section(page = 1, secinfo = list(
       header = make_header("14.3.1", "Adverse Events by SOC and Preferred Term"),
       footer = make_footer("rtables TableTree", "tern + rtables"))) |>
-    rtf_tables(as_rtftables(ae_tbl, align_count_pct = TRUE)),
+    rtf_tables(as_rtftables(ae_tbl, align_count_pct = TRUE, blank_rows = "between_groups")),
   "tlg-ae.rtf")
 
 # ---- 3. Age summary (tfrmt) ------------------------------------------------
@@ -105,9 +105,8 @@ age_df <- adsl |>
   summarise(mean = mean(AGE), sd = sd(AGE), .groups = "drop") |>
   tidyr::pivot_longer(c(mean, sd), names_to = "param", values_to = "value") |>
   mutate(group = "Age (years)",
-         label = recode(param, mean = "Mean", sd = "SD"),
-         column = as.character(ARM))
-tf <- tfrmt(group = group, label = label, column = column,
+         label = recode(param, mean = "Mean", sd = "SD"))
+tf <- tfrmt(group = group, label = label, column = ARM,
             param = param, value = value,
             body_plan = body_plan(
               frmt_structure(".default", ".default", frmt("xx.x"))))
@@ -119,21 +118,6 @@ tf <- tfrmt(group = group, label = label, column = column,
     rtf_tables(as_rtftables(print_to_gt(tf, age_df))),
   "tlg-tfrmt-age.rtf")
 
-# ---- 4. Subject listing (plain data.frame) ---------------------------------
-lst <- adsl |>
-  arrange(USUBJID) |>
-  transmute(USUBJID, Arm = ARM, Age = AGE, Sex = SEX) |>
-  head(12)
-.write(
-  rtf_document() |>
-    rtf_section(page = 1, secinfo = list(
-      header = make_header("16.2.1", "Subject Listing"),
-      footer = make_footer("data.frame / tibble", "base R"))) |>
-    rtf_tables(as_rtftables(lst),
-               col_header = c("Subject ID", "Arm", "Age", "Sex"),
-               col_rel_width = c(3, 3, 1, 1)),
-  "tlg-listing.rtf")
-
 message("\nDone. Open the .rtf files in ", normalizePath(out_dir),
         "\nSave screenshots (PNG) to man/figures/ as:",
-        "\n  tlg-demographics.png  tlg-ae.png  tlg-tfrmt-age.png  tlg-listing.png")
+        "\n  tlg-demographics.png  tlg-ae.png  tlg-tfrmt-age.png")

@@ -81,7 +81,10 @@
 # ── Small value helpers ──────────────────────────────────────────────────
 
 # Convert a value that might be markdown_text, list-of-1, or NULL into a plain
-# character string.  Returns NA_character_ when nothing usable.
+# character string.  Returns NA_character_ when nothing usable.  Markdown
+# bold markers (`**...**`) -- which gtsummary puts in `by`-column headers via
+# modify_header() -- are stripped, since rtfreporter does not render Markdown
+# and would otherwise show the literal asterisks.
 .flatten_to_chr <- function(x) {
   if (is.null(x)) return(NA_character_)
   if (length(x) == 0L) return(NA_character_)
@@ -89,6 +92,8 @@
   if (is.null(x)) return(NA_character_)
   v <- as.character(x)[1L]
   if (is.na(v) || !nzchar(v)) return(NA_character_)
+  v <- gsub("**", "", v, fixed = TRUE)        # strip markdown bold markers
+  if (!nzchar(v)) return(NA_character_)
   v
 }
 

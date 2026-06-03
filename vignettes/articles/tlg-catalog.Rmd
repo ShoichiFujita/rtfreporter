@@ -87,13 +87,13 @@ make_header <- function(table_no, title2) {
   ))
 }
 
-# A single-column, left-aligned footer that records the table's provenance:
-# the reference catalog, the source object type, and the package used.
+# A single-column, left-aligned footer recording the table's provenance:
+# the source object type, the package used, and the reference catalog.
 make_footer <- function(source_object, built_with) {
   rtf_footer(c(l = paste0(
-    "Layout adapted from the pharmaverse / NEST TLG catalogs.  ",
-    "Source object: ", source_object, " (built with ", built_with, "); ",
-    "read into RTF with rtfreporter::as_rtftables().  Data simulated.")))
+    "Source object: ", source_object, " (", built_with, "), ",
+    "converted to RTF by rtfreporter.  ",
+    "Simulated data; layout after the pharmaverse / NEST TLG catalogs.")))
 }
 ```
 
@@ -120,7 +120,8 @@ doc <- rtf_document() |>
               secinfo = list(header = make_header("14.1.1",
                                                   "Demographic and Baseline Characteristics"),
                              footer = make_footer("gt_tbl", "gtsummary::tbl_summary()"))) |>
-  rtf_tables(as_rtftables(dm_tbl, align_count_pct = TRUE),
+  rtf_tables(as_rtftables(dm_tbl, align_count_pct = TRUE,
+                                     blank_rows = "between_groups"),
              titles = list(c("Demographic and Baseline Characteristics",
                              "Safety Analysis Set")))
 
@@ -157,7 +158,8 @@ doc <- rtf_document() |>
               secinfo = list(header = make_header("14.3.1",
                                                   "Adverse Events by SOC and Preferred Term"),
                              footer = make_footer("rtables TableTree", "tern + rtables"))) |>
-  rtf_tables(as_rtftables(ae_tbl, align_count_pct = TRUE))
+  rtf_tables(as_rtftables(ae_tbl, align_count_pct = TRUE,
+                                     blank_rows = "between_groups"))
 
 out <- tempfile(fileext = ".rtf")
 generate_rtfreport(doc, out, overwrite = TRUE)
@@ -175,11 +177,10 @@ age_df <- adsl |>
   summarise(mean = mean(AGE), sd = sd(AGE), .groups = "drop") |>
   tidyr::pivot_longer(c(mean, sd), names_to = "param", values_to = "value") |>
   mutate(group = "Age (years)",
-         label = recode(param, mean = "Mean", sd = "SD"),
-         column = as.character(ARM))
+         label = recode(param, mean = "Mean", sd = "SD"))
 
 tf <- tfrmt(
-  group = group, label = label, column = column, param = param, value = value,
+  group = group, label = label, column = ARM, param = param, value = value,
   body_plan = body_plan(
     frmt_structure(group_val = ".default", label_val = ".default", frmt("xx.x")))
 )
@@ -199,31 +200,6 @@ generate_rtfreport(doc, out, overwrite = TRUE)
 file.exists(out)
 ```
 
-## 4. A subject listing (plain data.frame)
-
-When you do not need a table-building package -- e.g. a simple listing --
-hand rtfreporter a `data.frame`/tibble directly and set the display
-metadata yourself:
-
-```{r listing}
-lst <- adsl |>
-  arrange(USUBJID) |>
-  transmute(USUBJID, Arm = ARM, Age = AGE, Sex = SEX) |>
-  head(12)
-
-doc <- rtf_document() |>
-  rtf_section(page = 1,
-              secinfo = list(header = make_header("16.2.1", "Subject Listing"),
-                             footer = make_footer("data.frame / tibble", "base R"))) |>
-  rtf_tables(as_rtftables(lst),
-             col_header = c("Subject ID", "Arm", "Age", "Sex"),
-             col_rel_width = c(3, 3, 1, 1))
-
-out <- tempfile(fileext = ".rtf")
-generate_rtfreport(doc, out, overwrite = TRUE)
-file.exists(out)
-```
-
 ## Assembling a multi-table deliverable
 
 Real deliverables bundle many TLGs into one file.  Build each page's
@@ -237,13 +213,14 @@ generate_rtfreport(
   rtf_document() |>
     rtf_section(page = 1, secinfo = list(header = make_header("14.1.1", "Demographics"),
                                          footer = make_footer("gt_tbl", "gtsummary"))) |>
-    rtf_tables(as_rtftables(dm_tbl, align_count_pct = TRUE)),
+    rtf_tables(as_rtftables(dm_tbl, align_count_pct = TRUE, blank_rows = "between_groups")),
   f1, overwrite = TRUE)
 generate_rtfreport(
   rtf_document() |>
     rtf_section(page = 1, secinfo = list(header = make_header("14.3.1", "Adverse Events"),
                                          footer = make_footer("rtables TableTree", "tern + rtables"))) |>
-    rtf_tables(as_rtftables(ae_tbl, align_count_pct = TRUE)),
+    rtf_tables(as_rtftables(ae_tbl, align_count_pct = TRUE,
+                                     blank_rows = "between_groups")),
   f2, overwrite = TRUE)
 
 bundle <- tempfile(fileext = ".rtf")

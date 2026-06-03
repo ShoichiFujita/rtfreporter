@@ -1,5 +1,28 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.50
+
+### Fixes for gt / gtsummary reading
+
+* **Markdown bold markers stripped.**  gtsummary writes `**Placebo**` (and
+  similar) into `by`-group column headers; rtfreporter does not render
+  Markdown, so the literal `**` used to show through.  Extracted labels /
+  titles / footnotes now have `**...**` markers removed.
+
+### Count alignment: lone zero counts
+
+* `align_count_pct = TRUE` now also right-pads bare integer cells (e.g. a
+  lone `0` for a zero count) to the column width, so they line up with the
+  `"n (xx.x%)"` cells instead of sitting flush-left.
+
+### TLG cookbook article
+
+* Fixed the tfrmt example (use `column = ARM` directly; a redundant column
+  variable was leaking an extra `ARM` column into the output), added
+  group-separating blank rows (`blank_rows = "between_groups"`) to the
+  demographics and AE tables, shortened the provenance footer, and dropped
+  the trivial subject-listing example.
+
 ## rtfreporter 0.0.49
 
 ### Fix: rtables / tern row-label indentation

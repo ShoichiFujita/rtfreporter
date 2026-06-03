@@ -162,10 +162,26 @@ realign_count_pct <- function(x, nbsp = "\u00a0") {
 # Internal: apply realign_count_pct() to every character column of `df`
 # except the first column (which by clinical convention is the row label,
 # not a count cell).  Used by paginate(align_count_pct = TRUE).
+#
+# After re-padding the "n (xx.x[%])" cells, bare-integer cells in the same
+# column (e.g. a lone "0" for a zero count) are right-padded to the column's
+# display width too, so they line up with the count-percent cells instead of
+# sitting flush-left.  Empty cells (group-label rows) are left empty.
 .realign_count_pct_df <- function(df, nbsp = "\u00a0") {
   if (ncol(df) < 2L) return(df)
   df[, -1L] <- lapply(df[, -1L, drop = FALSE], function(col) {
-    if (is.character(col)) realign_count_pct(col, nbsp = nbsp) else col
+    if (!is.character(col)) return(col)
+    col <- realign_count_pct(col, nbsp = nbsp)
+    is_int <- grepl("^\\s*\\d+\\s*$", col)             # a lone count, no paren
+    if (any(is_int)) {
+      width <- max(nchar(col[nzchar(trimws(col))]), 0L)
+      pad   <- if (identical(nbsp, " ")) " " else nbsp
+      col[is_int] <- vapply(col[is_int], function(x) {
+        x <- trimws(x)
+        paste0(strrep(pad, max(width - nchar(x), 0L)), x)
+      }, character(1L))
+    }
+    col
   })
   df
 }
