@@ -105,6 +105,8 @@ navbar:
         # ── Worked clinical examples ────────────────────────────────────
         - text: -------
         - text: "Worked clinical examples"
+        - text: "TLG cookbook (pharmaverse -> RTF)"
+          href: articles/tlg-catalog.html
         - text: "Demographics table"
           href: articles/example-demog.html
         - text: "Lab summary"
@@ -253,6 +255,7 @@ articles:
     desc: End-to-end recipes for typical clinical TFL deliverables.
     navbar: ~
     contents:
+      - articles/tlg-catalog
       - articles/example-demog
       - articles/example-lab
 

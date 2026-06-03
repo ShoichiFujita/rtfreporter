@@ -1,0 +1,255 @@
+---
+title: "TLG cookbook: pharmaverse tables -> RTF"
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+# This article runs only when every table-building package is available.
+.pkgs <- c("gtsummary", "rtables", "tern", "tfrmt", "dplyr")
+.ok <- all(vapply(.pkgs, requireNamespace, logical(1L), quietly = TRUE))
+knitr::opts_chunk$set(eval = .ok)
+```
+
+```{r, eval = TRUE, echo = FALSE, results = "asis"}
+if (!.ok)
+  cat("> This article renders only when **gtsummary, rtables, tern, tfrmt**",
+      "and **dplyr** are installed.  The code below shows the workflow either",
+      "way.\n")
+```
+
+rtfreporter does not compute statistics or format numbers -- the
+[pharmaverse](https://pharmaverse.org) ecosystem already does that
+beautifully.  rtfreporter handles the **last mile**: taking whatever table
+object your team produced and laying it out as a clinical-style RTF page.
+
+This cookbook mirrors the layout-by-example style of the
+[pharmaverse TLG examples](https://pharmaverse.github.io/examples/tlg/) and
+the [NEST TLG catalog](https://insightsengineering.github.io/tlg-catalog/stable/):
+each entry **builds a table with a pharmaverse tool**, then **converts it to
+RTF** with [`as_rtftables()`](../reference/as_rtftables.html) +
+[`rtf_tables()`](../reference/rtf_tables.html) +
+[`generate_rtfreport()`](../reference/generate_rtfreport.html).
+
+```{r setup, eval = TRUE}
+library(rtfreporter)
+```
+
+```{r libs}
+library(gtsummary)
+library(rtables)
+library(tern)
+library(tfrmt)
+library(dplyr)
+```
+
+## Self-contained example data
+
+To keep the article reproducible with no data dependency, we simulate a
+small CDISC-style subject-level (`adsl`) and adverse-event (`adae`)
+data set.  Swap in `pharmaverseadam` / `random.cdisc.data` in real work.
+
+```{r data}
+set.seed(2026)
+n   <- 60
+arm <- sample(c("Placebo", "Xanomeline Low", "Xanomeline High"), n, TRUE)
+
+adsl <- tibble(
+  USUBJID = sprintf("01-701-%03d", seq_len(n)),
+  ARM     = factor(arm,
+                   levels = c("Placebo", "Xanomeline Low", "Xanomeline High")),
+  AGE     = round(rnorm(n, 60, 9)),
+  SEX     = factor(sample(c("F", "M"), n, TRUE)),
+  RACE    = factor(sample(c("WHITE", "BLACK OR AFRICAN AMERICAN", "ASIAN"),
+                          n, TRUE, prob = c(.7, .2, .1)))
+)
+
+soc <- c("Gastrointestinal disorders", "Nervous system disorders",
+         "Skin and subcutaneous tissue disorders")
+pt  <- list("Nausea", "Diarrhoea", c("Headache", "Dizziness"),
+            c("Rash", "Pruritus"))
+adae <- adsl |>
+  slice_sample(n = 90, replace = TRUE) |>
+  transmute(
+    USUBJID, ARM,
+    AESOC   = factor(sample(soc, n(), TRUE)),
+    AEDECOD = factor(sample(unlist(pt), n(), TRUE))
+  )
+```
+
+A reusable clinical header / footer for every page:
+
+```{r hf}
+make_header <- function(table_no, title2) {
+  rtf_header(rows = list(
+    c(l = "Protocol: RTF-101",  r = "CONFIDENTIAL"),
+    c(l = paste0("Table ", table_no, "  ", title2),
+      r = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}")
+  ))
+}
+the_footer <- rtf_footer(c(l = "Source: simulated ADaM", r = "Draft"))
+```
+
+## 1. Demographics & baseline (gtsummary)
+
+A standard demographics table built with `gtsummary::tbl_summary()`:
+
+```{r dm-build}
+dm_tbl <- adsl |>
+  select(ARM, AGE, SEX, RACE) |>
+  tbl_summary(by = ARM,
+              label = list(AGE = "Age (years)", SEX = "Sex",
+                           RACE = "Race")) |>
+  modify_header(label = "Characteristic")
+dm_tbl
+```
+
+Convert it and write the RTF -- column labels, the by-group column
+headers and the row structure all carry through:
+
+```{r dm-rtf}
+doc <- rtf_document() |>
+  rtf_section(page = 1,
+              secinfo = list(header = make_header("14.1.1",
+                                                  "Demographic and Baseline Characteristics"),
+                             footer = the_footer)) |>
+  rtf_tables(as_rtftables(dm_tbl),
+             titles = list(c("Demographic and Baseline Characteristics",
+                             "Safety Analysis Set")))
+
+out <- tempfile(fileext = ".rtf")
+generate_rtfreport(doc, out, overwrite = TRUE)
+file.exists(out)
+```
+
+## 2. Adverse events by SOC / PT (tern + rtables)
+
+The NEST stack (`tern` layouts on top of `rtables`) is the canonical way
+to build a nested AE table:
+
+```{r ae-build}
+ae_lyt <- basic_table(show_colcounts = TRUE) |>
+  split_cols_by("ARM") |>
+  analyze_num_patients(vars = "USUBJID",
+                       .stats = "unique",
+                       .labels = c(unique = "Subjects with >=1 AE")) |>
+  split_rows_by("AESOC", label_pos = "topleft", split_label = "SOC") |>
+  count_occurrences(vars = "AEDECOD")
+
+ae_tbl <- build_table(ae_lyt, as.data.frame(adae), alt_counts_df = as.data.frame(adsl))
+ae_tbl
+```
+
+`as_rtftables()` reads the spanning column headers, the SOC row groups
+(rendered with indentation) and the alignment straight from the
+`VTableTree`:
+
+```{r ae-rtf}
+doc <- rtf_document() |>
+  rtf_section(page = 1,
+              secinfo = list(header = make_header("14.3.1",
+                                                  "Adverse Events by SOC and Preferred Term"),
+                             footer = the_footer)) |>
+  rtf_tables(as_rtftables(ae_tbl))
+
+out <- tempfile(fileext = ".rtf")
+generate_rtfreport(doc, out, overwrite = TRUE)
+file.exists(out)
+```
+
+## 3. A pre-formatted table (tfrmt)
+
+`tfrmt` describes the *format* of a table declaratively, then renders to
+gt.  rtfreporter reads the gt it produces:
+
+```{r tfrmt-build}
+age_df <- adsl |>
+  group_by(ARM) |>
+  summarise(mean = mean(AGE), sd = sd(AGE), .groups = "drop") |>
+  tidyr::pivot_longer(c(mean, sd), names_to = "param", values_to = "value") |>
+  mutate(group = "Age (years)",
+         label = recode(param, mean = "Mean", sd = "SD"),
+         column = as.character(ARM))
+
+tf <- tfrmt(
+  group = group, label = label, column = column, param = param, value = value,
+  body_plan = body_plan(
+    frmt_structure(group_val = ".default", label_val = ".default", frmt("xx.x")))
+)
+tf_gt <- print_to_gt(tf, age_df)
+tf_gt
+```
+
+```{r tfrmt-rtf}
+doc <- rtf_document() |>
+  rtf_section(page = 1,
+              secinfo = list(header = make_header("14.1.2", "Age Summary (tfrmt)"),
+                             footer = the_footer)) |>
+  rtf_tables(as_rtftables(tf_gt))
+
+out <- tempfile(fileext = ".rtf")
+generate_rtfreport(doc, out, overwrite = TRUE)
+file.exists(out)
+```
+
+## 4. A subject listing (plain data.frame)
+
+When you do not need a table-building package -- e.g. a simple listing --
+hand rtfreporter a `data.frame`/tibble directly and set the display
+metadata yourself:
+
+```{r listing}
+lst <- adsl |>
+  arrange(USUBJID) |>
+  transmute(USUBJID, Arm = ARM, Age = AGE, Sex = SEX) |>
+  head(12)
+
+doc <- rtf_document() |>
+  rtf_section(page = 1,
+              secinfo = list(header = make_header("16.2.1", "Subject Listing"),
+                             footer = the_footer)) |>
+  rtf_tables(as_rtftables(lst),
+             col_header = c("Subject ID", "Arm", "Age", "Sex"),
+             col_rel_width = c(3, 3, 1, 1))
+
+out <- tempfile(fileext = ".rtf")
+generate_rtfreport(doc, out, overwrite = TRUE)
+file.exists(out)
+```
+
+## Assembling a multi-table deliverable
+
+Real deliverables bundle many TLGs into one file.  Build each page's
+content, then concatenate the RTFs with
+[`assemble_rtf()`](../reference/assemble_rtf.html), or append several
+tables to one document with successive `rtf_tables()` calls.
+
+```{r assemble}
+f1 <- tempfile(fileext = ".rtf"); f2 <- tempfile(fileext = ".rtf")
+generate_rtfreport(
+  rtf_document() |>
+    rtf_section(page = 1, secinfo = list(header = make_header("14.1.1", "Demographics"),
+                                         footer = the_footer)) |>
+    rtf_tables(as_rtftables(dm_tbl)),
+  f1, overwrite = TRUE)
+generate_rtfreport(
+  rtf_document() |>
+    rtf_section(page = 1, secinfo = list(header = make_header("14.3.1", "Adverse Events"),
+                                         footer = the_footer)) |>
+    rtf_tables(as_rtftables(ae_tbl)),
+  f2, overwrite = TRUE)
+
+bundle <- tempfile(fileext = ".rtf")
+assemble_rtf(c(f1, f2), bundle)
+file.exists(bundle)
+```
+
+## Notes
+
+* The output is `.rtf`; open it in Word / LibreOffice (or batch-convert to
+  PDF).  See the homepage 30-second example for a screenshot of the
+  rendered look.
+* What does and does not carry across from each source is documented in
+  the *What is carried, by source* table in
+  [`?as_rtftables`](../reference/as_rtftables.html).
+* The data here is simulated and the article is fully self-contained; no
+  CDISC pilot data is bundled.

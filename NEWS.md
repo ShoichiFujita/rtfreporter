@@ -1,5 +1,17 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.48
+
+### New article: TLG cookbook (pharmaverse -> RTF)
+
+A worked, catalog-style article (`vignette("tlg-catalog")` on the site)
+showing how to take a table object built with **gtsummary**, **tern +
+rtables**, or **tfrmt** -- or a plain `data.frame`/tibble listing -- and
+render it to a clinical RTF page with `as_rtftables()` +
+`generate_rtfreport()`.  Uses fully simulated, self-contained CDISC-style
+data (no bundled pilot data), and ends with assembling a multi-table
+deliverable via `assemble_rtf()`.  `tidyr` added to `Suggests`.
+
 ## rtfreporter 0.0.47
 
 ### License changed to Apache 2.0
