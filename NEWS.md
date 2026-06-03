@@ -1,5 +1,24 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.51
+
+### TLG cookbook article reworked to follow the pharmaverse examples
+
+The `tlg-catalog` article now uses the **CDISC pilot ADaM data** from
+`random.cdisc.data` (the data the NEST catalog uses) and mirrors the
+pharmaverse TLG examples:
+
+* the **Demographic** table is built three ways -- **tern + rtables**,
+  **gtsummary**, and **tfrmt** -- and each is converted to the same clinical
+  RTF;
+* the **Adverse Events** table is **paginated across pages**
+  (`split = "group_safe"`, `max_rows`, with `blank_rows = "between_groups"`),
+  showing the running header and repeated column headers;
+* the article ends by **assembling** the demographics and the multi-page AE
+  table into one deliverable with `assemble_rtf()`.
+
+`random.cdisc.data` added to `Suggests`.
+
 ## rtfreporter 0.0.50
 
 ### Fixes for gt / gtsummary reading
