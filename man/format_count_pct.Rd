@@ -4,7 +4,13 @@
 \alias{format_count_pct}
 \title{Format count + percent cells to a uniform display width}
 \usage{
-format_count_pct(count, pct, pct_unit = c("fraction", "percent"), nbsp = " ")
+format_count_pct(
+  count,
+  pct,
+  pct_unit = c("fraction", "percent"),
+  nbsp = " ",
+  pct_sign = FALSE
+)
 }
 \arguments{
 \item{count}{Integer / numeric vector of counts.  `NA` and `0`
@@ -22,6 +28,10 @@ one argument is length 1.}
 is the non-breaking space (Unicode code point U+00A0) so that RTF
 and Word do not collapse leading whitespace.  Pass `" "` (regular
 space) for plain-text output.}
+
+\item{pct_sign}{Logical (default `FALSE`).  When `TRUE`, a literal
+`%` is placed before the closing parenthesis (e.g. `" 14 (50.0%)"`)
+and every branch is one character wider so the `)` still aligns.}
 }
 \value{
 Character vector the same length as `count` / `pct`.

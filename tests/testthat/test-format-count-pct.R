@@ -106,3 +106,22 @@ test_that("paginate(align_count_pct = FALSE) leaves columns untouched (default)"
   pages <- paginate(df)                    # default = FALSE
   expect_identical(pages[[1L]]$a[2L], "5 (33.3)")
 })
+
+test_that("realign_count_pct() aligns percent-sign cells, keeping the %", {
+  out <- realign_count_pct(c("8 (28.6%)", "10 (35.7%)", "3 (100%)", "5 (5.0%)"),
+                           nbsp = " ")
+  # All re-padded to the same display width, '%' preserved, ')' last char.
+  expect_true(all(nchar(out) == nchar(out[1L])))
+  expect_true(all(endsWith(out, "%)")))
+  expect_true(any(grepl("8 (28.6%)", out, fixed = TRUE)))
+})
+
+test_that("format_count_pct(pct_sign = TRUE) adds % and stays width-aligned", {
+  a <- format_count_pct(c(5L, 14L, 30L), c(5, 50, 100),
+                        pct_unit = "percent", nbsp = " ", pct_sign = TRUE)
+  expect_true(all(nchar(a) == nchar(a[1L])))
+  expect_true(all(endsWith(a, "%)")))
+  # pct_sign = FALSE is unchanged (no %).
+  b <- format_count_pct(14L, 50, pct_unit = "percent", nbsp = " ")
+  expect_false(grepl("%", b))
+})

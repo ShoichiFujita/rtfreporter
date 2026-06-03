@@ -62,9 +62,21 @@ test_that("as_rtftables(rtables) reads column labels + row labels (stub)", {
   rt  <- as_rtftables(tbl)[[1L]]
   # Column 1 is the stub: group label rows + data rows interleaved already.
   expect_true("WHITE" %in% rt$data[[1L]])
-  expect_true("Mean"  %in% rt$data[[1L]])
+  expect_true("Mean"  %in% trimws(rt$data[[1L]]))   # indented stub label
   # Bottom header row carries the leaf column labels (ARM levels A / B).
   expect_false(is.null(rt$col_header))
+})
+
+test_that("as_rtftables(rtables) renders row-label indentation into the stub", {
+  tbl <- .make_rtables()                       # RACE group rows + nested data
+  rt  <- as_rtftables(tbl)[[1L]]
+  stub <- rt$data[[1L]]
+  # A nested data row ("Mean") is indented (leading whitespace); the
+  # group-label row ("WHITE") is not.
+  mean_cell  <- stub[trimws(stub) == "Mean"][1L]
+  white_cell <- stub[trimws(stub) == "WHITE"][1L]
+  expect_match(mean_cell, "^[[:space:] ]+Mean")
+  expect_identical(white_cell, "WHITE")
 })
 
 test_that("as_rtftables(rtables) builds spanning header for nested col splits", {
@@ -89,7 +101,7 @@ test_that("as_rtftables(rtables) carries titles + footers as attributes", {
 test_that("as_rtftables(rtables) converts in-cell {N} marks to ^{N}", {
   tbl <- .make_rtables(footnote = TRUE)
   rt  <- as_rtftables(tbl)[[1L]]
-  data_cell <- rt$data[[2L]][rt$data[[1L]] == "Mean"][1L]
+  data_cell <- rt$data[[2L]][trimws(rt$data[[1L]]) == "Mean"][1L]
   expect_match(data_cell, "\\^\\{1\\}")
   expect_false(grepl("[^^]\\{1\\}", data_cell))   # no bare {1}
   # The footnote legend text comes through the footnote block.
@@ -102,7 +114,7 @@ test_that("as_rtftables(rtables, read_meta = FALSE) gives body only, no metadata
   expect_null(rt$col_header)
   expect_null(attr(rt, "rtf_titles"))
   # Marks left literal when footnote_marks token is off.
-  data_cell <- rt$data[[2L]][rt$data[[1L]] == "Mean"][1L]
+  data_cell <- rt$data[[2L]][trimws(rt$data[[1L]]) == "Mean"][1L]
   expect_match(data_cell, "\\{1\\}")
 })
 

@@ -48,6 +48,9 @@
 #'   is the non-breaking space (Unicode code point U+00A0) so that RTF
 #'   and Word do not collapse leading whitespace.  Pass `" "` (regular
 #'   space) for plain-text output.
+#' @param pct_sign Logical (default `FALSE`).  When `TRUE`, a literal
+#'   `%` is placed before the closing parenthesis (e.g. `" 14 (50.0%)"`)
+#'   and every branch is one character wider so the `)` still aligns.
 #'
 #' @return Character vector the same length as `count` / `pct`.
 #'
@@ -66,7 +69,8 @@
 #' @export
 format_count_pct <- function(count, pct,
                               pct_unit = c("fraction", "percent"),
-                              nbsp     = "\u00a0") {
+                              nbsp     = "\u00a0",
+                              pct_sign = FALSE) {
   pct_unit <- match.arg(pct_unit)
   if (!is.numeric(count) || !is.numeric(pct)) {
     stop("`count` and `pct` must both be numeric.", call. = FALSE)
@@ -80,18 +84,24 @@ format_count_pct <- function(count, pct,
   }
   if (pct_unit == "fraction") pct <- pct * 100
 
+  # When pct_sign = TRUE a "%" is added before the closing paren and every
+  # branch is one character wider, so the ")" still aligns across cells.
   out <- vapply(seq_len(n_in), function(i) {
     c1 <- count[i]; p <- pct[i]
     if (is.na(c1) || is.na(p) || c1 == 0) {
-      raw <- sprintf("%3d       ", as.integer(c1))
+      raw <- if (pct_sign) sprintf("%3d        ", as.integer(c1))
+             else          sprintf("%3d       ",  as.integer(c1))
     } else if (p >= 100) {
-      # Two spaces before '(' so the ')' aligns at column 10 with the
-      # other paren-bearing branches.
-      raw <- sprintf("%3d  (%3d)",  as.integer(c1), round(p))
+      # Two spaces before '(' so the ')' aligns with the other
+      # paren-bearing branches.
+      raw <- if (pct_sign) sprintf("%3d  (%3d%%)", as.integer(c1), round(p))
+             else          sprintf("%3d  (%3d)",   as.integer(c1), round(p))
     } else if (p < 10) {
-      raw <- sprintf("%3d  (%3.1f)", as.integer(c1), p)
+      raw <- if (pct_sign) sprintf("%3d  (%3.1f%%)", as.integer(c1), p)
+             else          sprintf("%3d  (%3.1f)",   as.integer(c1), p)
     } else {
-      raw <- sprintf("%3d (%4.1f)",  as.integer(c1), p)
+      raw <- if (pct_sign) sprintf("%3d (%4.1f%%)", as.integer(c1), p)
+             else          sprintf("%3d (%4.1f)",   as.integer(c1), p)
     }
     raw
   }, character(1L))
@@ -130,14 +140,19 @@ realign_count_pct <- function(x, nbsp = "\u00a0") {
   if (is.null(x) || length(x) == 0L) return(x)
   if (!is.character(x)) x <- as.character(x)
   out <- x
-  rx  <- "^\\s*(\\d+)\\s*\\((\\d+(?:\\.\\d+)?)\\)\\s*$"
+  # Optional trailing "%" inside the parens is captured so that cells like
+  # "8 (28.6%)" (e.g. from tern::count_occurrences) are realigned WITH the
+  # "%" preserved.  Cells without "%" keep the original "n (xx.x)" form.
+  rx  <- "^\\s*(\\d+)\\s*\\((\\d+(?:\\.\\d+)?)(%?)\\)\\s*$"
   m   <- regmatches(x, regexec(rx, x))
   for (i in seq_along(x)) {
     g <- m[[i]]
-    if (length(g) == 3L && !is.na(g[1L]) && nzchar(g[1L])) {
-      n   <- as.integer(g[2L])
-      pct <- as.numeric(g[3L])
-      out[i] <- format_count_pct(n, pct, pct_unit = "percent", nbsp = nbsp)
+    if (length(g) == 4L && !is.na(g[1L]) && nzchar(g[1L])) {
+      n        <- as.integer(g[2L])
+      pct      <- as.numeric(g[3L])
+      pct_sign <- nzchar(g[4L])
+      out[i] <- format_count_pct(n, pct, pct_unit = "percent",
+                                 nbsp = nbsp, pct_sign = pct_sign)
     }
   }
   out

@@ -35,16 +35,12 @@
 #    "titles"         -- main title + subtitles -> page title block
 #    "footnotes"      -- referential footnote texts + main/prov footer
 #                        -> page footnote block
-#    "indent"         -- row-label indentation -> per-cell indent_twips
 #    "footnote_marks" -- in-cell {N} -> ^{N} superscript markup
-
-
-# Twips added to the row-label cell per rtables indent level.
-# 180 twips = 0.125 inch, a typical clinical-listing indent step.
-.RTABLES_INDENT_TWIPS_PER_LEVEL <- 180L
+#  (Row-label indentation is rendered into the stub text by
+#   matrix_form(indent_rownames = TRUE); it is not a separate token.)
 
 .RTABLES_TOKENS_ALL <- c("col_header", "alignment", "spanning", "titles",
-                         "footnotes", "indent", "footnote_marks")
+                         "footnotes", "footnote_marks")
 
 
 # ── Detection ──────────────────────────────────────────────────────────────
@@ -125,7 +121,11 @@
          "Install it with install.packages(\"formatters\").", call. = FALSE)
   }
 
-  mf      <- formatters::matrix_form(x)
+  # `indent_rownames = TRUE` bakes the row-label indentation into the
+  # rendered stub text (leading spaces), exactly as rtables itself prints it.
+  # Without it the indentation is lost (mf_rinfo()$indent is 0 for many
+  # layouts), which is why nested PT rows came out flush-left.
+  mf      <- formatters::matrix_form(x, indent_rownames = TRUE)
   strings <- formatters::mf_strings(mf)
   nlh     <- formatters::mf_nlheader(mf)
   ncol_t  <- ncol(strings)
@@ -184,26 +184,9 @@
     })
   }
 
-  # ---- "indent": row-label indentation -> per-cell indent_twips -----------
-  if ("indent" %in% tokens && nbody > 0L) {
-    rinfo <- formatters::mf_rinfo(mf)
-    if (!is.null(rinfo) && "indent" %in% names(rinfo) &&
-        nrow(rinfo) == nbody) {
-      lvl <- as.integer(rinfo$indent)
-      cs  <- vector("list", nbody)
-      for (i in seq_len(nbody)) {
-        if (!is.na(lvl[i]) && lvl[i] > 0L) {
-          iv <- rep(NA_integer_, ncol_t)
-          iv[1L] <- lvl[i] * .RTABLES_INDENT_TWIPS_PER_LEVEL
-          cs[[i]] <- list(bold         = rep(NA, ncol_t),
-                          italic       = rep(NA, ncol_t),
-                          underline    = rep(NA, ncol_t),
-                          indent_twips = iv)
-        }
-      }
-      if (!all(vapply(cs, is.null, logical(1L)))) out$cell_styles <- cs
-    }
-  }
+  # NB: row-label indentation is rendered into the stub text by
+  # matrix_form(indent_rownames = TRUE) above (leading spaces), so no
+  # separate per-cell indent extraction is needed.
 
   # ---- "titles": main title + subtitles -----------------------------------
   if ("titles" %in% tokens) {

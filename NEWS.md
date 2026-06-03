@@ -1,5 +1,22 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.49
+
+### Fix: rtables / tern row-label indentation
+
+`as_rtftables()` now calls `formatters::matrix_form(x, indent_rownames = TRUE)`,
+so nested row labels (e.g. preferred terms under an SOC in a tern AE table)
+are rendered with their indentation -- exactly as rtables itself prints
+them.  Previously the indentation was lost and nested rows came out
+flush-left.
+
+### New: percent-sign support in count alignment
+
+`format_count_pct()` gains a `pct_sign` argument, and `realign_count_pct()`
+(used by `align_count_pct = TRUE`) now recognises `"n (xx.x%)"` cells --
+e.g. from `tern::count_occurrences()` -- and re-pads them to a uniform
+width while keeping the `%`.  Cells without a `%` are unchanged.
+
 ## rtfreporter 0.0.48
 
 ### New article: TLG cookbook (pharmaverse -> RTF)

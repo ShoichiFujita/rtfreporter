@@ -86,7 +86,15 @@ make_header <- function(table_no, title2) {
     c(c = paste0("Table ", table_no, "  ", title2))
   ))
 }
-the_footer <- rtf_footer(c(l = "Source: simulated ADaM", r = "Draft"))
+
+# A single-column, left-aligned footer that records the table's provenance:
+# the reference catalog, the source object type, and the package used.
+make_footer <- function(source_object, built_with) {
+  rtf_footer(c(l = paste0(
+    "Layout adapted from the pharmaverse / NEST TLG catalogs.  ",
+    "Source object: ", source_object, " (built with ", built_with, "); ",
+    "read into RTF with rtfreporter::as_rtftables().  Data simulated.")))
+}
 ```
 
 ## 1. Demographics & baseline (gtsummary)
@@ -111,8 +119,8 @@ doc <- rtf_document() |>
   rtf_section(page = 1,
               secinfo = list(header = make_header("14.1.1",
                                                   "Demographic and Baseline Characteristics"),
-                             footer = the_footer)) |>
-  rtf_tables(as_rtftables(dm_tbl),
+                             footer = make_footer("gt_tbl", "gtsummary::tbl_summary()"))) |>
+  rtf_tables(as_rtftables(dm_tbl, align_count_pct = TRUE),
              titles = list(c("Demographic and Baseline Characteristics",
                              "Safety Analysis Set")))
 
@@ -148,8 +156,8 @@ doc <- rtf_document() |>
   rtf_section(page = 1,
               secinfo = list(header = make_header("14.3.1",
                                                   "Adverse Events by SOC and Preferred Term"),
-                             footer = the_footer)) |>
-  rtf_tables(as_rtftables(ae_tbl))
+                             footer = make_footer("rtables TableTree", "tern + rtables"))) |>
+  rtf_tables(as_rtftables(ae_tbl, align_count_pct = TRUE))
 
 out <- tempfile(fileext = ".rtf")
 generate_rtfreport(doc, out, overwrite = TRUE)
@@ -183,7 +191,7 @@ tf_gt
 doc <- rtf_document() |>
   rtf_section(page = 1,
               secinfo = list(header = make_header("14.1.2", "Age Summary (tfrmt)"),
-                             footer = the_footer)) |>
+                             footer = make_footer("gt_tbl", "tfrmt"))) |>
   rtf_tables(as_rtftables(tf_gt))
 
 out <- tempfile(fileext = ".rtf")
@@ -206,7 +214,7 @@ lst <- adsl |>
 doc <- rtf_document() |>
   rtf_section(page = 1,
               secinfo = list(header = make_header("16.2.1", "Subject Listing"),
-                             footer = the_footer)) |>
+                             footer = make_footer("data.frame / tibble", "base R"))) |>
   rtf_tables(as_rtftables(lst),
              col_header = c("Subject ID", "Arm", "Age", "Sex"),
              col_rel_width = c(3, 3, 1, 1))
@@ -228,14 +236,14 @@ f1 <- tempfile(fileext = ".rtf"); f2 <- tempfile(fileext = ".rtf")
 generate_rtfreport(
   rtf_document() |>
     rtf_section(page = 1, secinfo = list(header = make_header("14.1.1", "Demographics"),
-                                         footer = the_footer)) |>
-    rtf_tables(as_rtftables(dm_tbl)),
+                                         footer = make_footer("gt_tbl", "gtsummary"))) |>
+    rtf_tables(as_rtftables(dm_tbl, align_count_pct = TRUE)),
   f1, overwrite = TRUE)
 generate_rtfreport(
   rtf_document() |>
     rtf_section(page = 1, secinfo = list(header = make_header("14.3.1", "Adverse Events"),
-                                         footer = the_footer)) |>
-    rtf_tables(as_rtftables(ae_tbl)),
+                                         footer = make_footer("rtables TableTree", "tern + rtables"))) |>
+    rtf_tables(as_rtftables(ae_tbl, align_count_pct = TRUE)),
   f2, overwrite = TRUE)
 
 bundle <- tempfile(fileext = ".rtf")
