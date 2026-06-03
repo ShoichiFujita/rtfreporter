@@ -1,5 +1,34 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.54
+
+### `as_rtftables(auto_width = TRUE)` sizes columns to their content
+
+New `auto_width` argument for `as_rtftables()`: when `TRUE`, each column is
+sized to its widest content (column-header label or data cell) so that long
+row labels and column headers no longer wrap mid-word.  The widths are
+computed once on the whole table and applied to every page, so paginated
+pages stay aligned.
+
+* The optional `table_width_twips` argument scales the auto-sized columns to a
+  given total (e.g. the writable page width), so the table fills -- or fits
+  within -- the page.
+* When the table is squeezed *narrower* than its natural width, the row-label
+  column (column 1) is kept at its natural width and only the data columns
+  shrink, so row labels stay readable while the data-column headers absorb the
+  squeeze.
+
+Supporting improvements to `auto_col_widths()`:
+
+* it now measures the **longest line** of a multi-line cell (e.g. a wrapped
+  column header like `"Placebo\nN = 86"`) instead of the whole string, and
+* gains a `protect_cols` argument to hold chosen columns at their natural
+  width when scaling down.
+
+The *From pharmaverse tables to RTF reports* article uses `auto_width = TRUE`
+for the demographics tables so long race labels such as
+`AMERICAN INDIAN OR ALASKA NATIVE` are no longer split across lines.
+
 ## rtfreporter 0.0.53
 
 ### Article reframed as a continuation of the pharmaverse examples

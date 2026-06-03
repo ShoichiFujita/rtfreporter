@@ -170,3 +170,34 @@ test_that("paginate() is deprecated but still functional", {
   # Second call in the same session does not warn again.
   expect_no_warning(paginate(df))
 })
+
+test_that("as_rtftables(auto_width=TRUE) sets content-based column widths", {
+  df <- data.frame(
+    Characteristic = c("AMERICAN INDIAN OR ALASKA NATIVE", "WHITE"),
+    Placebo = c("1 (2%)", "80 (98%)"),
+    Active  = c("0", "75 (100%)"),
+    stringsAsFactors = FALSE)
+  p <- as_rtftables(df, auto_width = TRUE)[[1L]]
+  w <- p$column_widths_twips
+  expect_length(w, 3L)
+  # The wide row-label column must be the widest.
+  expect_true(w[1L] > w[2L] && w[1L] > w[3L])
+})
+
+test_that("as_rtftables(auto_width=TRUE, table_width_twips=) fills and protects col 1", {
+  df <- data.frame(
+    Characteristic = c("AMERICAN INDIAN OR ALASKA NATIVE", "WHITE"),
+    A = "1 (2%)", B = "0", C = "5", D = "9", stringsAsFactors = FALSE)
+  nat <- as_rtftables(df, auto_width = TRUE)[[1L]]$column_widths_twips
+  p   <- as_rtftables(df, auto_width = TRUE, table_width_twips = 12000L)[[1L]]
+  w   <- p$column_widths_twips
+  expect_equal(sum(w), 12000L)
+  expect_equal(w[1L], nat[1L])   # column 1 protected at natural width
+})
+
+test_that("as_rtftables() explicit column_widths_twips beats auto_width", {
+  df <- data.frame(a = "x", b = "y", stringsAsFactors = FALSE)
+  p  <- as_rtftables(df, auto_width = TRUE,
+                     column_widths_twips = c(1000L, 2000L))[[1L]]
+  expect_equal(p$column_widths_twips, c(1000L, 2000L))
+})

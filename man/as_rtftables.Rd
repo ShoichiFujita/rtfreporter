@@ -16,6 +16,8 @@ as_rtftables(
   blank_row_first = FALSE,
   blank_row_end = FALSE,
   align_count_pct = FALSE,
+  auto_width = FALSE,
+  table_width_twips = NULL,
   border = "tfl",
   style = NULL,
   ...
@@ -37,6 +39,18 @@ gt/gtsummary: `"col_header"`, `"alignment"`, `"spanning"`, `"widths"`,
 \item{max_rows, split, split_rows, group_col, cont_label, blank_rows, blank_row_first, blank_row_end, align_count_pct}{Pagination controls.  Identical meaning to the (now deprecated)
 `paginate()`.  `split = "none"` (default) keeps the whole table as a
 single page.}
+
+\item{auto_width}{Logical (default `FALSE`).  When `TRUE`, each column is
+sized to its widest content (column header label or data cell) via
+[auto_col_widths()], so long row labels and column headers do not wrap.
+The widths are computed once on the full table and applied to every page,
+keeping paginated pages aligned.  Ignored if you pass an explicit
+`column_widths_twips` or `col_rel_width`.}
+
+\item{table_width_twips}{Optional total table width in twips, used only when
+`auto_width = TRUE`.  When supplied, the auto-sized columns are scaled so
+their widths sum to this value (e.g. to fill, or fit within, the writable
+page width).  `NULL` (default) uses each column's natural content width.}
 
 \item{border, style}{Passed to [rtftable()] for every page.  `border`
 defaults to `"tfl"`.}

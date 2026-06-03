@@ -1,3 +1,42 @@
+# Internal: flatten a (possibly multi-row, possibly spanning) col_header into a
+# plain character vector of length `ncols`, where each element is the LONGEST
+# label seen at that column across every header row.  Used by `auto_width` so
+# that column sizing accounts for the column headers, not just the data.
+#
+# Accepts the same shapes the rtftable col_header may take:
+#   * a character vector            -> a single header row
+#   * a list of header rows, each of which is either a character vector or a
+#     list of cells with `$label` and a position (`$pos`, or `$from`/`$to`).
+# Spanning cells (from != to) are ignored for width purposes (they do not force
+# any single column to be wide).
+.flatten_col_header_labels <- function(col_header, ncols) {
+  if (is.null(col_header) || ncols < 1L) return(NULL)
+  rows <- if (is.character(col_header)) list(col_header) else col_header
+  best <- rep("", ncols)
+  bump <- function(j, lab) {
+    if (!is.null(j) && !is.na(j) && j >= 1L && j <= ncols &&
+        nchar(lab) > nchar(best[j])) best[j] <<- lab
+  }
+  for (row in rows) {
+    if (is.character(row)) {
+      for (j in seq_len(min(length(row), ncols))) bump(j, row[j] %||% "")
+    } else if (is.list(row)) {
+      for (cell in row) {
+        if (!is.list(cell)) next
+        lab <- as.character(cell$label %||% "")
+        pos <- cell$pos
+        if (is.null(pos)) {
+          f <- cell$from; t <- cell$to
+          if (!is.null(f) && !is.null(t) && length(f) && length(t) && f == t)
+            pos <- f
+        }
+        bump(pos, lab)
+      }
+    }
+  }
+  best
+}
+
 #' Convert a table object into rtfreporter table pages
 #'
 #' `as_rtftables()` is the single entry point for turning a *table object*
@@ -63,6 +102,16 @@
 #'   Pagination controls.  Identical meaning to the (now deprecated)
 #'   `paginate()`.  `split = "none"` (default) keeps the whole table as a
 #'   single page.
+#' @param auto_width Logical (default `FALSE`).  When `TRUE`, each column is
+#'   sized to its widest content (column header label or data cell) via
+#'   [auto_col_widths()], so long row labels and column headers do not wrap.
+#'   The widths are computed once on the full table and applied to every page,
+#'   keeping paginated pages aligned.  Ignored if you pass an explicit
+#'   `column_widths_twips` or `col_rel_width`.
+#' @param table_width_twips Optional total table width in twips, used only when
+#'   `auto_width = TRUE`.  When supplied, the auto-sized columns are scaled so
+#'   their widths sum to this value (e.g. to fill, or fit within, the writable
+#'   page width).  `NULL` (default) uses each column's natural content width.
 #' @param border,style Passed to [rtftable()] for every page.  `border`
 #'   defaults to `"tfl"`.
 #' @param ... Further arguments forwarded to [rtftable()] for every page
@@ -101,6 +150,8 @@ as_rtftables <- function(x,
                          blank_row_first = FALSE,
                          blank_row_end   = FALSE,
                          align_count_pct = FALSE,
+                         auto_width        = FALSE,
+                         table_width_twips = NULL,
                          border          = "tfl",
                          style           = NULL,
                          ...) {
@@ -119,6 +170,7 @@ as_rtftables <- function(x,
         split_rows = split_rows, group_col = group_col, cont_label = cont_label,
         blank_rows = blank_rows, blank_row_first = blank_row_first,
         blank_row_end = blank_row_end, align_count_pct = align_count_pct,
+        auto_width = auto_width, table_width_twips = table_width_twips,
         border = border, style = style, ...)
       if (!is.null(in_names) && nzchar(in_names[i])) {
         base <- in_names[i]
@@ -164,6 +216,24 @@ as_rtftables <- function(x,
     stop("`as_rtftables()` supports gt_tbl, gtsummary, data.frame/tibble, ",
          "or a list of these; got '", paste(class(x), collapse = "/"), "'.",
          call. = FALSE)
+  }
+
+  # ---- auto column widths -----------------------------------------------
+  # When requested, size each column to its widest content (header label or
+  # data cell) so that long row labels and column headers do not wrap.  The
+  # widths are computed once on the full body and applied to every page, so
+  # paginated pages stay aligned.  An explicit `column_widths_twips` /
+  # `col_rel_width` from the user always wins.
+  if (isTRUE(auto_width) &&
+      is.null(user_args$column_widths_twips) &&
+      is.null(user_args$col_rel_width)) {
+    flat_hdr <- .flatten_col_header_labels(kw$col_header, ncol(body))
+    aw <- tryCatch(
+      auto_col_widths(body, col_header = flat_hdr,
+                      table_width_twips = table_width_twips,
+                      protect_cols = 1L),
+      error = function(e) NULL)
+    if (!is.null(aw)) user_args$column_widths_twips <- aw
   }
 
   # ---- paginate (tracking original rows so per-cell styles can be sliced)

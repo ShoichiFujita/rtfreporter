@@ -78,3 +78,27 @@ test_that("auto_col_widths() accepts pipe-delimited col_header string", {
   w  <- auto_col_widths(df, col_header = "A | B | C")
   expect_length(w, 3L)
 })
+
+test_that("auto_col_widths() measures the longest line of multi-line cells", {
+  df <- data.frame(x = "a", stringsAsFactors = FALSE)
+  w_one  <- auto_col_widths(df, col_header = "Xanomeline High Dose")
+  w_wrap <- auto_col_widths(df, col_header = "Xanomeline High Dose\nN = 72")
+  # The newline version must not be wider: its longest line is the same.
+  expect_equal(w_wrap[1L], w_one[1L])
+})
+
+test_that("auto_col_widths(protect_cols=) keeps a column at natural width when shrinking", {
+  df <- data.frame(
+    label = "AMERICAN INDIAN OR ALASKA NATIVE",
+    a = "x", b = "y", c = "z", d = "w", stringsAsFactors = FALSE)
+  hdr <- c("", "Xanomeline High Dose (N=72)", "Xanomeline Low Dose (N=96)",
+           "Placebo (N=86)", "Total (N=306)")
+  natural   <- auto_col_widths(df, col_header = hdr)
+  protected <- auto_col_widths(df, col_header = hdr,
+                               table_width_twips = 9000L, protect_cols = 1L)
+  # Forced narrower overall, but column 1 keeps its natural width.
+  expect_equal(sum(protected), 9000L)
+  expect_equal(protected[1L], natural[1L])
+  # The data columns absorbed the squeeze.
+  expect_lt(sum(protected[-1L]), sum(natural[-1L]))
+})

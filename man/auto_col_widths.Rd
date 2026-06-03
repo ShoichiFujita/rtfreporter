@@ -11,7 +11,8 @@ auto_col_widths(
   size_half_points = 18L,
   table_width_twips = NULL,
   min_col_width_twips = 720L,
-  col_padding_twips = 288L
+  col_padding_twips = 288L,
+  protect_cols = integer(0)
 )
 }
 \arguments{
@@ -35,6 +36,14 @@ width.}
 
 \item{col_padding_twips}{Extra twips added to each column width to account
 for cell padding and inter-column spacing.  Default `288` (= 0.2 inch).}
+
+\item{protect_cols}{Integer column indices to keep at their natural
+(content) width when `table_width_twips` forces the table *narrower* than
+its natural width.  Only the remaining columns are shrunk to fit, so e.g.
+a row-label column (`protect_cols = 1`) stays readable while the data
+columns absorb the squeeze.  Protection is dropped if it would push the
+scalable columns below `min_col_width_twips`.  Has no effect when scaling
+*up* or when `table_width_twips` is `NULL`.  Default none.}
 }
 \value{
 An integer vector of column widths in twips, one per column of `df`.

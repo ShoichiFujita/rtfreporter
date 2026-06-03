@@ -45,6 +45,8 @@ demog_title <- list(c("Demographic and Baseline Characteristics",
                       "Safety Analysis Set"))
 ae_title <- list(c("Adverse Events by System Organ Class and Preferred Term",
                    "Safety Analysis Set"))
+# Writable width of the default landscape Letter page (11in, 0.6in margins).
+writable <- as.integer((11 - 2 * 0.6) * 1440)
 
 .write <- function(doc, file, npages = NULL) {
   path <- file.path(out_dir, file)
@@ -68,7 +70,8 @@ out_dm_tern <- .write(
     rtf_section(page = 1, secinfo = list(
       header = make_header("14.1.1a", "Demographics (tern)"),
       footer = make_footer("tern + rtables"))) |>
-    rtf_tables(as_rtftables(dm_tern, blank_rows = "between_groups"),
+    rtf_tables(as_rtftables(dm_tern, blank_rows = "between_groups",
+                          auto_width = TRUE, table_width_twips = writable),
                titles = demog_title),
   "tlg-demog-tern.rtf")
 
@@ -90,7 +93,8 @@ out_dm_gts <- .write(
     rtf_section(page = 1, secinfo = list(
       header = make_header("14.1.1b", "Demographics (gtsummary)"),
       footer = make_footer("gtsummary + cards"))) |>
-    rtf_tables(as_rtftables(dm_gts, blank_rows = "between_groups"),
+    rtf_tables(as_rtftables(dm_gts, blank_rows = "between_groups",
+                          auto_width = TRUE, table_width_twips = writable),
                titles = demog_title),
   "tlg-demog-gtsummary.rtf")
 
@@ -136,7 +140,8 @@ dm_tfrmt <- tfrmt(group = stat_variable, label = label, param = stat_name,
     rtf_section(page = 1, secinfo = list(
       header = make_header("14.1.1c", "Demographics (tfrmt)"),
       footer = make_footer("tfrmt + cards"))) |>
-    rtf_tables(as_rtftables(dm_tfrmt, blank_rows = "between_groups"),
+    rtf_tables(as_rtftables(dm_tfrmt, blank_rows = "between_groups",
+                          auto_width = TRUE, table_width_twips = writable),
                titles = demog_title),
   "tlg-demog-tfrmt.rtf")
 

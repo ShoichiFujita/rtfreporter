@@ -86,6 +86,12 @@ make_footer <- function(built_with) {
     "Table object built with ", built_with,
     " (pharmaverse example); rendered to RTF by rtfreporter.")))
 }
+
+# Writable width of the default landscape Letter page (11in wide, 0.6in
+# margins).  `auto_width = TRUE` sizes each column to its content; passing this
+# as `table_width_twips` makes the table fill the page, keeping the row-label
+# column (column 1) wide enough that long labels do not wrap.
+writable <- as.integer((11 - 2 * 0.6) * 1440)
 ```
 
 ## Demographics -- three pharmaverse packages
@@ -118,7 +124,8 @@ doc <- rtf_document() |>
   rtf_section(page = 1,
               secinfo = list(header = make_header("14.1.1a", "Demographics (tern)"),
                              footer = make_footer("tern + rtables"))) |>
-  rtf_tables(as_rtftables(dm_tern, blank_rows = "between_groups"),
+  rtf_tables(as_rtftables(dm_tern, blank_rows = "between_groups",
+                          auto_width = TRUE, table_width_twips = writable),
              titles = demog_title)
 out_dm_tern <- tempfile(fileext = ".rtf")
 generate_rtfreport(doc, out_dm_tern, overwrite = TRUE)
@@ -154,7 +161,8 @@ doc <- rtf_document() |>
   rtf_section(page = 1,
               secinfo = list(header = make_header("14.1.1b", "Demographics (gtsummary)"),
                              footer = make_footer("gtsummary + cards"))) |>
-  rtf_tables(as_rtftables(dm_gts, blank_rows = "between_groups"),
+  rtf_tables(as_rtftables(dm_gts, blank_rows = "between_groups",
+                          auto_width = TRUE, table_width_twips = writable),
              titles = demog_title)
 out_dm_gts <- tempfile(fileext = ".rtf")
 generate_rtfreport(doc, out_dm_gts, overwrite = TRUE)
@@ -217,7 +225,8 @@ doc <- rtf_document() |>
   rtf_section(page = 1,
               secinfo = list(header = make_header("14.1.1c", "Demographics (tfrmt)"),
                              footer = make_footer("tfrmt + cards"))) |>
-  rtf_tables(as_rtftables(dm_tfrmt, blank_rows = "between_groups"),
+  rtf_tables(as_rtftables(dm_tfrmt, blank_rows = "between_groups",
+                          auto_width = TRUE, table_width_twips = writable),
              titles = demog_title)
 out_dm_tfrmt <- tempfile(fileext = ".rtf")
 generate_rtfreport(doc, out_dm_tfrmt, overwrite = TRUE)

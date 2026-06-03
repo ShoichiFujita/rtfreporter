@@ -73,6 +73,13 @@ text_width_in <- function(text, font = "courier_new", size_half_points = 18L) {
 #'   `720` (= 0.5 inch).
 #' @param col_padding_twips Extra twips added to each column width to account
 #'   for cell padding and inter-column spacing.  Default `288` (= 0.2 inch).
+#' @param protect_cols Integer column indices to keep at their natural
+#'   (content) width when `table_width_twips` forces the table *narrower* than
+#'   its natural width.  Only the remaining columns are shrunk to fit, so e.g.
+#'   a row-label column (`protect_cols = 1`) stays readable while the data
+#'   columns absorb the squeeze.  Protection is dropped if it would push the
+#'   scalable columns below `min_col_width_twips`.  Has no effect when scaling
+#'   *up* or when `table_width_twips` is `NULL`.  Default none.
 #'
 #' @return An integer vector of column widths in twips, one per column of `df`.
 #'
@@ -92,7 +99,8 @@ auto_col_widths <- function(df,
                              size_half_points   = 18L,
                              table_width_twips  = NULL,
                              min_col_width_twips = 720L,
-                             col_padding_twips  = 288L) {
+                             col_padding_twips  = 288L,
+                             protect_cols       = integer(0)) {
   if (!is.data.frame(df)) stop("`df` must be a data.frame.", call. = FALSE)
   ncols   <- ncol(df)
   size_pt <- as.numeric(size_half_points) / 2
@@ -113,12 +121,22 @@ auto_col_widths <- function(df,
     hdr_labels <- c(hdr_labels, rep("", ncols - length(hdr_labels)))
   }
 
+  # Longest single line (split on CR/LF) of each string -- a multi-line cell
+  # (e.g. a column header like "Placebo\nN = 86") only needs to be as wide as
+  # its widest line, not the sum of its lines.
+  .max_line_nchar <- function(x) {
+    x <- as.character(x)
+    x[is.na(x)] <- ""
+    vapply(strsplit(x, "\r\n|\r|\n"), function(lines) {
+      if (length(lines) == 0L) 0L else max(nchar(lines, type = "chars"))
+    }, integer(1L))
+  }
+
   # Maximum content width per column (header vs data), in inches.
   char_w <- .char_width_in(tolower(font), size_pt)
   col_max_in <- vapply(seq_len(ncols), function(j) {
-    hdr_w  <- nchar(as.character(hdr_labels[j] %||% ""), type = "chars") * char_w
-    data_w <- max(0, nchar(as.character(df[[j]]), type = "chars") * char_w,
-                  na.rm = TRUE)
+    hdr_w  <- max(0L, .max_line_nchar(hdr_labels[j] %||% "")) * char_w
+    data_w <- max(0L, .max_line_nchar(df[[j]])) * char_w
     max(hdr_w, data_w)
   }, numeric(1L))
 
@@ -129,6 +147,35 @@ auto_col_widths <- function(df,
   # Scale to table_width_twips when requested.
   if (!is.null(table_width_twips)) {
     total_w <- as.integer(table_width_twips)
+    protect <- intersect(as.integer(protect_cols), seq_len(ncols))
+
+    # Columns named in `protect_cols` are kept at their natural (content) width
+    # while the remaining columns are scaled to make the row sum equal
+    # `total_w`.  This lets the row-label column stay readable (no mid-word
+    # wrapping) when a wide table is squeezed onto the page; only the data
+    # columns shrink (their headers may wrap instead).  Protection is dropped
+    # if it would leave the scalable columns below their minimum width.
+    scalable <- setdiff(seq_len(ncols), protect)
+    if (length(protect) && length(scalable)) {
+      fixed_w     <- sum(col_w[protect])
+      remaining   <- total_w - fixed_w
+      min_needed  <- length(scalable) * as.integer(min_col_width_twips)
+      if (remaining >= min_needed) {
+        nat_scalable <- sum(col_w[scalable])
+        if (nat_scalable > 0L) {
+          col_w[scalable] <- as.integer(round(col_w[scalable] *
+                                                remaining / nat_scalable))
+          col_w[scalable] <- pmax(col_w[scalable],
+                                   as.integer(min_col_width_twips))
+        }
+        drift <- total_w - sum(col_w)
+        last  <- scalable[length(scalable)]
+        col_w[last] <- col_w[last] + drift
+        return(col_w)
+      }
+      # Fall through to uniform scaling when protection cannot be honoured.
+    }
+
     total_natural <- sum(col_w)
     if (total_natural > 0L) {
       col_w <- as.integer(round(col_w * total_w / total_natural))
