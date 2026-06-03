@@ -81,9 +81,9 @@ A reusable clinical header / footer for every page:
 ```{r hf}
 make_header <- function(table_no, title2) {
   rtf_header(rows = list(
-    c(l = "Protocol: RTF-101",  r = "CONFIDENTIAL"),
-    c(l = paste0("Table ", table_no, "  ", title2),
-      r = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}")
+    c(l = "Hoge Co. Limited",   r = "CONFIDENTIAL"),
+    c(l = "Protocol: RTF-101",  r = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}"),
+    c(c = paste0("Table ", table_no, "  ", title2))
   ))
 }
 the_footer <- rtf_footer(c(l = "Source: simulated ADaM", r = "Draft"))
