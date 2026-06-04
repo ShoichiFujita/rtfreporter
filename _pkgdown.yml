@@ -180,6 +180,8 @@ reference:
     contents:
       - as_rtftables
       - set_blank_rows
+      - fmt_count_paren
+      - fmt_right_align
       - format_count_pct
       - realign_count_pct
 
