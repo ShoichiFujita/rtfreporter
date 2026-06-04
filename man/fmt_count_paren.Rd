@@ -16,29 +16,31 @@ fmt_count_paren(x, nbsp = " ")
 Character vector the same length as `x`.
 }
 \description{
-Aligns clinical cells made of an integer **count** optionally followed by a
-**parenthetical** part -- e.g. `"69 (80.2%)"`, `"3 (<1%)"`, `"70 (100%)"` or
-a lone `"0"`.  It scans the whole column, then right-justifies the count to
-the widest count and right-justifies the text *inside* the parentheses to
-the widest one, so every cell ends up the same width with the count digit
-**and** the percentage lined up across rows.  A lone count (such as a zero
-with no percentage, or a raw event total) keeps the same count field, so it
-sits under the other counts instead of drifting out of line.  Because all
-cells share one width, the column aligns under left, centre or right cell
-alignment.
+Aligns clinical cells made of an integer **count** followed by a
+**parenthetical** part -- e.g. `"69 (80.2%)"`, `"3 (<1%)"`, `"70 (100%)"`.
+It scans the whole column, then right-justifies the count to the widest
+count and right-justifies the text *inside* the parentheses to the widest
+one, so the count digit **and** the percentage line up across rows.
 }
 \details{
+Only cells that have parentheses are touched; cells **without** them -- a
+lone count such as `"0"` or a raw total, a continuous statistic like
+`"75.2 (8.6)"` whose "count" is not an integer, free text, or empty
+group-label cells -- are returned **unchanged**.  Use
+[fmt_count_paren_bare()] if you also want bare integer counts padded into
+the same column.
+
 Unlike the fixed-width [realign_count_pct()] this adapts to the column's
-actual digit counts (so it also handles 4-digit totals) and does not care
-what is *inside* the parentheses, coping with mixed notations like `"(<1%)"`,
-`"(100%)"` and `"( 2.8%)"` in one column (e.g. tables produced by `tfrmt`).
-Cells that do not start with an integer are returned unchanged.
+actual digit counts and does not care what is *inside* the parentheses,
+coping with mixed notations like `"(<1%)"`, `"(100%)"` and `"( 2.8%)"` in
+one column (e.g. tables produced by `tfrmt`).
 }
 \examples{
+# Only the parenthetical cells are aligned; the lone "0" is left as-is.
 fmt_count_paren(c("1 (1.2\%)", "0", "11 (3.6\%)", "108 (35.3\%)"))
 
 }
 \seealso{
-[fmt_right_align()], [realign_count_pct()], and the `cell_format`
-  argument of [as_rtftables()].
+[fmt_count_paren_bare()], [fmt_right_align()],
+  [realign_count_pct()], and the `cell_format` argument of [as_rtftables()].
 }

@@ -69,41 +69,21 @@ fmt_right_align <- function(x, nbsp = "\u00a0") {
 }
 
 
-#' Align "count (parenthetical)" cells
-#'
-#' Aligns clinical cells made of an integer **count** optionally followed by a
-#' **parenthetical** part -- e.g. `"69 (80.2%)"`, `"3 (<1%)"`, `"70 (100%)"` or
-#' a lone `"0"`.  It scans the whole column, then right-justifies the count to
-#' the widest count and right-justifies the text *inside* the parentheses to
-#' the widest one, so every cell ends up the same width with the count digit
-#' **and** the percentage lined up across rows.  A lone count (such as a zero
-#' with no percentage, or a raw event total) keeps the same count field, so it
-#' sits under the other counts instead of drifting out of line.  Because all
-#' cells share one width, the column aligns under left, centre or right cell
-#' alignment.
-#'
-#' Unlike the fixed-width [realign_count_pct()] this adapts to the column's
-#' actual digit counts (so it also handles 4-digit totals) and does not care
-#' what is *inside* the parentheses, coping with mixed notations like `"(<1%)"`,
-#' `"(100%)"` and `"( 2.8%)"` in one column (e.g. tables produced by `tfrmt`).
-#' Cells that do not start with an integer are returned unchanged.
-#'
-#' @inheritParams fmt_right_align
-#'
-#' @return Character vector the same length as `x`.
-#'
-#' @examples
-#' fmt_count_paren(c("1 (1.2%)", "0", "11 (3.6%)", "108 (35.3%)"))
-#'
-#' @seealso [fmt_right_align()], [realign_count_pct()], and the `cell_format`
-#'   argument of [as_rtftables()].
-#' @export
-fmt_count_paren <- function(x, nbsp = "\u00a0") {
+# Internal core for the count/percent aligners.  Scans the column, then
+# right-justifies the integer count and right-justifies the text inside the
+# parentheses, so the count digit and the percentage line up.
+#
+# `bare` decides whether cells with NO parentheses are touched:
+#   * bare = FALSE  -> only "count (...)" cells are reformatted; a lone count
+#                      (e.g. "0", or a raw total) is left exactly as-is.
+#   * bare = TRUE   -> lone integer counts are ALSO padded into the same count
+#                      field so they line up under the parenthetical cells.
+# Cells that are not reformatted are returned byte-for-byte unchanged (no
+# non-breaking-space substitution).
+.fmt_count_core <- function(x, nbsp, bare) {
   if (length(x) == 0L) return(x)
   x <- as.character(x)
   x[is.na(x)] <- ""
-  # Capture the leading integer count and, separately, the text INSIDE the
-  # parentheses (so the percentages can be aligned on their own).
   rx <- "^[[:space:]]*([0-9]+)[[:space:]]*(\\((.*)\\))?[[:space:]]*$"
   m  <- regmatches(x, regexec(rx, x))
   count  <- rep(NA_character_, length(x))
@@ -116,25 +96,81 @@ fmt_count_paren <- function(x, nbsp = "\u00a0") {
       if (nzchar(g[3L])) { haspar[i] <- TRUE; inner[i] <- g[4L] }
     }
   }
-  matched <- !is.na(count)
-  if (!any(matched)) return(x)
-  wc <- max(nchar(count[matched]))                       # count field width
-  wi <- if (any(haspar)) max(nchar(inner[haspar])) else 0L  # inside-paren width
-  full <- wc + if (wi > 0L) (2L + wi + 1L) else 0L       # "<count> (<inner>)"
+  do <- !is.na(count) & (haspar | bare)   # which cells we actually reformat
+  if (!any(do)) return(x)
+  wc <- max(nchar(count[do]))                                   # count width
+  wi <- if (any(haspar & do)) max(nchar(inner[haspar & do])) else 0L  # inner width
+  full <- wc + if (wi > 0L) (2L + wi + 1L) else 0L              # "<count> (<inner>)"
   out <- x
-  for (i in which(matched)) {
-    cc <- formatC(count[i], width = wc, flag = "")        # right-justify count
+  for (i in which(do)) {
+    cc <- formatC(count[i], width = wc, flag = "")              # right-justify count
     if (haspar[i]) {
-      ii <- formatC(inner[i], width = wi, flag = "")      # right-justify inner
-      out[i] <- paste0(cc, " (", ii, ")")                 # -> percentages align
+      ii  <- formatC(inner[i], width = wi, flag = "")           # right-justify inner
+      val <- paste0(cc, " (", ii, ")")
     } else {
-      # A lone count (e.g. a zero, or a raw event total) keeps the same count
-      # field and is padded out to the full width so it lines up with the rest.
-      out[i] <- formatC(cc, width = max(full, wc), flag = "-")
+      val <- formatC(cc, width = max(full, wc), flag = "-")     # bare count padded
     }
+    if (!identical(nbsp, " ")) val <- gsub(" ", nbsp, val, fixed = TRUE)
+    out[i] <- val
   }
-  if (!identical(nbsp, " ")) out <- gsub(" ", nbsp, out, fixed = TRUE)
   out
+}
+
+#' Align "count (parenthetical)" cells
+#'
+#' Aligns clinical cells made of an integer **count** followed by a
+#' **parenthetical** part -- e.g. `"69 (80.2%)"`, `"3 (<1%)"`, `"70 (100%)"`.
+#' It scans the whole column, then right-justifies the count to the widest
+#' count and right-justifies the text *inside* the parentheses to the widest
+#' one, so the count digit **and** the percentage line up across rows.
+#'
+#' Only cells that have parentheses are touched; cells **without** them -- a
+#' lone count such as `"0"` or a raw total, a continuous statistic like
+#' `"75.2 (8.6)"` whose "count" is not an integer, free text, or empty
+#' group-label cells -- are returned **unchanged**.  Use
+#' [fmt_count_paren_bare()] if you also want bare integer counts padded into
+#' the same column.
+#'
+#' Unlike the fixed-width [realign_count_pct()] this adapts to the column's
+#' actual digit counts and does not care what is *inside* the parentheses,
+#' coping with mixed notations like `"(<1%)"`, `"(100%)"` and `"( 2.8%)"` in
+#' one column (e.g. tables produced by `tfrmt`).
+#'
+#' @inheritParams fmt_right_align
+#'
+#' @return Character vector the same length as `x`.
+#'
+#' @examples
+#' # Only the parenthetical cells are aligned; the lone "0" is left as-is.
+#' fmt_count_paren(c("1 (1.2%)", "0", "11 (3.6%)", "108 (35.3%)"))
+#'
+#' @seealso [fmt_count_paren_bare()], [fmt_right_align()],
+#'   [realign_count_pct()], and the `cell_format` argument of [as_rtftables()].
+#' @export
+fmt_count_paren <- function(x, nbsp = "\u00a0") {
+  .fmt_count_core(x, nbsp = nbsp, bare = FALSE)
+}
+
+#' Align "count (parenthetical)" cells, including bare counts
+#'
+#' Like [fmt_count_paren()], but a **bare integer count** with no parentheses
+#' (a lone `"0"` for a zero count, or a raw event total) is also padded into
+#' the same count field, so it lines up under the parenthetical cells instead
+#' of drifting out of line.  Cells that do not start with an integer (text,
+#' decimals, empty cells) are still returned unchanged.
+#'
+#' @inheritParams fmt_right_align
+#'
+#' @return Character vector the same length as `x`.
+#'
+#' @examples
+#' # The lone "0" is padded to share the column width.
+#' fmt_count_paren_bare(c("1 (1.2%)", "0", "11 (3.6%)", "108 (35.3%)"))
+#'
+#' @seealso [fmt_count_paren()] (parenthetical cells only).
+#' @export
+fmt_count_paren_bare <- function(x, nbsp = "\u00a0") {
+  .fmt_count_core(x, nbsp = nbsp, bare = TRUE)
 }
 
 

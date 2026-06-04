@@ -10,29 +10,36 @@ test_that("fmt_right_align right-justifies non-empty cells, leaves blanks", {
   expect_length(out, 4L)
 })
 
-test_that("fmt_count_paren aligns counts and parentheticals, incl. a lone 0", {
+test_that("fmt_count_paren aligns only parenthetical cells; bare counts untouched", {
   out <- unbsp(fmt_count_paren(c("1 (1.2%)", "0", "11 (3.6%)", "108 (35.3%)")))
   # counts right-justified in a 3-wide field, percentages right-justified inside
-  # the parentheses (so decimals line up); the lone 0 keeps the count field.
+  # the parentheses (so decimals line up).  The lone "0" has no parentheses,
+  # so it is returned UNCHANGED (not padded).
+  expect_identical(out, c("  1 ( 1.2%)", "0",
+                          " 11 ( 3.6%)", "108 (35.3%)"))
+  # the three parenthetical cells share one width
+  expect_true(all(nchar(out[c(1, 3, 4)]) == nchar(out[1L])))
+})
+
+test_that("fmt_count_paren_bare also pads a bare lone count", {
+  out <- unbsp(fmt_count_paren_bare(c("1 (1.2%)", "0", "11 (3.6%)", "108 (35.3%)")))
   expect_identical(out, c("  1 ( 1.2%)", "  0        ",
                           " 11 ( 3.6%)", "108 (35.3%)"))
-  # every cell is the same width, so the column aligns under any cell alignment
-  expect_true(all(nchar(out) == nchar(out[1L])))
+  expect_true(all(nchar(out) == nchar(out[1L])))   # every cell same width
 })
 
 test_that("fmt_count_paren copes with mixed tfrmt notations", {
-  out <- unbsp(fmt_count_paren(c("2 ( 2.8%)", "0", "70 (100%)", "3 (<1%)")))
+  out <- unbsp(fmt_count_paren(c("2 ( 2.8%)", "70 (100%)", "3 (<1%)")))
   expect_true(all(nchar(out) == nchar(out[1L])))   # equal width -> aligned
-  expect_match(out[2L], "^ *0 *$")                 # lone 0, padded
 })
 
-test_that("fmt_count_paren leaves non-count cells unchanged", {
-  expect_identical(fmt_count_paren(c("Mean (SD)", "n/a", "")),
-                   c("Mean (SD)", "n/a", ""))
+test_that("fmt_count_paren leaves non-count and bare-count cells unchanged", {
+  expect_identical(fmt_count_paren(c("Mean (SD)", "n/a", "", "0", "75.2 (8.6)")),
+                   c("Mean (SD)", "n/a", "", "0", "75.2 (8.6)"))
 })
 
 test_that("as_rtftables(cell_format = fn) applies to data columns only", {
-  df <- data.frame(lab = c("A", "B"), x = c("1 (1.2%)", "0"),
+  df <- data.frame(lab = c("A", "B"), x = c("1 (1.2%)", "3 (9.9%)"),
                    stringsAsFactors = FALSE)
   p <- as_rtftables(df, cell_format = fmt_count_paren)[[1L]]
   expect_identical(p$data[[1L]], c("A", "B"))            # col 1 untouched
