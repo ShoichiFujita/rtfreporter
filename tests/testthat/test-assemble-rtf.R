@@ -657,3 +657,24 @@ test_that("body table fs values survive cover+TOC prefix (no leak)", {
   # `{ ... }` group; we already test that structure above.
   expect_false(grepl("\\\\fs0\\\\par", txt))
 })
+
+test_that(".count_rtf_pages counts one page per section break", {
+  f <- .write_demo_rtf("One page")
+  expect_equal(rtfreporter:::.count_rtf_pages(readLines(f, warn = FALSE)), 1L)
+})
+
+test_that("assemble_rtf TOC caches cumulative page numbers (decimal = continuous)", {
+  f1 <- .write_demo_rtf("First")
+  f2 <- .write_demo_rtf("Second")
+  out <- tempfile(fileext = ".rtf")
+  assemble_rtf(c(f1, f2), out, overwrite = TRUE,
+    toc = list(toc_entry("First",  file = f1, level = 1),
+               toc_entry("Second", file = f2, level = 1)),
+    toc_page_numbering = "decimal")
+  txt <- paste(readLines(out, warn = FALSE), collapse = "\n")
+  # Each TOC entry caches its page number in the PAGEREF field's result.
+  hits  <- regmatches(txt, gregexpr("PAGEREF.{1,60}?fldrslt [0-9]+", txt))[[1L]]
+  pages <- as.integer(sub(".*fldrslt ([0-9]+)$", "\\1", hits))
+  # TOC is page 1; the two 1-page tables start on pages 2 and 3.
+  expect_equal(pages, c(2L, 3L))
+})

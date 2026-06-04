@@ -121,6 +121,15 @@
     else character(0))
 }
 
+# Count the rendered pages of an RTF file's lines.  rtfreporter starts each
+# rendered page with a `\sbkpage` section break, so the page count is the
+# number of `\sbkpage` control words across the content.
+.count_rtf_pages <- function(lines) {
+  txt <- paste(lines, collapse = "\n")
+  m   <- gregexpr("\\\\sbkpage", txt)[[1L]]
+  if (length(m) == 1L && m[1L] == -1L) 0L else length(m)
+}
+
 # Inject a `\pgnrestart\pgndec` right after the first \sectd, so the body
 # pages restart at 1 when the preceding TOC used Roman numbering.
 .insert_pgnrestart <- function(content) {
@@ -368,7 +377,8 @@ toc_entry <- function(label, file = NULL, level = 2L) {
 # responsible for inserting \pgnrestart\pgndec on the next body section.
 .build_toc_section <- function(toc_entries, bookmarks, toc_title,
                                 toc_leader = c("dot", "none"),
-                                page_numbering = c("none", "roman", "decimal")) {
+                                page_numbering = c("none", "roman", "decimal"),
+                                entry_pages = NULL) {
   toc_leader     <- match.arg(toc_leader)
   page_numbering <- match.arg(page_numbering)
   leader_cmd <- if (toc_leader == "dot") "\\tldot" else ""
@@ -408,18 +418,25 @@ toc_entry <- function(label, file = NULL, level = 2L) {
       next
     }
 
-    # Entry -- HYPERLINK + dot leader + PAGEREF
-    bm <- bookmarks[e$file_idx]
+    # Entry -- HYPERLINK + dot leader + PAGEREF.  The PAGEREF field's cached
+    # result is the page number we computed for this file (so it shows
+    # correctly even before the viewer refreshes fields); Word/LibreOffice
+    # update it to the live value on field refresh.
+    bm  <- bookmarks[e$file_idx]
     txt <- .toc_escape(e$label)
+    pg  <- if (!is.null(entry_pages) && e$file_idx <= length(entry_pages) &&
+               !is.na(entry_pages[e$file_idx])) {
+      as.integer(entry_pages[e$file_idx])
+    } else 1L
     line <- sprintf(
       paste0("{\\pard%s\\fs20\\tqr%s\\tx%d ",
              "{\\field{\\*\\fldinst HYPERLINK \\\\l \"%s\"}",
              "{\\fldrslt %s}}",
              "\\tab",
              "{\\field{\\*\\fldinst PAGEREF %s \\\\h}",
-             "{\\fldrslt 1}}",
+             "{\\fldrslt %d}}",
              "\\par}"),
-      indent_cmd, leader_cmd, tab_pos, bm, txt, bm
+      indent_cmd, leader_cmd, tab_pos, bm, txt, bm, pg
     )
     lines <- c(lines, line)
   }
@@ -610,6 +627,22 @@ assemble_rtf <- function(input_files, output_file, overwrite = FALSE,
     }
   }
 
+  # Page on which each input file STARTS in the assembled document, used as
+  # the TOC's cached page numbers (the viewer refreshes them to the live value
+  # via the PAGEREF fields).  rtfreporter renders one `\page` per page, so the
+  # start page of file i = front-matter pages + 1 + pages in files 1..i-1.
+  entry_pages <- NULL
+  if (use_toc) {
+    npages <- vapply(input_files, function(f)
+      .count_rtf_pages(readLines(f, warn = FALSE)), integer(1L))
+    front <- if (toc_page_numbering == "roman") {
+      0L                            # body restarts at 1 (front matter is i, ii)
+    } else {
+      (if (use_cover) 1L else 0L) + 1L   # cover + TOC, then continuous numbering
+    }
+    entry_pages <- as.integer(front + 1L + cumsum(c(0L, npages[-length(npages)])))
+  }
+
   # ── File 1 ──────────────────────────────────────────────────────────────
   lines1 <- readLines(input_files[1L], warn = FALSE)
   body   <- .rtf_drop_close(lines1)
@@ -632,12 +665,15 @@ assemble_rtf <- function(input_files, output_file, overwrite = FALSE,
         front_matter,
         .build_toc_section(toc_entries, bookmarks, toc_title,
                            toc_leader = toc_leader,
-                           page_numbering = toc_page_numbering)
+                           page_numbering = toc_page_numbering,
+                           entry_pages = entry_pages)
       )
     }
 
-    # When the TOC used Roman / restart, the body MUST restart numbering.
-    if (use_toc && toc_page_numbering != "none") {
+    # Roman front matter restarts the body at decimal page 1.  Decimal TOC
+    # numbering is continuous, so the body must NOT restart (the TOC is page 1
+    # and the first table starts on page 2).
+    if (use_toc && toc_page_numbering == "roman") {
       tail_lines <- .insert_pgnrestart(tail_lines)
     }
     if (use_toc) {
