@@ -73,16 +73,20 @@ fmt_right_align <- function(x, nbsp = "\u00a0") {
 #'
 #' Aligns clinical cells made of an integer **count** optionally followed by a
 #' **parenthetical** part -- e.g. `"69 (80.2%)"`, `"3 (<1%)"`, `"70 (100%)"` or
-#' a lone `"0"`.  The count is right-justified to the widest count in the
-#' column and the parenthetical part is left-justified to the widest one, so
-#' the digits and the opening parenthesis line up across rows.  A lone count
-#' (such as a zero with no percentage) is aligned in the same count field, so
-#' it sits under the other counts instead of drifting out of line.
+#' a lone `"0"`.  It scans the whole column, then right-justifies the count to
+#' the widest count and right-justifies the text *inside* the parentheses to
+#' the widest one, so every cell ends up the same width with the count digit
+#' **and** the percentage lined up across rows.  A lone count (such as a zero
+#' with no percentage, or a raw event total) keeps the same count field, so it
+#' sits under the other counts instead of drifting out of line.  Because all
+#' cells share one width, the column aligns under left, centre or right cell
+#' alignment.
 #'
-#' Unlike [realign_count_pct()] this does not care what is *inside* the
-#' parentheses, so it copes with mixed notations like `"(<1%)"`, `"(100%)"` and
-#' `"( 2.8%)"` in one column (e.g. tables produced by `tfrmt`).  Cells that do
-#' not start with an integer are returned unchanged.
+#' Unlike the fixed-width [realign_count_pct()] this adapts to the column's
+#' actual digit counts (so it also handles 4-digit totals) and does not care
+#' what is *inside* the parentheses, coping with mixed notations like `"(<1%)"`,
+#' `"(100%)"` and `"( 2.8%)"` in one column (e.g. tables produced by `tfrmt`).
+#' Cells that do not start with an integer are returned unchanged.
 #'
 #' @inheritParams fmt_right_align
 #'
@@ -98,29 +102,35 @@ fmt_count_paren <- function(x, nbsp = "\u00a0") {
   if (length(x) == 0L) return(x)
   x <- as.character(x)
   x[is.na(x)] <- ""
-  rx <- "^[[:space:]]*([0-9]+)[[:space:]]*(\\(.*\\))?[[:space:]]*$"
+  # Capture the leading integer count and, separately, the text INSIDE the
+  # parentheses (so the percentages can be aligned on their own).
+  rx <- "^[[:space:]]*([0-9]+)[[:space:]]*(\\((.*)\\))?[[:space:]]*$"
   m  <- regmatches(x, regexec(rx, x))
-  count <- rep(NA_character_, length(x))
-  paren <- rep("", length(x))
+  count  <- rep(NA_character_, length(x))
+  inner  <- rep("", length(x))
+  haspar <- rep(FALSE, length(x))
   for (i in seq_along(x)) {
     g <- m[[i]]
-    if (length(g) == 3L && nzchar(g[2L])) {
+    if (length(g) == 4L && nzchar(g[2L])) {
       count[i] <- g[2L]
-      paren[i] <- g[3L]
+      if (nzchar(g[3L])) { haspar[i] <- TRUE; inner[i] <- g[4L] }
     }
   }
   matched <- !is.na(count)
   if (!any(matched)) return(x)
-  wc <- max(nchar(count[matched]))         # count field width
-  wp <- max(nchar(paren[matched]))         # parenthetical field width (0 if none)
+  wc <- max(nchar(count[matched]))                       # count field width
+  wi <- if (any(haspar)) max(nchar(inner[haspar])) else 0L  # inside-paren width
+  full <- wc + if (wi > 0L) (2L + wi + 1L) else 0L       # "<count> (<inner>)"
   out <- x
   for (i in which(matched)) {
-    cc <- formatC(count[i], width = wc, flag = "")            # right-justify
-    if (wp > 0L) {
-      pp  <- formatC(paren[i], width = wp, flag = "-")        # left-justify
-      out[i] <- paste0(cc, " ", pp)
+    cc <- formatC(count[i], width = wc, flag = "")        # right-justify count
+    if (haspar[i]) {
+      ii <- formatC(inner[i], width = wi, flag = "")      # right-justify inner
+      out[i] <- paste0(cc, " (", ii, ")")                 # -> percentages align
     } else {
-      out[i] <- cc
+      # A lone count (e.g. a zero, or a raw event total) keeps the same count
+      # field and is padded out to the full width so it lines up with the rest.
+      out[i] <- formatC(cc, width = max(full, wc), flag = "-")
     }
   }
   if (!identical(nbsp, " ")) out <- gsub(" ", nbsp, out, fixed = TRUE)

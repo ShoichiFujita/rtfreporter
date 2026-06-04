@@ -180,7 +180,8 @@ ae_tern <- build_table(
     append_varlabels(adae_ae, "AEDECOD", indent = 1L),
   df = adae_ae, alt_counts_df = adsl_ae)
 ae_tern_pages <- as_rtftables(ae_tern, split = "group_safe", max_rows = 36,
-                              blank_rows = "between_groups", align_count_pct = TRUE,
+                              blank_rows = "between_groups",
+                              cell_format = fmt_count_paren,
                               col_rel_width = c(0.50, 0.125, 0.125, 0.125, 0.125),
                               col_spec = ae_col_spec,
                               row_height_twips = 200)

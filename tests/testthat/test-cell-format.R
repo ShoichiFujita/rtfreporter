@@ -12,10 +12,11 @@ test_that("fmt_right_align right-justifies non-empty cells, leaves blanks", {
 
 test_that("fmt_count_paren aligns counts and parentheticals, incl. a lone 0", {
   out <- unbsp(fmt_count_paren(c("1 (1.2%)", "0", "11 (3.6%)", "108 (35.3%)")))
-  # counts right-justified in a 3-wide field; lone 0 sits in the same field
-  expect_identical(out, c("  1 (1.2%) ", "  0        ",
-                          " 11 (3.6%) ", "108 (35.3%)"))
-  # the "0" cell is the same width as the widest cell (so it aligns)
+  # counts right-justified in a 3-wide field, percentages right-justified inside
+  # the parentheses (so decimals line up); the lone 0 keeps the count field.
+  expect_identical(out, c("  1 ( 1.2%)", "  0        ",
+                          " 11 ( 3.6%)", "108 (35.3%)"))
+  # every cell is the same width, so the column aligns under any cell alignment
   expect_true(all(nchar(out) == nchar(out[1L])))
 })
 

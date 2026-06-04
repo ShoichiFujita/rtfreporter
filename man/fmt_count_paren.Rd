@@ -18,17 +18,21 @@ Character vector the same length as `x`.
 \description{
 Aligns clinical cells made of an integer **count** optionally followed by a
 **parenthetical** part -- e.g. `"69 (80.2%)"`, `"3 (<1%)"`, `"70 (100%)"` or
-a lone `"0"`.  The count is right-justified to the widest count in the
-column and the parenthetical part is left-justified to the widest one, so
-the digits and the opening parenthesis line up across rows.  A lone count
-(such as a zero with no percentage) is aligned in the same count field, so
-it sits under the other counts instead of drifting out of line.
+a lone `"0"`.  It scans the whole column, then right-justifies the count to
+the widest count and right-justifies the text *inside* the parentheses to
+the widest one, so every cell ends up the same width with the count digit
+**and** the percentage lined up across rows.  A lone count (such as a zero
+with no percentage, or a raw event total) keeps the same count field, so it
+sits under the other counts instead of drifting out of line.  Because all
+cells share one width, the column aligns under left, centre or right cell
+alignment.
 }
 \details{
-Unlike [realign_count_pct()] this does not care what is *inside* the
-parentheses, so it copes with mixed notations like `"(<1%)"`, `"(100%)"` and
-`"( 2.8%)"` in one column (e.g. tables produced by `tfrmt`).  Cells that do
-not start with an integer are returned unchanged.
+Unlike the fixed-width [realign_count_pct()] this adapts to the column's
+actual digit counts (so it also handles 4-digit totals) and does not care
+what is *inside* the parentheses, coping with mixed notations like `"(<1%)"`,
+`"(100%)"` and `"( 2.8%)"` in one column (e.g. tables produced by `tfrmt`).
+Cells that do not start with an integer are returned unchanged.
 }
 \examples{
 fmt_count_paren(c("1 (1.2\%)", "0", "11 (3.6\%)", "108 (35.3\%)"))

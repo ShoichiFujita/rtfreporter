@@ -1,5 +1,18 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.62
+
+### `fmt_count_paren()` now aligns the percentages too
+
+`fmt_count_paren()` is reworked to scan the column and right-justify both the
+integer count **and** the number inside the parentheses, so every cell ends up
+the same width and a column lines up on the count digit and the percentage --
+e.g. `"10 (11.6%)"` over `" 4 ( 4.7%)"`.  Because all cells share one width it
+aligns under centre alignment (which the adverse-events tables use), and it
+adapts to the column's actual digit counts, so it also handles the 4-digit
+event totals that the fixed-width `realign_count_pct()` could not.  Both
+adverse-events tables in the article now use it via `cell_format`.
+
 ## rtfreporter 0.0.61
 
 ### Pluggable cell formatting
