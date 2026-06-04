@@ -8,6 +8,20 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
            "pharmaverseadam", "dplyr")
 .ok <- all(vapply(.pkgs, requireNamespace, logical(1L), quietly = TRUE))
 knitr::opts_chunk$set(eval = .ok)
+
+# Show a screenshot of the rendered RTF if it has been captured (PNGs live in
+# vignettes/articles/figures/), otherwise leave a small placeholder so the
+# article still renders before the screenshots exist.
+.snapshot <- function(file, alt = "rendered RTF") {
+  path <- file.path("figures", file)
+  if (file.exists(path)) {
+    knitr::include_graphics(path)
+  } else {
+    knitr::asis_output(sprintf(
+      "<p><em>(snapshot <code>figures/%s</code> not captured yet)</em></p>",
+      file))
+  }
+}
 ```
 
 ```{r, eval = TRUE, echo = FALSE, results = "asis"}
@@ -124,25 +138,28 @@ The pharmaverse *demographic* example builds the same table three different
 ways.  Each produces a different object class; `as_rtftables()` reads all of
 them and the RTF comes out the same clinical shape.
 
+For each, the pharmaverse example code (plus the rtfreporter rendering step)
+is **folded** -- expand it to copy the whole recipe in one go.  Underneath is
+the table object as the example prints it, then a snapshot of the RTF
+rtfreporter produced.
+
+```{r demog-prep}
+demog_title <- "Demographic and Baseline Characteristics"
+```
+
 ### tern + rtables (a `TableTree`)
 
-```{r dm-tern}
-adsl2 <- adsl |>
-  df_explicit_na()
-
+<details><summary>Show the code (pharmaverse example + rtfreporter rendering)</summary>
+```{r dm-tern, results = "hide"}
+adsl2 <- adsl |> df_explicit_na()
 vars <- c("AGE", "AGEGR1", "SEX", "RACE")
 var_labels <- c("Age (yr)", "Age group", "Sex", "Race")
-
 lyt <- basic_table(show_colcounts = TRUE) |>
   split_cols_by(var = "ACTARM") |>
   add_overall_col("All Patients") |>
   analyze_vars(vars = vars, var_labels = var_labels)
 dm_tern <- build_table(lyt, adsl2)
-dm_tern
-```
 
-```{r dm-tern-rtf}
-demog_title <- "Demographic and Baseline Characteristics"
 doc <- rtf_document() |>
   rtf_section(page = 1,
               secinfo = list(header = make_header("14.1.1a", paste(demog_title, "(tern)")),
@@ -152,21 +169,26 @@ doc <- rtf_document() |>
              titles = blank_title())
 out_dm_tern <- tempfile(fileext = ".rtf")
 generate_rtfreport(doc, out_dm_tern, overwrite = TRUE)
-file.exists(out_dm_tern)
+```
+</details>
+
+```{r dm-tern-show, echo = FALSE}
+dm_tern
+```
+```{r dm-tern-snap, echo = FALSE}
+.snapshot("pharmaverse-demographic-tern.png")
 ```
 
 ### gtsummary + cards (a `gt_tbl`)
 
-```{r dm-gts}
+<details><summary>Show the code (pharmaverse example + rtfreporter rendering)</summary>
+```{r dm-gts, results = "hide"}
 theme_gtsummary_compact()
-
 ard <- ard_stack(
   adsl,
   ard_continuous(variables = AGE),
   ard_categorical(variables = c(AGEGR1, SEX, RACE)),
-  .by = ACTARM,
-  .attributes = TRUE)
-
+  .by = ACTARM, .attributes = TRUE)
 dm_gts <- tbl_ard_summary(
   cards = ard, by = ACTARM,
   include = c(AGE, AGEGR1, SEX, RACE),
@@ -176,10 +198,7 @@ dm_gts <- tbl_ard_summary(
   bold_labels() |>
   modify_header(all_stat_cols() ~ "**{level}**  \nN = {n}") |>
   modify_footnote(everything() ~ NA)
-dm_gts
-```
 
-```{r dm-gts-rtf}
 doc <- rtf_document() |>
   rtf_section(page = 1,
               secinfo = list(header = make_header("14.1.1b", paste(demog_title, "(gtsummary)")),
@@ -189,12 +208,20 @@ doc <- rtf_document() |>
              titles = blank_title())
 out_dm_gts <- tempfile(fileext = ".rtf")
 generate_rtfreport(doc, out_dm_gts, overwrite = TRUE)
-file.exists(out_dm_gts)
+```
+</details>
+
+```{r dm-gts-show, echo = FALSE}
+dm_gts
+```
+```{r dm-gts-snap, echo = FALSE}
+.snapshot("pharmaverse-demographic-gtsummary.png")
 ```
 
 ### tfrmt + cards (a `gt_tbl`)
 
-```{r dm-tfrmt}
+<details><summary>Show the code (pharmaverse example + rtfreporter rendering)</summary>
+```{r dm-tfrmt, results = "hide"}
 ard <- ard_stack(
   adsl,
   ard_continuous(
@@ -202,7 +229,6 @@ ard <- ard_stack(
     statistic = ~ continuous_summary_fns(c("N", "mean", "sd", "min", "max"))),
   ard_categorical(variables = c(AGEGR1, SEX, RACE)),
   .by = ACTARM, .overall = TRUE, .total_n = TRUE)
-
 ard_tbl <- ard |>
   shuffle_card(fill_overall = "Total") |>
   prep_big_n(vars = "ACTARM") |>
@@ -223,7 +249,6 @@ ard_tbl <- ard |>
     .default = stat_variable)) |>
   select(ACTARM, stat_variable, label, stat_name, stat, ord1, ord2) |>
   unique()
-
 dm_tfrmt <- tfrmt(
   group = stat_variable, label = label, param = stat_name,
   value = stat, column = ACTARM, sorting_cols = c(ord1, ord2),
@@ -240,10 +265,7 @@ dm_tfrmt <- tfrmt(
   row_grp_plan = row_grp_plan(row_grp_structure(
     ".default", element_block(post_space = " ")))) |>
   print_to_gt(ard_tbl)
-dm_tfrmt
-```
 
-```{r dm-tfrmt-rtf}
 doc <- rtf_document() |>
   rtf_section(page = 1,
               secinfo = list(header = make_header("14.1.1c", paste(demog_title, "(tfrmt)")),
@@ -253,7 +275,14 @@ doc <- rtf_document() |>
              titles = blank_title())
 out_dm_tfrmt <- tempfile(fileext = ".rtf")
 generate_rtfreport(doc, out_dm_tfrmt, overwrite = TRUE)
-file.exists(out_dm_tfrmt)
+```
+</details>
+
+```{r dm-tfrmt-show, echo = FALSE}
+dm_tfrmt
+```
+```{r dm-tfrmt-snap, echo = FALSE}
+.snapshot("pharmaverse-demographic-tfrmt.png")
 ```
 
 ## Adverse events -- paginated across many pages
@@ -271,21 +300,23 @@ strategies**:
   and, when the cut falls *inside* an SOC, repeats that SOC's label followed by
   `" (Cont.)"` at the top of the next page (controlled by `cont_label`).
 
+The objects are large, so below each folded recipe we show just the snapshot
+of the rendered RTF.
+
 ```{r ae-prep}
-adsl_ae <- adsl |>
-  df_explicit_na()
+adsl_ae <- adsl |> df_explicit_na()
 adae_ae <- adae |>
   df_explicit_na() |>
   var_relabel(AEBODSYS = "MedDRA System Organ Class",
               AEDECOD  = "MedDRA Preferred Term") |>
   filter(SAFFL == "Y")
-
 ae_title <- "Adverse Events by System Organ Class and Preferred Term"
 ```
 
 ### tern + rtables (a `TableTree`)
 
-```{r ae-tern}
+<details><summary>Show the code (pharmaverse example + rtfreporter rendering)</summary>
+```{r ae-tern, results = "hide"}
 split_fun <- drop_split_levels
 ae_lyt <- basic_table(show_colcounts = TRUE) |>
   split_cols_by(var = "ACTARM") |>
@@ -307,20 +338,15 @@ ae_lyt <- basic_table(show_colcounts = TRUE) |>
   append_varlabels(adae_ae, "AEDECOD", indent = 1L)
 ae_tern <- build_table(ae_lyt, df = adae_ae, alt_counts_df = adsl_ae)
 
-# split = "group_safe" never breaks an SOC across a page boundary.  A wide
-# first column (40% of the page, the rest split evenly) keeps the long SOC /
-# preferred-term labels on one line; the row label is left-aligned and the
-# data columns centred; a slightly shorter row height packs more rows per page.
+# Wide first column keeps the long SOC / preferred-term labels on one line;
+# row label left, data columns centred; fmt_count_paren aligns the counts and
+# percentages; a shorter row height packs more rows per page.
 ae_tern_pages <- as_rtftables(ae_tern, split = "group_safe", max_rows = 36,
                               blank_rows = "between_groups",
                               cell_format = fmt_count_paren,
                               col_rel_width = c(0.50, 0.125, 0.125, 0.125, 0.125),
                               col_spec = ae_col_spec,
                               row_height_twips = 200)
-length(ae_tern_pages)            # number of RTF pages
-```
-
-```{r ae-tern-rtf}
 doc <- rtf_document() |>
   rtf_section(page = 1,
               secinfo = list(header = make_header("14.3.1a", paste(ae_title, "(tern)")),
@@ -328,12 +354,17 @@ doc <- rtf_document() |>
   rtf_tables(ae_tern_pages, titles = blank_title(length(ae_tern_pages)))
 out_ae_tern <- tempfile(fileext = ".rtf")
 generate_rtfreport(doc, out_ae_tern, overwrite = TRUE)
-file.exists(out_ae_tern)
+```
+</details>
+
+```{r ae-tern-snap, echo = FALSE}
+.snapshot("pharmaverse-adverse-events-tern.png")
 ```
 
 ### tfrmt + cards (a `gt_tbl`)
 
-```{r ae-tfrmt}
+<details><summary>Show the code (pharmaverse example + rtfreporter rendering)</summary>
+```{r ae-tfrmt, results = "hide"}
 ae_ard <- ard_stack_hierarchical(
   data = adae_ae, by = ACTARM, variables = c(AEBODSYS, AEDECOD),
   statistic = ~ c("n", "p"), denominator = adsl_ae, id = USUBJID,
@@ -361,7 +392,6 @@ ae_card <- ae_card |>
   full_join(ord_soc, by = "AEBODSYS") |>
   full_join(ord_pt, by = c("AEBODSYS", "AEDECOD")) |>
   select(AEBODSYS, AEDECOD, ord1, ord2, stat, stat_name, ACTARM)
-
 ae_tfrmt <- tfrmt_n_pct(
   n = "n", pct = "p",
   pct_frmt_when = frmt_when(
@@ -378,30 +408,20 @@ ae_tfrmt <- tfrmt_n_pct(
     big_n = big_n_structure(param_val = "bigN", n_frmt = frmt(" (N=xx)"))) |>
   print_to_gt(ae_card)
 
-# tfrmt renders "Arm (N=xx)" on a single header line; wrap it onto two/three
-# lines so the data columns can be narrow.  As with the tern table, a wide
-# first column keeps the SOC / preferred-term labels unbroken.
+# Wrap "Arm (N=xx)" onto two/three header lines so data columns can be narrow.
 ae_hdr <- c("System Organ Class /\nPreferred Term",
             "Placebo\n(N=86)",
             "Xanomeline\nHigh Dose\n(N=72)",
             "Xanomeline\nLow Dose\n(N=96)",
             "All Patients\n(N=306)")
-
-# split = "group_force" cuts at max_rows, adding a "(Cont.)" marker.  This
-# tfrmt object already bakes a blank row after each group (the
-# `element_block(post_space = " ")` in its `row_grp_plan`), so we do NOT also
-# ask for `blank_rows = "between_groups"` -- that would double the gap.  A
-# wider first column (50%) keeps even the "... (Cont.)" labels on one line.
+# This tfrmt already bakes a group gap via element_block(post_space=" "), so we
+# do NOT also pass blank_rows = "between_groups" (that would double the gap).
 ae_tfrmt_pages <- as_rtftables(ae_tfrmt, split = "group_force", max_rows = 36,
                                col_header = ae_hdr,
                                col_rel_width = c(0.50, 0.125, 0.125, 0.125, 0.125),
                                col_spec = ae_col_spec,
                                cell_format = fmt_count_paren,
                                row_height_twips = 200)
-length(ae_tfrmt_pages)
-```
-
-```{r ae-tfrmt-rtf}
 doc <- rtf_document() |>
   rtf_section(page = 1,
               secinfo = list(header = make_header("14.3.1b", paste(ae_title, "(tfrmt)")),
@@ -409,7 +429,11 @@ doc <- rtf_document() |>
   rtf_tables(ae_tfrmt_pages, titles = blank_title(length(ae_tfrmt_pages)))
 out_ae_tfrmt <- tempfile(fileext = ".rtf")
 generate_rtfreport(doc, out_ae_tfrmt, overwrite = TRUE)
-file.exists(out_ae_tfrmt)
+```
+</details>
+
+```{r ae-tfrmt-snap, echo = FALSE}
+.snapshot("pharmaverse-adverse-events-tfrmt.png")
 ```
 
 ## Assembling a deliverable

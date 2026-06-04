@@ -1,5 +1,17 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.64
+
+### Article: pharmaverse code folded, table print + snapshot shown
+
+The *From pharmaverse tables to RTF reports* article is restructured so the
+pharmaverse example code no longer clutters the page: each table's full recipe
+(the pharmaverse build plus the rtfreporter rendering) is now a single folded
+`<details>` block -- collapsed by default, expandable, and copyable in one go.
+Below each fold the article shows just the printed table object and a snapshot
+of the rendered RTF.  Snapshots live in `vignettes/articles/figures/`
+(placeholders are shown until the PNGs are added).
+
 ## rtfreporter 0.0.63
 
 ### Pagination: widow control and tail packing for split groups
