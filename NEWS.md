@@ -1,5 +1,17 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.59
+
+### Pagination: widow/orphan control for group headers
+
+`as_rtftables()` (and `paginate()`) gain a `min_group_rows` argument
+(default `2`).  In the group-aware splits a page no longer ends on a group
+header that has fewer than `min_group_rows` of its child rows on that page:
+the whole group is moved to the next page instead.  This fixes cases like a
+lone "MUSCULOSKELETAL AND CONNECTIVE TISSUE DISORDERS" system-organ-class
+header stranded at the foot of a page with none of its preferred terms.  Set
+`min_group_rows = 0` to restore the previous behaviour.
+
 ## rtfreporter 0.0.58
 
 ### TLG article: adverse-events alignment, three-line title, tweaks

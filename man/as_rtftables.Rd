@@ -12,6 +12,7 @@ as_rtftables(
   split_rows = NULL,
   group_col = NULL,
   cont_label = " (Cont.)",
+  min_group_rows = 2L,
   blank_rows = NULL,
   blank_row_first = FALSE,
   blank_row_end = FALSE,
@@ -39,6 +40,14 @@ gt/gtsummary: `"col_header"`, `"alignment"`, `"spanning"`, `"widths"`,
 \item{max_rows, split, split_rows, group_col, cont_label, blank_rows, blank_row_first, blank_row_end, align_count_pct}{Pagination controls.  Identical meaning to the (now deprecated)
 `paginate()`.  `split = "none"` (default) keeps the whole table as a
 single page.}
+
+\item{min_group_rows}{Integer (default `2`).  Widow/orphan control for the
+group-aware splits (`"group_force"`, `"group_safe"`, `"by_value"`): when a
+page would end on a group that *starts* on that page while showing fewer
+than `min_group_rows` of the group's child rows, the whole group is moved
+to the next page.  This prevents a lone group header being stranded at the
+foot of a page with none (or too few) of its members.  Set to `0` to
+disable (the previous behaviour).}
 
 \item{auto_width}{Logical (default `FALSE`).  When `TRUE`, each column is
 sized to its widest content (column header label or data cell) via

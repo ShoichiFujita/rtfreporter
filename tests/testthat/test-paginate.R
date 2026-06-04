@@ -84,6 +84,28 @@ test_that("group_force cuts at exactly max_rows with Cont. continuation", {
   expect_identical(res[[2L]]$value[1L], "")
 })
 
+test_that("group_force min_group_rows moves an orphan group header to the next page", {
+  nbsp <- intToUtf8(160L)
+  kids <- function(...) paste0(nbsp, nbsp, c(...))
+  df <- data.frame(
+    label = c("G1", kids("a1", "a2", "a3", "a4"),   # header + 4 children
+              "G2", kids("b1", "b2", "b3"),         # header + 3 children
+              "G3", kids("c1", "c2")),              # header + 2 children
+    value = "x", stringsAsFactors = FALSE)
+
+  # max_rows = 6: G1 fills 5 rows, leaving room for only the G2 header (1 row)
+  # at the foot of page 1.
+  old <- paginate(df, max_rows = 6L, split = "group_force", min_group_rows = 0L)
+  # Old behaviour: page 1 ends on the bare "G2" header.
+  expect_identical(old[[1L]]$label[nrow(old[[1L]])], "G2")
+
+  new <- paginate(df, max_rows = 6L, split = "group_force")  # default = 2
+  # G2 is pushed whole to page 2; page 1 ends on G1's last child, no "(Cont.)".
+  expect_false(any(grepl("\\(Cont\\.\\)", new[[1L]]$label)))
+  expect_identical(new[[1L]]$label[nrow(new[[1L]])], paste0(nbsp, nbsp, "a4"))
+  expect_identical(new[[2L]]$label[1L], "G2")
+})
+
 test_that("group_force preserves cell types in non-character columns", {
   df <- data.frame(
     label = c("g1", "  r1", "  r2", "g2", "  rA"),

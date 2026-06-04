@@ -310,6 +310,7 @@ paginate.data.frame <- function(x, ...) {
                                  split_rows  = NULL,
                                  group_col   = NULL,
                                  cont_label  = " (Cont.)",
+                                 min_group_rows   = 2L,
                                  blank_rows       = NULL,
                                  blank_row_first  = FALSE,
                                  blank_row_end    = FALSE,
@@ -346,9 +347,12 @@ paginate.data.frame <- function(x, ...) {
   chunks <- switch(split,
     none         = list(x),
     rows         = .split_by_rows(x, split_rows),
-    group_safe   = .split_group_safe (x, info, max_rows, cont_label, group_idx),
-    group_force  = .split_group_force(x, info, max_rows, cont_label, group_idx),
-    by_value     = .split_by_value  (x, info, max_rows, cont_label, group_idx)
+    group_safe   = .split_group_safe (x, info, max_rows, cont_label, group_idx,
+                                       min_group_rows),
+    group_force  = .split_group_force(x, info, max_rows, cont_label, group_idx,
+                                       min_group_rows),
+    by_value     = .split_by_value  (x, info, max_rows, cont_label, group_idx,
+                                       min_group_rows)
   )
 
   # Step 2: attach blank-row positions (via the standalone helper
@@ -468,13 +472,41 @@ paginate.data.frame <- function(x, ...) {
 # Force-split at every `max_rows` rows; when the cut falls inside a group,
 # insert a Cont. row at the top of the next chunk that repeats the group
 # label without any of the summary-value cells.
-.split_group_force <- function(df, info, max_rows, cont_label, group_idx) {
+#
+# `min_group_rows` (default 2) is widow/orphan control: if a page would end on
+# a group that *starts* on that page while showing fewer than `min_group_rows`
+# of the group's child rows, the whole group is pushed to the next page (the
+# cut is moved to just before its header) -- this prevents a lone group header
+# stranded at the foot of a page with none (or too few) of its members.  Set
+# `min_group_rows = 0` to disable (the original behaviour).
+.split_group_force <- function(df, info, max_rows, cont_label, group_idx,
+                               min_group_rows = 2L) {
   if (nrow(df) == 0L) return(list(df))
   cont_col <- if (is.null(group_idx)) 1L else group_idx
   result <- list()
   pos <- 1L
   while (pos <= nrow(df)) {
     end <- min(pos + max_rows - 1L, nrow(df))
+
+    # Orphan control: only when the boundary group is actually being split
+    # (it continues past `end`), started on this page, and has fewer than
+    # `min_group_rows` child rows visible -> move the whole group down.
+    if (min_group_rows > 0L && end < nrow(df)) {
+      end_gid  <- info$id[end]
+      next_gid <- info$id[end + 1L]
+      cut_here <- !is.na(end_gid) && !is.na(next_gid) && end_gid == next_gid
+      if (cut_here) {
+        hpos <- end
+        while (hpos > pos && !isTRUE(info$headers[hpos])) hpos <- hpos - 1L
+        starts_here <- hpos > pos && isTRUE(info$headers[hpos]) &&
+                       !is.na(info$id[hpos]) && info$id[hpos] == end_gid
+        child_rows  <- end - hpos          # rows after the header on this page
+        if (starts_here && child_rows < min_group_rows) {
+          end <- hpos - 1L                 # push the group to the next page
+        }
+      }
+    }
+
     result[[length(result) + 1L]] <- df[pos:end, , drop = FALSE]
 
     # Mid-group cut?  Inject a Cont. header row before end+1.
@@ -506,7 +538,8 @@ paginate.data.frame <- function(x, ...) {
 # value of df[[group_col]]).  When a group exceeds `max_rows` (and
 # max_rows is set) it is force-split with .split_group_force() and the
 # resulting sub-chunks get suffixed names "<label>.1", "<label>.2", ...
-.split_by_value <- function(df, info, max_rows, cont_label, group_idx) {
+.split_by_value <- function(df, info, max_rows, cont_label, group_idx,
+                            min_group_rows = 2L) {
   if (nrow(df) == 0L) return(list(df))
   gid <- ifelse(is.na(info$id), 0L, info$id)
   unique_gids <- unique(gid)
@@ -524,7 +557,7 @@ paginate.data.frame <- function(x, ...) {
                        label   = info$label[rows],
                        headers = info$headers[rows])
       sub <- .split_group_force(chunk, sub_info, max_rows,
-                                 cont_label, group_idx)
+                                 cont_label, group_idx, min_group_rows)
       sub_names <- if (length(sub) == 1L) label
                    else paste0(label, ".", seq_along(sub))
       names(sub) <- sub_names
@@ -540,7 +573,8 @@ paginate.data.frame <- function(x, ...) {
 
 # Pack whole groups onto each chunk; spill on overflow.  If a single
 # group exceeds max_rows it is force-split via .split_group_force().
-.split_group_safe <- function(df, info, max_rows, cont_label, group_idx) {
+.split_group_safe <- function(df, info, max_rows, cont_label, group_idx,
+                              min_group_rows = 2L) {
   if (nrow(df) == 0L) return(list(df))
 
   # NA group ids (rows before any header) become id = 0L so they form a
@@ -565,7 +599,7 @@ paginate.data.frame <- function(x, ...) {
       result <- c(result,
                   .split_group_force(df[rows, , drop = FALSE],
                                      sub_info, max_rows, cont_label,
-                                     group_idx))
+                                     group_idx, min_group_rows))
     } else if (length(buf) + g_n > max_rows) {
       result[[length(result) + 1L]] <- df[buf, , drop = FALSE]
       buf <- rows
