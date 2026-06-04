@@ -44,6 +44,12 @@ read its object** and finish the job.
 > All credit for the tables below belongs to the pharmaverse examples and
 > their authors; rtfreporter only adds the RTF rendering step.
 
+**The rendered `.rtf` files produced by this article are committed to the
+repository so you can open them yourself:
+[`inst/rtf-examples/`](https://github.com/ichirio/rtfreporter/tree/main/inst/rtf-examples).**
+The file names mark which pharmaverse example table each one came from
+(e.g. `pharmaverse-adverse-events-tfrmt.rtf`).
+
 # Rendering the pharmaverse example tables
 
 ```{r setup, eval = TRUE}
@@ -242,7 +248,7 @@ doc <- rtf_document() |>
   rtf_section(page = 1,
               secinfo = list(header = make_header("14.1.1c", paste(demog_title, "(tfrmt)")),
                              footer = make_footer("tfrmt + cards"))) |>
-  rtf_tables(as_rtftables(dm_tfrmt, blank_rows = "between_groups",
+  rtf_tables(as_rtftables(dm_tfrmt,
                           auto_width = TRUE, table_width_twips = writable),
              titles = blank_title())
 out_dm_tfrmt <- tempfile(fileext = ".rtf")
@@ -307,7 +313,7 @@ ae_tern <- build_table(ae_lyt, df = adae_ae, alt_counts_df = adsl_ae)
 # data columns centred; a slightly shorter row height packs more rows per page.
 ae_tern_pages <- as_rtftables(ae_tern, split = "group_safe", max_rows = 36,
                               blank_rows = "between_groups", align_count_pct = TRUE,
-                              col_rel_width = c(0.40, 0.15, 0.15, 0.15, 0.15),
+                              col_rel_width = c(0.50, 0.125, 0.125, 0.125, 0.125),
                               col_spec = ae_col_spec,
                               row_height_twips = 200)
 length(ae_tern_pages)            # number of RTF pages
@@ -380,11 +386,14 @@ ae_hdr <- c("System Organ Class /\nPreferred Term",
             "Xanomeline\nLow Dose\n(N=96)",
             "All Patients\n(N=306)")
 
-# split = "group_force" cuts at max_rows, adding a "(Cont.)" marker.
+# split = "group_force" cuts at max_rows, adding a "(Cont.)" marker.  This
+# tfrmt object already bakes a blank row after each group (the
+# `element_block(post_space = " ")` in its `row_grp_plan`), so we do NOT also
+# ask for `blank_rows = "between_groups"` -- that would double the gap.  A
+# wider first column (50%) keeps even the "... (Cont.)" labels on one line.
 ae_tfrmt_pages <- as_rtftables(ae_tfrmt, split = "group_force", max_rows = 36,
-                               blank_rows = "between_groups",
                                col_header = ae_hdr,
-                               col_rel_width = c(0.40, 0.15, 0.15, 0.15, 0.15),
+                               col_rel_width = c(0.50, 0.125, 0.125, 0.125, 0.125),
                                col_spec = ae_col_spec,
                                row_height_twips = 200)
 length(ae_tfrmt_pages)

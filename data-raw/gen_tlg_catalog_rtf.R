@@ -11,7 +11,8 @@
 # Run from the repo root (with the dev package installed):
 #     Rscript data-raw/gen_tlg_catalog_rtf.R
 #
-# Output: ./output/tlg/*.rtf  (the output/ directory is git-ignored).
+# Output: ./inst/rtf-examples/*.rtf  -- these files are committed so the
+# article can link to them on GitHub for download.
 # =============================================================================
 
 library(rtfreporter)
@@ -23,7 +24,7 @@ library(cards)
 library(forcats)
 library(dplyr)
 
-out_dir <- file.path("output", "tlg")
+out_dir <- file.path("inst", "rtf-examples")
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 
 adsl <- pharmaverseadam::adsl
@@ -79,7 +80,7 @@ out_dm_tern <- .write(
     rtf_tables(as_rtftables(dm_tern, blank_rows = "between_groups",
                           auto_width = TRUE, table_width_twips = writable),
                titles = blank_title()),
-  "tlg-demog-tern.rtf")
+  "pharmaverse-demographic-tern.rtf")
 
 # ---- 1b. Demographics (gtsummary + cards) ----------------------------------
 theme_gtsummary_compact()
@@ -102,7 +103,7 @@ out_dm_gts <- .write(
     rtf_tables(as_rtftables(dm_gts, blank_rows = "between_groups",
                           auto_width = TRUE, table_width_twips = writable),
                titles = blank_title()),
-  "tlg-demog-gtsummary.rtf")
+  "pharmaverse-demographic-gtsummary.rtf")
 
 # ---- 1c. Demographics (tfrmt + cards) --------------------------------------
 ard <- ard_stack(adsl,
@@ -146,10 +147,10 @@ dm_tfrmt <- tfrmt(group = stat_variable, label = label, param = stat_name,
     rtf_section(page = 1, secinfo = list(
       header = make_header("14.1.1c", paste(demog_title, "(tfrmt)")),
       footer = make_footer("tfrmt + cards"))) |>
-    rtf_tables(as_rtftables(dm_tfrmt, blank_rows = "between_groups",
+    rtf_tables(as_rtftables(dm_tfrmt,
                           auto_width = TRUE, table_width_twips = writable),
                titles = blank_title()),
-  "tlg-demog-tfrmt.rtf")
+  "pharmaverse-demographic-tfrmt.rtf")
 
 # ---- AE data prep ----------------------------------------------------------
 adsl_ae <- adsl |> df_explicit_na()
@@ -180,7 +181,7 @@ ae_tern <- build_table(
   df = adae_ae, alt_counts_df = adsl_ae)
 ae_tern_pages <- as_rtftables(ae_tern, split = "group_safe", max_rows = 36,
                               blank_rows = "between_groups", align_count_pct = TRUE,
-                              col_rel_width = c(0.40, 0.15, 0.15, 0.15, 0.15),
+                              col_rel_width = c(0.50, 0.125, 0.125, 0.125, 0.125),
                               col_spec = ae_col_spec,
                               row_height_twips = 200)
 out_ae_tern <- .write(
@@ -189,7 +190,7 @@ out_ae_tern <- .write(
       header = make_header("14.3.1a", paste(ae_title, "(tern)")),
       footer = make_footer("tern + rtables"))) |>
     rtf_tables(ae_tern_pages, titles = blank_title(length(ae_tern_pages))),
-  "tlg-ae-tern.rtf", length(ae_tern_pages))
+  "pharmaverse-adverse-events-tern.rtf", length(ae_tern_pages))
 
 # ---- 2b. Adverse events (cards + tfrmt, paginated) -------------------------
 ae_ard <- ard_stack_hierarchical(
@@ -237,9 +238,8 @@ ae_hdr <- c("System Organ Class /\nPreferred Term",
             "Xanomeline\nLow Dose\n(N=96)",
             "All Patients\n(N=306)")
 ae_tfrmt_pages <- as_rtftables(ae_tfrmt, split = "group_force", max_rows = 36,
-                               blank_rows = "between_groups",
                                col_header = ae_hdr,
-                               col_rel_width = c(0.40, 0.15, 0.15, 0.15, 0.15),
+                               col_rel_width = c(0.50, 0.125, 0.125, 0.125, 0.125),
                                col_spec = ae_col_spec,
                                row_height_twips = 200)
 .write(
@@ -248,12 +248,12 @@ ae_tfrmt_pages <- as_rtftables(ae_tfrmt, split = "group_force", max_rows = 36,
       header = make_header("14.3.1b", paste(ae_title, "(tfrmt)")),
       footer = make_footer("tfrmt + cards"))) |>
     rtf_tables(ae_tfrmt_pages, titles = blank_title(length(ae_tfrmt_pages))),
-  "tlg-ae-tfrmt.rtf", length(ae_tfrmt_pages))
+  "pharmaverse-adverse-events-tfrmt.rtf", length(ae_tfrmt_pages))
 
 # ---- 3. Assembled deliverable ----------------------------------------------
-assemble_rtf(c(out_dm_gts, out_ae_tern), file.path(out_dir, "tlg-assembled.rtf"),
+assemble_rtf(c(out_dm_gts, out_ae_tern), file.path(out_dir, "pharmaverse-assembled.rtf"),
              overwrite = TRUE)
-message("wrote ", file.path(out_dir, "tlg-assembled.rtf"))
+message("wrote ", file.path(out_dir, "pharmaverse-assembled.rtf"))
 
 message("\nDone. Open the .rtf files in ", normalizePath(out_dir),
         "\nScreenshots (PNG) go to man/figures/ as:",

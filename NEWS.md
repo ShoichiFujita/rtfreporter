@@ -1,5 +1,20 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.60
+
+### TLG article: downloadable RTFs, single group gaps, wider label column
+
+* The rendered example RTFs are now committed under
+  [`inst/rtf-examples/`](https://github.com/ichirio/rtfreporter/tree/main/inst/rtf-examples)
+  and the article links to that folder.  File names mark the source
+  pharmaverse table (e.g. `pharmaverse-adverse-events-tfrmt.rtf`).
+* Fixed a doubled blank row between groups in the tfrmt tables: that object
+  already bakes a group gap via `element_block(post_space = " ")`, so the
+  article no longer also passes `blank_rows = "between_groups"` (which had
+  produced two blank rows, e.g. between "ANY EVENT" and the first SOC).
+* The adverse-events row-label column is widened to 50% so the
+  "... (Cont.)" continuation labels fit on one line.
+
 ## rtfreporter 0.0.59
 
 ### Pagination: widow/orphan control for group headers
