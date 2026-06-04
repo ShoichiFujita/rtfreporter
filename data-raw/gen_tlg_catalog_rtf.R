@@ -31,9 +31,10 @@ adae <- pharmaverseadam::adae
 
 make_header <- function(table_no, title, subtitle = "Safety Analysis Set") {
   rtf_header(rows = list(
-    c(l = "Hoge Co. Limited",   r = "CONFIDENTIAL"),
-    c(l = "Protocol: RTF-101",  r = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}"),
-    c(c = paste0("Table ", table_no, "  ", title)),
+    c(l = "HOGESTER Co. Limited1", r = "CONFIDENTIAL"),
+    c(l = "Protocol: RTF-101",     r = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}"),
+    c(c = paste0("Table ", table_no)),
+    c(c = title),
     c(c = paste0("<", subtitle, ">"))
   ))
 }
@@ -44,6 +45,10 @@ make_footer <- function(built_with) {
 }
 # One empty content title ("") = one blank line between header and table.
 blank_title <- function(n = 1L) rep(list(""), n)
+# AE tables (5 columns): row-label column left, data columns centred.
+ae_col_spec <- c(
+  list(list(col = 1L, align = "left")),
+  lapply(2:5, function(j) list(col = j, align = "center")))
 demog_title <- "Demographic and Baseline Characteristics"
 ae_title    <- "Adverse Events by System Organ Class and Preferred Term"
 # Writable width of the default landscape Letter page (11in, 0.6in margins).
@@ -173,9 +178,10 @@ ae_tern <- build_table(
     count_occurrences(vars = "AEDECOD", .indent_mods = -1L) |>
     append_varlabels(adae_ae, "AEDECOD", indent = 1L),
   df = adae_ae, alt_counts_df = adsl_ae)
-ae_tern_pages <- as_rtftables(ae_tern, split = "group_safe", max_rows = 38,
+ae_tern_pages <- as_rtftables(ae_tern, split = "group_safe", max_rows = 36,
                               blank_rows = "between_groups", align_count_pct = TRUE,
                               col_rel_width = c(0.40, 0.15, 0.15, 0.15, 0.15),
+                              col_spec = ae_col_spec,
                               row_height_twips = 200)
 out_ae_tern <- .write(
   rtf_document() |>
@@ -230,10 +236,11 @@ ae_hdr <- c("System Organ Class /\nPreferred Term",
             "Xanomeline\nHigh Dose\n(N=72)",
             "Xanomeline\nLow Dose\n(N=96)",
             "All Patients\n(N=306)")
-ae_tfrmt_pages <- as_rtftables(ae_tfrmt, split = "group_force", max_rows = 38,
+ae_tfrmt_pages <- as_rtftables(ae_tfrmt, split = "group_force", max_rows = 36,
                                blank_rows = "between_groups",
                                col_header = ae_hdr,
                                col_rel_width = c(0.40, 0.15, 0.15, 0.15, 0.15),
+                               col_spec = ae_col_spec,
                                row_height_twips = 200)
 .write(
   rtf_document() |>

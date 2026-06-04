@@ -75,13 +75,15 @@ the only rtfreporter-specific glue; see *Using rtfreporter* for the details):
 
 ```{r hf}
 # The whole title block lives in the running header, so it is normal weight
-# (not bold) and repeats on every page: company / protocol-and-page, then the
-# centred "Table N  <title>" and a centred "<subtitle>".
+# (not bold) and repeats on every page: company / protocol-and-page, then a
+# centred "Table N", the centred title, and a centred "<subtitle>" (three
+# title lines).
 make_header <- function(table_no, title, subtitle = "Safety Analysis Set") {
   rtf_header(rows = list(
-    c(l = "Hoge Co. Limited",   r = "CONFIDENTIAL"),
-    c(l = "Protocol: RTF-101",  r = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}"),
-    c(c = paste0("Table ", table_no, "  ", title)),
+    c(l = "HOGESTER Co. Limited1", r = "CONFIDENTIAL"),
+    c(l = "Protocol: RTF-101",     r = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}"),
+    c(c = paste0("Table ", table_no)),
+    c(c = title),
     c(c = paste0("<", subtitle, ">"))
   ))
 }
@@ -94,6 +96,14 @@ make_footer <- function(built_with) {
 # A single empty content title ("") inserts one blank line between the header
 # and the table on every page.
 blank_title <- function(n = 1L) rep(list(""), n)
+
+# Column alignment for the (5-column) adverse-events tables: the row-label
+# column is left-aligned, every data column is centred.  Without this the
+# alignment read from the source object can differ column to column (e.g. the
+# "All Patients" column came through left-aligned).
+ae_col_spec <- c(
+  list(list(col = 1L, align = "left")),
+  lapply(2:5, function(j) list(col = j, align = "center")))
 
 # Writable width of the default landscape Letter page (11in wide, 0.6in
 # margins).  `auto_width = TRUE` sizes each column to its content; passing this
@@ -293,11 +303,12 @@ ae_tern <- build_table(ae_lyt, df = adae_ae, alt_counts_df = adsl_ae)
 
 # split = "group_safe" never breaks an SOC across a page boundary.  A wide
 # first column (40% of the page, the rest split evenly) keeps the long SOC /
-# preferred-term labels on one line, and a slightly shorter row height lets a
-# full 30 rows fit one printed page.
-ae_tern_pages <- as_rtftables(ae_tern, split = "group_safe", max_rows = 38,
+# preferred-term labels on one line; the row label is left-aligned and the
+# data columns centred; a slightly shorter row height packs more rows per page.
+ae_tern_pages <- as_rtftables(ae_tern, split = "group_safe", max_rows = 36,
                               blank_rows = "between_groups", align_count_pct = TRUE,
                               col_rel_width = c(0.40, 0.15, 0.15, 0.15, 0.15),
+                              col_spec = ae_col_spec,
                               row_height_twips = 200)
 length(ae_tern_pages)            # number of RTF pages
 ```
@@ -370,10 +381,11 @@ ae_hdr <- c("System Organ Class /\nPreferred Term",
             "All Patients\n(N=306)")
 
 # split = "group_force" cuts at max_rows, adding a "(Cont.)" marker.
-ae_tfrmt_pages <- as_rtftables(ae_tfrmt, split = "group_force", max_rows = 38,
+ae_tfrmt_pages <- as_rtftables(ae_tfrmt, split = "group_force", max_rows = 36,
                                blank_rows = "between_groups",
                                col_header = ae_hdr,
                                col_rel_width = c(0.40, 0.15, 0.15, 0.15, 0.15),
+                               col_spec = ae_col_spec,
                                row_height_twips = 200)
 length(ae_tfrmt_pages)
 ```

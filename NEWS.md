@@ -1,5 +1,18 @@
 # rtfreporter (development version)
 
+## rtfreporter 0.0.58
+
+### TLG article: adverse-events alignment, three-line title, tweaks
+
+* **Column alignment fixed.**  The adverse-events tables now force the
+  row-label column left-aligned and every data column centred via `col_spec`,
+  so the "All Patients" column (which had come through left-aligned from the
+  source object) lines up with the rest.
+* The running-header title is now **three centred lines** -- `Table N`, the
+  descriptive title, and `<Safety Analysis Set>`.
+* `max_rows` for the adverse-events tables trimmed to 36 (from 38).
+* Example company name updated.
+
 ## rtfreporter 0.0.57
 
 ### TLG article: more rows per adverse-events page
