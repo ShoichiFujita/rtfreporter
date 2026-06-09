@@ -31,10 +31,15 @@ you get publication-ready deliverables with almost no configuration.
 
 ## Installation
 
-The package is not on CRAN yet. Install the development version from GitHub:
+The package is not on CRAN yet. Install from GitHub:
 
 ``` r
 # install.packages("remotes")
+
+# Stable release (v0.1.0)
+remotes::install_github("ichirio/rtfreporter@v0.1.0")
+
+# Development version (latest main)
 remotes::install_github("ichirio/rtfreporter")
 ```
 
