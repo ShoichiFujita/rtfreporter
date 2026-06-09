@@ -28,8 +28,8 @@ development:
   mode: unreleased
   version_label: warning
   version_tooltip: >
-    Development version (pre-v0.1.0).  API may change in
-    backwards-incompatible ways before v0.1.0.
+    v0.1.0.  API may still change in backwards-incompatible ways
+    before v1.0.0.
 
 home:
   title: "rtfreporter — Clinical RTF Reporting Toolkit for R"
@@ -55,13 +55,14 @@ home:
       devnotes:
         title: Dev stage
         text: |
-          Pre-v0.1.0 development; API may still break.
+          v0.1.0 released; API may still change before v1.0.0.
 
           Roadmap:
 
-          - **v0.1.0** — first GitHub release, pkgdown site live.
-          - **v0.2.x** — `R CMD check --as-cran` clean, lifted coverage.
-          - **v0.3+**  — CRAN submission, `pharmaverse` candidacy.
+          - **v0.1.0** — first public GitHub release, pkgdown site live. (current)
+          - **v0.2.0** — `R CMD check --as-cran` clean, lifted coverage,
+            CRAN submission considered.
+          - **v0.3+**  — `pharmaverse` candidacy; further features.
       community:
         title: Community
         text: |

@@ -166,13 +166,14 @@ The full pkgdown site is at <https://ichirio.github.io/rtfreporter/>:
 
 ## Status & roadmap
 
-`rtfreporter` is currently in active development; the API may change in
-backward-incompatible ways before v0.1.0. A short-term roadmap:
+`rtfreporter` is in active development; the API may still change in
+backward-incompatible ways before v1.0.0. A short-term roadmap:
 
-- Pre-v0.1 — repeated column headers per `pageby` group; cell background colour.
-- v0.1.0 — first GitHub release, pkgdown site live.
-- v0.2.x — full `R CMD check --as-cran` clean, increased test coverage.
-- v0.3+ — CRAN submission, `pharmaverse` candidacy.
+- **v0.1.0 — first public GitHub release, pkgdown site live.** (current)
+- v0.2.0 — full `R CMD check --as-cran` clean, increased test coverage, and
+  **CRAN submission considered**.
+- v0.3+ — `pharmaverse` candidacy; further feature work
+  (e.g. repeated column headers per `pageby` group, cell background colour).
 
 See [`NEWS.md`](NEWS.md) for the user-facing changelog and
 [`CHANGELOG.md`](CHANGELOG.md) for detailed per-version notes.
