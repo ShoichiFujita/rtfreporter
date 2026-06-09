@@ -1,5 +1,12 @@
 # rtfreporter (development version)
 
+### `rtf_tables()` accepts a single content item without `list()`
+
+`rtf_tables()` now auto-wraps a single content item, so you can write
+`rtf_tables(tbl)` instead of `rtf_tables(list(tbl))`. A bare `data.frame`,
+`rtftable()`, `rtfplot()`, `gt_tbl`, or gtsummary table is accepted directly;
+passing a `list` of items continues to work unchanged (#3).
+
 ## rtfreporter 0.0.64
 
 ### Article: pharmaverse code folded, table print + snapshot shown

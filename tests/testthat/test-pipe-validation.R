@@ -24,9 +24,12 @@ test_that("rtf_tables rejects non-rtf_document `doc`", {
   expect_error(rtf_tables("nope", list(data.frame(A = 1L))), "rtf_document")
 })
 
-test_that("rtf_tables rejects non-list `tables`", {
+test_that("rtf_tables auto-wraps a single content item and rejects invalid types", {
   d <- rtf_document()
-  expect_error(rtf_tables(d, "not-a-list"), "must be a list")
+  # A plain character string is not a recognised content item and should error
+  # (it gets auto-wrapped into list("not-a-list") then rejected by the item
+  # validator, so the error message changed from "must be a list" to "Item 1").
+  expect_error(rtf_tables(d, "not-a-list"), "Item 1")
 })
 
 test_that("rtf_tables rejects a non-content item", {
