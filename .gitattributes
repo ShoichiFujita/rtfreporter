@@ -9,3 +9,8 @@
 *.html linguist-documentation
 *.css  linguist-documentation
 *.js   linguist-documentation
+
+# Example RTF deliverables under inst/rtf-examples/ are rendered package
+# OUTPUT shown in the documentation, not source code. Keep them, but exclude
+# them from the Languages bar.
+*.rtf  linguist-documentation
