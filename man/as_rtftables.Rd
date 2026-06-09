@@ -39,8 +39,19 @@ gt/gtsummary: `"col_header"`, `"alignment"`, `"spanning"`, `"widths"`,
 `"footnote_marks"`.}
 
 \item{max_rows, split, split_rows, group_col, cont_label, blank_rows, blank_row_first, blank_row_end, align_count_pct}{Pagination controls.  Identical meaning to the (now deprecated)
-`paginate()`.  `split = "none"` (default) keeps the whole table as a
-single page.}
+  `paginate()`.  `split = "none"` (default) keeps the whole table as a
+  single page.
+
+  `split` may also be a **custom function** for bespoke page-break rules.
+  It is called as
+  `split(df, max_rows = , group_col = , cont_label = , min_group_rows = )`
+  on the (cell-formatted) body and must return a **non-empty list of
+  data.frames** -- one per page.  Named list elements become page names (as
+  with `"by_value"`).  Your function implements only the split; the shared
+  pipeline (blank rows, metadata, per-page assembly, and header / width /
+  style replication) is applied to its output unchanged.  Write the function
+  with a `...` so it tolerates the context arguments it does not use, and see
+  [add_cont_label()] for re-creating the `" (Cont.)"` continuation row.}
 
 \item{min_group_rows}{Integer (default `2`).  Widow/orphan control for the
 group-aware splits (`"group_force"`, `"group_safe"`, `"by_value"`): when a

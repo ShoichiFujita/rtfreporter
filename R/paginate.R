@@ -317,14 +317,19 @@ paginate.data.frame <- function(x, ...) {
                                  align_count_pct  = FALSE,
                                  cell_format      = NULL,
                                  ...) {
-  split <- match.arg(split)
+  # `split` is either one of the built-in strategy names (character) or a
+  # user-supplied custom function that cuts the body into per-page chunks.
+  is_custom_split <- is.function(split)
+  if (!is_custom_split) split <- match.arg(split)
 
-  if (split %in% c("group_safe", "group_force") && is.null(max_rows)) {
-    stop("`max_rows` is required when split = \"", split, "\".",
-         call. = FALSE)
-  }
-  if (split == "rows" && is.null(split_rows)) {
-    stop("`split_rows` is required when split = \"rows\".", call. = FALSE)
+  if (!is_custom_split) {
+    if (split %in% c("group_safe", "group_force") && is.null(max_rows)) {
+      stop("`max_rows` is required when split = \"", split, "\".",
+           call. = FALSE)
+    }
+    if (split == "rows" && is.null(split_rows)) {
+      stop("`split_rows` is required when split = \"rows\".", call. = FALSE)
+    }
   }
 
   # Optional cell-format pass: rewrite the body cells column-by-column to a
@@ -348,17 +353,33 @@ paginate.data.frame <- function(x, ...) {
   # `[`) can intermittently strip non-data.frame classes.
   input_class <- class(x)
 
-  # Step 1: split into raw chunks
-  chunks <- switch(split,
-    none         = list(x),
-    rows         = .split_by_rows(x, split_rows),
-    group_safe   = .split_group_safe (x, info, max_rows, cont_label, group_idx,
-                                       min_group_rows),
-    group_force  = .split_group_force(x, info, max_rows, cont_label, group_idx,
-                                       min_group_rows),
-    by_value     = .split_by_value  (x, info, max_rows, cont_label, group_idx,
-                                       min_group_rows)
-  )
+  # Step 1: split into raw chunks.  A custom function implements only the
+  # split; the shared post-processing below (blank rows, meta, and -- in
+  # as_rtftables() -- per-page assembly + header/width/style replication) is
+  # reused unchanged.  The function receives the (cell-formatted) body plus
+  # context arguments and must return a non-empty list of data.frames; named
+  # elements become page names (as with "by_value").
+  if (is_custom_split) {
+    chunks <- split(x, max_rows = max_rows, group_col = group_col,
+                    cont_label = cont_label, min_group_rows = min_group_rows)
+    if (!is.list(chunks) || length(chunks) == 0L ||
+        !all(vapply(chunks, is.data.frame, logical(1L)))) {
+      stop("A custom `split` function must return a non-empty list of ",
+           "data.frames.", call. = FALSE)
+    }
+  } else {
+    chunks <- switch(split,
+      none         = list(x),
+      rows         = .split_by_rows(x, split_rows),
+      group_safe   = .split_group_safe (x, info, max_rows, cont_label, group_idx,
+                                         min_group_rows),
+      group_force  = .split_group_force(x, info, max_rows, cont_label, group_idx,
+                                         min_group_rows),
+      by_value     = .split_by_value  (x, info, max_rows, cont_label, group_idx,
+                                         min_group_rows)
+    )
+  }
+  strategy <- if (is_custom_split) "custom" else split
 
   # Step 2: attach blank-row positions (via the standalone helper
   # set_blank_rows()) + paginate meta on each chunk.
@@ -375,7 +396,7 @@ paginate.data.frame <- function(x, ...) {
                              blank_row_end   = blank_row_end,
                              group_col       = group_col)
     attr(chunk, "rtf_paginate_meta") <- list(
-      strategy    = split,
+      strategy    = strategy,
       page_index  = i,
       total_pages = n_pages,
       group_col   = group_col,
@@ -457,6 +478,61 @@ paginate.data.frame <- function(x, ...) {
   labels <- rep(rl$values, rl$lengths)
   headers <- c(TRUE, id[-1L] != id[-n])
   list(id = id, label = labels, headers = headers)
+}
+
+
+#' Prepend a continuation label row to a paginated chunk
+#'
+#' A small helper for writing custom `split=` functions for [as_rtftables()].
+#' When a group is split across pages, clinical tables repeat the group label
+#' at the top of the continuation page with a `" (Cont.)"` suffix.
+#' `add_cont_label()` builds that row: it prepends a blank row to `chunk` and
+#' places `paste0(label, cont_label)` in column `col`, leaving every other cell
+#' empty (`""` for character columns, `NA` otherwise).
+#'
+#' @param chunk A data.frame -- a single continuation page produced by your
+#'   split function.
+#' @param label Character scalar: the group label to repeat (without the
+#'   continuation suffix).
+#' @param cont_label Character scalar appended to `label`. Default
+#'   `" (Cont.)"`, matching the built-in group strategies.
+#' @param col Integer or character column where the label is placed. Default
+#'   `1` (the row-label column).
+#'
+#' @return `chunk` with one extra row prepended.
+#'
+#' @seealso [as_rtftables()] for the `split=` custom-function contract.
+#'
+#' @examples
+#' df <- data.frame(group = c("B", "B"), value = c("3", "4"))
+#' add_cont_label(df, label = "Group B")
+#'
+#' @export
+add_cont_label <- function(chunk, label, cont_label = " (Cont.)", col = 1L) {
+  if (!is.data.frame(chunk)) {
+    stop("`chunk` must be a data.frame.", call. = FALSE)
+  }
+  if (!is.character(label) || length(label) != 1L) {
+    stop("`label` must be a single string.", call. = FALSE)
+  }
+  if (is.character(col)) {
+    j <- match(col, names(chunk))
+    if (is.na(j)) stop("`col` '", col, "' not found in `chunk`.", call. = FALSE)
+  } else {
+    j <- as.integer(col)
+    if (is.na(j) || j < 1L || j > ncol(chunk)) {
+      stop("`col` index ", col, " out of range (1..", ncol(chunk), ").",
+           call. = FALSE)
+    }
+  }
+  cont_row <- chunk[1L, , drop = FALSE]
+  for (k in seq_len(ncol(cont_row))) {
+    cont_row[1L, k] <- if (is.character(chunk[[k]])) "" else NA
+  }
+  cont_row[1L, j] <- paste0(label, cont_label)
+  out <- rbind(cont_row, chunk)
+  rownames(out) <- NULL
+  out
 }
 
 

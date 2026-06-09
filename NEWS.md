@@ -1,3 +1,15 @@
+# rtfreporter (development version)
+
+### `as_rtftables(split = )` accepts a custom pagination function
+
+`split` may now be a **function** for bespoke page-break rules, in addition to
+the built-in strategies. It is called on the (cell-formatted) body and must
+return a list of data.frames (one per page; named elements become page names);
+the shared pipeline — blank rows, metadata, per-page assembly, and
+header/width/style replication — is applied to its output unchanged. The new
+`add_cont_label()` helper re-creates the `" (Cont.)"` continuation row for
+custom splitters (#21).
+
 # rtfreporter 0.1.0
 
 First public GitHub release. (CRAN submission is deferred to v0.2.0.)
