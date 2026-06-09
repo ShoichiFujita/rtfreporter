@@ -4,9 +4,9 @@ All notable changes to rtfreporter are documented in this file. Changes are reco
 
 ---
 
-## v0.1.0 (TBD - when ready for public release)
+## v0.1.0
 
-> **Status**: Currently in development as v0.0.45. Will be released as v0.1.0 when complete.
+> **Status**: First public GitHub release. CRAN submission is deferred to v0.2.0.
 
 ### ✨ Features (v0.0.38–v0.0.45) — gt, gtsummary & rtables/tern integration
 

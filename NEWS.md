@@ -1,4 +1,6 @@
-# rtfreporter (development version)
+# rtfreporter 0.1.0
+
+First public GitHub release. (CRAN submission is deferred to v0.2.0.)
 
 ### `rtf_replace_text()` — post-processing find/replace on a rendered RTF
 
