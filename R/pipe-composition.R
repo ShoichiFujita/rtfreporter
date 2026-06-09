@@ -252,8 +252,14 @@ rtf_tables <- function(doc, tables,
     stop("`doc` must be an rtf_document object", call. = FALSE)
   }
 
-  if (!is.list(tables)) {
-    stop("`tables` must be a list", call. = FALSE)
+  # Auto-wrap a single content item so callers can write rtf_tables(tbl)
+  # instead of rtf_tables(list(tbl)).  data.frame is IS a list in R, so it
+  # needs an explicit guard; everything else that is not already a plain list
+  # (rtftable, rtfplot, gt_tbl, gtsummary) is wrapped too.
+  if (is.data.frame(tables) || !is.list(tables) ||
+      inherits(tables, "rtftable") || inherits(tables, "rtfplot") ||
+      .is_gt_tbl(tables) || .is_gtsummary_tbl(tables)) {
+    tables <- list(tables)
   }
 
   # Which table-formatting arguments did the caller pass EXPLICITLY?  These
