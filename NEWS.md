@@ -1,5 +1,11 @@
 # rtfreporter (development version)
 
+### Bug fix: `border = "none"` now works
+
+`rtftable(border = "none")` (and the `rtf_tables()` `border = "none"` override)
+were documented as "no borders" but errored. `"none"` is now accepted as an
+alias for `NULL` (no borders) (#54).
+
 ### `as_rtftable()` now accepts a data.frame / tibble
 
 `as_rtftable()` (singular) previously rejected plain data.frames even though
