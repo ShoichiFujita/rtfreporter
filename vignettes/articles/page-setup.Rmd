@@ -30,18 +30,35 @@ doc <- rtf_document() |>
 ```
 
 
-## Two entry points: `rtf_document()` and `rtf_config()`
+## Setting the document config: `rtf_document()` (and `rtf_config()`)
 
-`rtf_document()` sets everything when you create the document. `rtf_config()`
-updates an **existing** document; only the arguments you pass are changed (a
-`NULL` argument leaves that setting untouched). They take the same four
-parameters: `page`, `font_table`, `color_table`, and `default_format`.
+A document has exactly **one** document-level configuration, and you can set all
+of it on `rtf_document()`. The two calls below are equivalent:
 
-```{r config}
-doc <- rtf_document()                                   # defaults
-doc <- rtf_config(doc, default_format = list(font_size_half_points = 20L))
-doc$document$default_format$font_size_half_points        # -> 20 (10pt)
+```{r equivalent, eval = FALSE}
+rtf_document(default_format = list(font_size_half_points = 20L))
+
+rtf_document() |>
+  rtf_config(default_format = list(font_size_half_points = 20L))
 ```
+
+So `rtf_config()` is **not required** -- it simply updates the same single
+config on an existing document (only the arguments you pass change; a `NULL`
+argument leaves that setting untouched). It exists for two conveniences:
+
+* **Pipe-style setup** -- keep configuration as a step in the pipeline:
+  `rtf_document() |> rtf_config(...) |> rtf_tables(...)`.
+* **Variants from a base document** -- configure once, then derive alternatives:
+
+```{r variants, eval = FALSE}
+base    <- rtf_document(font_table = list(list(name = "Arial")))
+letter  <- base |> rtf_config(page = list(orientation = "landscape"))
+a4_port <- base |> rtf_config(page = list(orientation = "portrait",
+                                          width_in = 8.27, height_in = 11.69))
+```
+
+Both functions take the same four parameters: `page`, `font_table`,
+`color_table`, and `default_format`, covered below.
 
 
 ## Page geometry -- `page`
@@ -80,16 +97,22 @@ sized against, so changing the margins automatically reflows full-width tables.
 
 ## Fonts -- `font_table`
 
-`font_table` is a list of fonts; the **first** one is the primary font used
-throughout the report. The default is **Courier**, a monospaced font: in clinical
-listings, monospacing is what lets count/percent columns line up by character
-(see the count/percent formatters in the pagination article). Switch to a
-proportional font only if you do not rely on character alignment:
+The report uses a **single** font, given by `font_table`. The default is
+**Courier**, a monospaced font: in clinical listings, monospacing is what lets
+count/percent columns line up by character (see the count/percent formatters in
+the pagination article). Switch to a proportional font only if you do not rely
+on character alignment:
 
 ```{r font}
 doc <- rtf_document(font_table = list(list(name = "Arial"))) |>
   rtf_tables(as_rtftables(df))
 ```
+
+`font_table` is written as a list for forward compatibility, but **only the
+first entry is currently used** -- any further entries are ignored, and there is
+no way to select a different font for specific cells or text. (Multiple fonts
+and per-text font selection are a planned enhancement.) To use one font
+throughout, set that first entry as above.
 
 
 ## Document font size -- `default_format`
