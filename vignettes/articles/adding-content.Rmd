@@ -1,0 +1,155 @@
+---
+title: "Adding tables and figures"
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
+                      message = FALSE, warning = FALSE)
+```
+
+```{r setup}
+library(rtfreporter)
+```
+
+A rtfreporter document is a **flat sequence of pages**, and the rule is simple:
+**one page holds exactly one content item** -- a table or a figure -- plus an
+optional title and footnote block. You add content with `rtf_tables()` (and
+`rtf_figures()` for images); each element you pass becomes one page.
+
+This article is the deep dive on content. For document-wide settings (page size,
+fonts) see [Page & document setup](page-setup.html); for converting `gt` /
+`gtsummary` / `rtables` objects see
+[Importing tables](importing-tables.html); for splitting a long table across
+pages see [Paginating with as_rtftables()](pagination.html).
+
+```{r data}
+df1 <- data.frame(Parameter = c("Age", "  Mean", "  SD"),
+                  Value     = c("", "75.1", "8.2"), stringsAsFactors = FALSE)
+df2 <- data.frame(Parameter = c("Sex", "  F", "  M"),
+                  Value     = c("", "53%", "47%"), stringsAsFactors = FALSE)
+```
+
+
+## A single table
+
+The quickest way is to hand a data.frame straight to `rtf_tables()` with the
+formatting you want -- a single item needs no `list()`:
+
+```{r single-bare}
+doc <- rtf_document() |>
+  rtf_tables(df1, border = "tfl", row_height_twips = 280L, col_rel_width = c(2, 1))
+length(doc$contents)        # one page
+```
+
+For full control, build the table object yourself with `rtftable()` (or
+`as_rtftables()` for gt/rtables sources) and pass that:
+
+```{r single-built}
+tbl <- rtftable(df1, border = "tfl", col_rel_width = c(2, 1),
+                col_spec = list(list(col = 2, align = "right")))
+doc <- rtf_document() |> rtf_tables(tbl)
+```
+
+The formatting arguments of `rtf_tables()` (`border`, `col_rel_width`,
+`row_height_twips`, `col_spec`, ...) are documented on `?rtftable`; they are the
+same options either way.
+
+
+## The same settings for several tables
+
+Pass a **list** of bare data.frames and the formatting arguments are applied to
+**every** one -- handy for a batch of tables that should look identical. Each
+element still becomes its own page:
+
+```{r bulk}
+doc <- rtf_document() |>
+  rtf_tables(
+    list(df1, df2),
+    border           = "tfl",
+    row_height_twips = 280L,
+    col_rel_width    = c(2, 1)
+  )
+length(doc$contents)        # two pages, same look
+```
+
+
+## Different settings per table
+
+When each table needs its own look, build each one separately (with its own
+settings) and pass the list. Pre-built `rtftable()` objects keep their own
+settings:
+
+```{r individual}
+t1 <- rtftable(df1, border = "tfl", row_height_twips = 280L)
+t2 <- rtftable(df2, border = NULL,  row_height_twips = 200L)   # no borders
+
+doc <- rtf_document() |> rtf_tables(list(t1, t2))
+doc$contents[[1]]$row_height_twips   # 280 -- t1 keeps its own
+doc$contents[[2]]$row_height_twips   # 200 -- t2 keeps its own
+```
+
+### Override semantics
+
+A formatting argument you pass **explicitly** to `rtf_tables()` overrides that
+field on every pre-built table; arguments you leave at their default do not
+touch the tables'' own values. This lets you set a shared override without
+rebuilding the tables:
+
+```{r override}
+doc <- rtf_document() |>
+  rtf_tables(list(t1, t2), row_height_twips = 240L)   # explicit -> overrides both
+doc$contents[[1]]$row_height_twips   # 240
+doc$contents[[2]]$row_height_twips   # 240
+```
+
+(Bare data.frames are always built from the supplied arguments; `rtfplot()`
+figure objects are never modified.)
+
+
+## Titles and footnotes
+
+Each page can carry a title block and a footnote block. Pass `titles` /
+`footnotes` as lists parallel to the content (one element per page; each a
+character vector, one line per element). Use `NULL` for a page with none:
+
+```{r titles}
+doc <- rtf_document() |>
+  rtf_tables(
+    list(df1, df2),
+    border    = "tfl",
+    titles    = list(c("Table 14.1.1", "Demographics"),
+                     c("Table 14.1.2", "Sex")),
+    footnotes = list(c("Source: ADSL"), NULL)
+  )
+```
+
+You can also set them after the content with `rtf_titles()` / `rtf_footnotes()`.
+(When the content comes from a `gt` table via `as_rtftables()`, its title and
+source notes flow through automatically -- see
+[Importing tables](importing-tables.html).)
+
+
+## Figures
+
+Images are content too: one figure per page, added with `rtf_figures()`. Pass a
+list of image paths (PNG/JPEG) or `rtfplot()` objects; `width_twips` /
+`height_twips` / `align` control the display, and `titles` / `footnotes` work
+exactly as for tables.
+
+```{r figure}
+# A small example PNG to embed.
+img <- tempfile(fileext = ".png")
+png(img, width = 480, height = 320); plot(1:10, main = "Mean over time"); dev.off()
+
+doc <- rtf_document() |>
+  rtf_figures(list(img), width_twips = 6000L, align = "center",
+              titles = list(c("Figure 14.2.1", "Mean over time")))
+length(doc$contents)        # one figure page
+```
+
+Tables and figures share the same page model, so a report is just a sequence of
+content pages -- some tables, some figures -- each optionally titled and
+footnoted. To control the running header/footer across those pages, see the
+headers & footers article.
+
+See `?rtf_tables` and `?rtf_figures` for the full argument reference.
