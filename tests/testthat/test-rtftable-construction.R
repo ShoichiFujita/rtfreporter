@@ -7,6 +7,20 @@ df2 <- function() data.frame(a = c("1", "2"), b = c("x", "y"),
 
 # ── Argument validation (equivalence partitioning + boundary values) ─────────
 
+test_that('rtftable(border = "none") is accepted and means no borders', {
+  none <- rtftable(df2(), border = "none")
+  null <- rtftable(df2(), border = NULL)
+  expect_s3_class(none, "rtftable")
+  expect_null(none$border)                       # no borders
+  expect_identical(none$border, null$border)     # same as border = NULL
+})
+
+test_that('rtf_tables() accepts a "none" border override', {
+  tbl <- rtftable(df2(), border = "tfl")
+  out <- rtf_tables(rtf_document(), tbl, border = "none")$contents[[1L]]
+  expect_null(out$border)
+})
+
 test_that("rtftable() rejects a non-rtf_table_style `style`", {
   expect_error(rtftable(df2(), style = "nope"),
                "must be an rtf_table_style")

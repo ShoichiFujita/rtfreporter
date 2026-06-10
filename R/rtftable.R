@@ -16,8 +16,9 @@
   if (inherits(border, "rtf_table_border")) return(border)
   if (inherits(border, "rtf_table_style"))  return(.style_to_table_border(border))
   if (identical(border, "tfl")) return(rtf_border_tfl())
+  if (identical(border, "none")) return(NULL)   # "none" == no borders
   if (is.list(border)) return(.plain_list_to_table_border(border))
-  stop("`border` must be \"tfl\", NULL, an rtf_table_border object, ",
+  stop("`border` must be \"tfl\", \"none\", NULL, an rtf_table_border object, ",
        "an rtf_table_style object, or a named list.", call. = FALSE)
 }
 
