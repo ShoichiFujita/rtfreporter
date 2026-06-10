@@ -21,7 +21,11 @@
 #' Provides sensible defaults for clinical trial reports.
 #'
 #' @param font_table Optional font table. Default: list(list(name = "Courier"))
-#' @param color_table Optional color table. Default: c("#000000")
+#' @param color_table Optional vector of `"#RRGGBB"` colours to pre-declare in
+#'   the document's colour table (so they are available by index). Default
+#'   `c("#000000")`. Colours used by borders and by `col_spec`/`cell_styles`
+#'   `color` are added automatically, so you only need this to declare colours
+#'   you reference elsewhere. Black/white are reserved and added implicitly.
 #' @param page Optional page settings (orientation, dimensions, margins).
 #'             Default: landscape letter 11x8.5", margins 0.9 inch
 #'             (top/bottom) and 0.6 inch (left/right).

@@ -396,7 +396,7 @@
 # All decoration flags are logical scalars.
 .build_cell_content <- function(text, align = "left", bold = FALSE, italic = FALSE,
                                  underline = FALSE, indent_twips = 0L,
-                                 pad_l = 72L, pad_r = 72L) {
+                                 pad_l = 72L, pad_r = 72L, color_idx = NULL) {
   align_cmd <- switch(align, left = "\\ql", right = "\\qr", center = "\\qc", "\\ql")
   li <- as.integer(pad_l) + as.integer(indent_twips)
   ri <- as.integer(pad_r)
@@ -405,6 +405,11 @@
   if (underline) text <- paste0("\\ul ", text, "\\ulnone ")
   if (italic)    text <- paste0("\\i ",  text, "\\i0 ")
   if (bold)      text <- paste0("\\b ",  text, "\\b0 ")
+  # Text colour outermost: \cf<idx> ... \cf1 (reset to the default black at
+  # colour-table index 1).
+  if (!is.null(color_idx)) {
+    text <- paste0("\\cf", as.integer(color_idx), " ", text, "\\cf1 ")
+  }
 
   paste0(align_cmd, "\\li", li, "\\ri", ri, " ", text, "\\cell")
 }
@@ -620,7 +625,8 @@
 .render_data_row <- function(vals, cellx, border_spec, row_height_twips,
                               pad_l, pad_r, valign_cmd, col_spec,
                               table_align = "left",
-                              row_cell_styles = NULL) {
+                              row_cell_styles = NULL,
+                              color_index_map = NULL) {
   ncols <- length(cellx)
   cell_defs     <- .build_cell_defs(cellx, border_spec, valign_cmd)
   cell_contents <- vapply(seq_len(ncols), function(j) {
@@ -632,6 +638,7 @@
     itl         <- isTRUE(spec$italic)
     ul          <- isTRUE(spec$underline)
     indent      <- as.integer(spec$indent_twips %||% 0L)
+    color_hex   <- spec$color       %||% NULL          # per-column text colour
     # Per-cell style overrides: non-NA entries win over col_spec defaults.
     if (!is.null(row_cell_styles)) {
       cs <- row_cell_styles
@@ -647,8 +654,14 @@
       if (!is.null(cs$indent_twips) && j <= length(cs$indent_twips) &&
           !is.na(cs$indent_twips[j]))
         indent <- as.integer(cs$indent_twips[j])
+      if (!is.null(cs$color) && j <= length(cs$color) && !is.na(cs$color[j]))
+        color_hex <- cs$color[j]
     }
-    .build_cell_content(text, align, bold, itl, ul, indent, pad_l, pad_r)
+    # Resolve the colour hex to a colour-table index (NULL -> default black).
+    color_idx <- if (!is.null(color_hex) && !is.null(color_index_map))
+                   color_index_map[[color_hex]] else NULL
+    .build_cell_content(text, align, bold, itl, ul, indent, pad_l, pad_r,
+                        color_idx = color_idx)
   }, character(1L))
   .build_row(cell_defs, cell_contents, row_height_twips, table_align)
 }
@@ -664,7 +677,7 @@
     hdr_h, data_h, blank_h, blank_set,
     pad_l, pad_r, valign_cmd,
     spanning_header, table_align = "left",
-    cell_styles = NULL) {
+    cell_styles = NULL, color_index_map = NULL) {
 
   ncols <- length(cellx)
   nrows <- nrow(df)
@@ -755,7 +768,8 @@
     lines <- c(lines, .render_data_row(
       as.list(df[i, , drop = FALSE]),
       cellx, row_border, data_h, pad_l, pad_r, valign_cmd, col_spec, table_align,
-      row_cell_styles = rcs
+      row_cell_styles = rcs,
+      color_index_map = color_index_map
     ))
     if (i %in% blank_set) lines <- c(lines, .blank_row_rtf())
   }
@@ -767,7 +781,8 @@
 # Handles both single-DF and multi-DF modes transparently.
 # font_half_points drives the default row-height lookup when the table does
 # not specify an explicit row_height_twips.
-.render_rtftable <- function(tbl, writable_width_twips, font_half_points = 18L) {
+.render_rtftable <- function(tbl, writable_width_twips, font_half_points = 18L,
+                             color_index_map = NULL) {
   border   <- tbl$border
   col_spec <- tbl$col_spec
   pad_l    <- tbl$cell_padding_left_twips
@@ -842,7 +857,8 @@
         valign_cmd  = valign_cmd,
         spanning_header = tbl$spanning_header,
         table_align     = table_align,
-        cell_styles     = cs_section
+        cell_styles     = cs_section,
+        color_index_map = color_index_map
       ))
       row_offset <- row_offset + n_this
     }
@@ -868,7 +884,8 @@
     valign_cmd  = valign_cmd,
     spanning_header = tbl$spanning_header,
     table_align     = table_align,
-    cell_styles     = tbl$cell_styles
+    cell_styles     = tbl$cell_styles,
+    color_index_map = color_index_map
   )
 }
 
@@ -1071,11 +1088,29 @@
 
   .tbl_colors <- function(tbl) {
     if (!inherits(tbl, "rtftable")) return(character(0))
+    out <- character(0)
     tb <- tbl$border
-    if (is.null(tb)) return(character(0))
-    if (inherits(tb, "rtf_table_border")) return(.collect_table_border_colors(tb))
-    character(0)
+    if (!is.null(tb) && inherits(tb, "rtf_table_border")) {
+      out <- c(out, .collect_table_border_colors(tb))
+    }
+    # Per-column text colours (col_spec[[j]]$color).
+    if (!is.null(tbl$col_spec)) {
+      out <- c(out, unlist(lapply(tbl$col_spec, function(s) s$color),
+                           use.names = FALSE))
+    }
+    # Per-cell text colours (cell_styles[[i]]$color vectors).
+    if (!is.null(tbl$cell_styles)) {
+      out <- c(out, unlist(lapply(tbl$cell_styles, function(cs) {
+        if (is.list(cs)) cs$color else NULL
+      }), use.names = FALSE))
+    }
+    out[!is.na(out)]
   }
+
+  # Document-declared palette (rtf_document(color_table = ...)): make these
+  # colours available by index even if no element references them yet.
+  ct_doc <- report$document$color_table
+  if (!is.null(ct_doc)) cols <- c(cols, as.character(ct_doc))
 
   for (sec in report$sections) {
     cols <- c(cols, .hf_colors(.normalize_hf(sec$header)))
@@ -1085,6 +1120,11 @@
     ct <- pg$content
     if (inherits(ct, "rtftable")) cols <- c(cols, .tbl_colors(ct))
   }
+  cols <- cols[!is.na(cols) & nzchar(cols)]
+  # Black / white already occupy the reserved colour-table slots (index 1 / 2),
+  # so drop them: declaring them adds nothing, and it keeps the default
+  # color_table = "#000000" a no-op (no redundant palette entry).
+  cols <- cols[!toupper(cols) %in% c("#000000", "#FFFFFF")]
   unique(cols)
 }
 
@@ -1570,7 +1610,8 @@ generate_rtfreport <- function(report, file_path, overwrite = FALSE) {
       lines <- c(lines, .render_title_text(page$title, align = "center"))
       if (!is.null(ct)) {
         if (inherits(ct, "rtftable")) {
-          lines <- c(lines, .render_rtftable(ct, writable_w, font_half_points))
+          lines <- c(lines, .render_rtftable(ct, writable_w, font_half_points,
+                                              color_index_map))
         } else if (inherits(ct, "rtfplot")) {
           lines <- c(lines, .render_rtfplot(ct, writable_w))
         }

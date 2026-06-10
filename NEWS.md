@@ -1,5 +1,15 @@
 # rtfreporter (development version)
 
+### Cell text colour, and `color_table` is now wired in
+
+Tables can now carry **text colour**: set `color = "#RRGGBB"` on a `col_spec`
+entry for a whole column, or on a `cell_styles` row (a length-`ncol` vector,
+`NA` = no override) for individual cells. Colours are rendered as `\cf` and
+added to the document colour table automatically. The `color_table` argument of
+`rtf_document()` is now wired into the rendered palette (it was previously
+ignored); black and white remain reserved. (Cell background fill and
+header/footer text colour are planned follow-ups.) (#39)
+
 ### Bug fix: portrait orientation is now honored
 
 `rtf_document(page = list(orientation = "portrait"))` now produces a portrait

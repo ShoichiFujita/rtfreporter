@@ -29,7 +29,9 @@
 #' @param col_spec List of per-column formatting specs. Each element may
 #'   contain: `col` (integer), `align` (`"left"`/`"center"`/`"right"`),
 #'   `bold`, `italic`, `underline` (logical), `indent_twips` (integer),
-#'   `header_align`, `header_bold`, `header_italic`.
+#'   `header_align`, `header_bold`, `header_italic`, and `color` (a
+#'   `"#RRGGBB"` hex string giving the column's **text colour**; the colour is
+#'   added to the document's colour table automatically).
 #' @param border Border specification.
 #'   - `"tfl"`: clinical TFL preset (header top+bottom, last-row bottom).
 #'   - `"none"`: no borders.
@@ -83,6 +85,8 @@
 #'     \item{`underline`}{logical -- overrides `col_spec[[j]]$underline`.}
 #'     \item{`indent_twips`}{integer -- overrides `col_spec[[j]]$indent_twips`
 #'       (replaces, does not add to, the column default).}
+#'     \item{`color`}{character `"#RRGGBB"` -- per-cell **text colour**,
+#'       overriding `col_spec[[j]]$color`. `NA` means "use the column colour".}
 #'   }
 #'   `NA` entries within a vector mean "no override; use the column default".
 #'   This argument is populated automatically by [as_rtftable()] when reading
