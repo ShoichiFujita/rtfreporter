@@ -252,14 +252,117 @@
 }
 
 
-# -- Internal S3 constructor --------------------------------------------------
-#
-# Builds an `rtftable` S3 object containing the normalized fields the
-# renderer expects.  Public callers use rtftable() in wrappers.R; this
-# function does the heavy lifting (validation, default resolution,
-# normalization) regardless of the entry point.
-
-.new_rtftable <- function(
+#' Create an RTF table object
+#'
+#' Constructs a table object with full formatting control.
+#' The result can be passed directly to `rtf_tables()` in a pipe chain.
+#'
+#' @param data A `data.frame`, or a `list` of `data.frame`s (multi-DF mode).
+#'   Multi-DF mode renders each data.frame with its own column headers but
+#'   shares column widths and border settings.
+#' @param col_header Column header specification.
+#'   - `NULL`: use column names of `data`.
+#'   - Character vector: one label per column (single header row).
+#'   - List whose elements are either character vectors (label rows) or
+#'     spanning rows (`list(list(from, to, label, underline), ...)`); rows
+#'     are rendered top-to-bottom.
+#'   - In multi-DF mode: a `list` of per-DF specs (same length as `data`).
+#' @param col_header_align Column-header text alignment, applied across
+#'   header rows. `NULL` (default) inherits each column's `align` value
+#'   from `col_spec` (i.e. column headers follow the data alignment).
+#'   `"center"` / `"left"` / `"right"` applies a single value to every
+#'   column; a character vector of length `ncol` overrides per-column.
+#' @param spanning_header A standalone spanning row placed **above** the
+#'   `col_header` rows.  Each element: `list(from, to, label, underline)`.
+#'   Kept for backward compatibility -- new code should put spanning rows
+#'   directly inside `col_header`.
+#' @param col_spec List of per-column formatting specs. Each element may
+#'   contain: `col` (integer), `align` (`"left"`/`"center"`/`"right"`),
+#'   `bold`, `italic`, `underline` (logical), `indent_twips` (integer),
+#'   `header_align`, `header_bold`, `header_italic`, and `color` (a
+#'   `"#RRGGBB"` hex string giving the column's **text colour**; the colour is
+#'   added to the document's colour table automatically).
+#' @param border Border specification.
+#'   - `"tfl"`: clinical TFL preset (header top+bottom, last-row bottom).
+#'   - `"none"`: no borders.
+#'   - An `rtf_table_border` object from `rtf_table_border()`.
+#'   - An `rtf_table_style` object (its border zones are used).
+#' @param style Optional shared `rtf_table_style` (S3).  Provides default
+#'   values for borders, alignment, cell padding, etc.; explicit arguments
+#'   to `rtftable()` always override.  Snapshot semantics: each
+#'   `rtftable()` call captures the style's current state at construction.
+#' @param blank_rows Specification of blank separator rows. Accepts:
+#'   - Integer vector of positions (`0` = before first row, `k` = after
+#'     data row `k`, `-1` = after the last data row).
+#'   - A [blank_rows_by_change()] spec -- insert when a column value
+#'     changes.
+#'   - A [blank_rows_by_rule()] spec -- insert before/after rows matching
+#'     a regex.
+#'   - A `list` containing any combination of the above (positions are
+#'     unioned).
+#' @param read_attributes Logical. When `TRUE` (default), read recognised
+#'   attributes off `data` for use as fallback defaults -- currently
+#'   `attr(data, "rtf_blank_rows")` is folded into `blank_rows` when the
+#'   argument is `NULL`. Set `FALSE` to ignore attributes.
+#' @param col_rel_width Numeric vector of relative column widths (e.g.
+#'   `c(2, 1, 1)` makes the first column twice as wide as the others).
+#' @param column_widths_twips Integer vector of absolute column widths in
+#'   twips. Overrides `col_rel_width`.
+#' @param table_width_twips Total table width in twips.
+#' @param table_width_pct_of_writable Table width as a fraction 0-1 of the
+#'   writable page width.
+#' @param table_width_pct Table width as a percentage 0-100 of the writable
+#'   page width (convenience alias for `table_width_pct_of_writable * 100`).
+#' @param table_align Horizontal placement: `"left"` (default), `"center"`,
+#'   or `"right"`.
+#' @param row_height_twips Row height for data rows in twips. `NULL` (default)
+#'   uses the document-wide default from `rtfreporter_defaults.R`
+#'   (font-size-aware). A positive integer specifies an explicit value.
+#' @param row_height_exact Logical. `TRUE` = exact (clipped); `FALSE` = minimum.
+#' @param header_row_height_twips Row height for column-header rows.
+#' @param blank_row_height_twips Row height for blank separator rows.
+#' @param cell_padding_left_twips Left cell padding in twips (default 0
+#'   since v0.0.21; cell content sits flush against the cell border).
+#' @param cell_padding_right_twips Right cell padding in twips (default 0).
+#' @param cell_valign Vertical alignment: `"bottom"` (default), `"top"`,
+#'   or `"center"`.
+#' @param cell_styles `NULL` (default), or a list of length `nrow(data)`.
+#'   Each element is either `NULL` (no per-cell override for that row) or a
+#'   named list with optional vectors of length `ncol(data)`:
+#'   \describe{
+#'     \item{`bold`}{logical -- overrides `col_spec[[j]]$bold` when non-`NA`.}
+#'     \item{`italic`}{logical -- overrides `col_spec[[j]]$italic`.}
+#'     \item{`underline`}{logical -- overrides `col_spec[[j]]$underline`.}
+#'     \item{`indent_twips`}{integer -- overrides `col_spec[[j]]$indent_twips`
+#'       (replaces, does not add to, the column default).}
+#'     \item{`color`}{character `"#RRGGBB"` -- per-cell **text colour**,
+#'       overriding `col_spec[[j]]$color`. `NA` means "use the column colour".}
+#'   }
+#'   `NA` entries within a vector mean "no override; use the column default".
+#'   This argument is populated automatically by [as_rtftable()] when reading
+#'   from a `gt_tbl` or gtsummary table with `read = TRUE`.
+#'
+#' @return An `rtftable` (S3) object suitable for use in `rtf_tables()`.
+#'
+#' @examples
+#' \dontrun{
+#' df <- data.frame(Subject = c("001", "002"), Age = c(34L, 45L))
+#'
+#' # Simple table
+#' tbl <- rtftable(df, col_rel_width = c(2, 1), row_height_twips = 280L)
+#'
+#' # Use in a pipe chain
+#' doc <- rtf_document() %>%
+#'   rtf_section(page = 1, secinfo = list(
+#'     header = rtf_header(rows = list(c(l = "Protocol: RTF-101", r = "ACME Pharma")))
+#'   )) %>%
+#'   rtf_tables(list(tbl))
+#'
+#' generate_rtfreport(doc, "output.rtf", overwrite = TRUE)
+#' }
+#'
+#' @export
+rtftable <- function(
   data,
   col_header = NULL,
   col_header_align = NULL,

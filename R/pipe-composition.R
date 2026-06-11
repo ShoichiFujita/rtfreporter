@@ -359,7 +359,7 @@ rtf_tables <- function(doc, tables,
       # Phase D: cell_styles from gt extraction (user has no rtf_tables()-level
       # override; cell_styles can only be set on individual rtftable() objects).
       eff_cell_styles <- if (!is.null(gtx)) gtx$cell_styles else NULL
-      .new_rtftable(
+      rtftable(
         data                        = item,
         col_header                  = eff_col_header,
         col_header_align            = col_header_align,
@@ -510,8 +510,8 @@ rtf_figures <- function(doc, figures,
            " must be a single character file path or an rtfplot() object",
            call. = FALSE)
     }
-    .new_rtfplot(path = fig, width_twips = width_twips,
-                 height_twips = height_twips, align = align)
+    rtfplot(path = fig, width_twips = width_twips,
+            height_twips = height_twips, align = align)
   })
 
   .validate_parallel <- function(x, n, name) {

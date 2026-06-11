@@ -23,7 +23,7 @@
 .normalize_content <- function(item) {
   if (is.null(item)) return(NULL)
   if (inherits(item, "rtftable") || inherits(item, "rtfplot")) return(item)
-  if (is.data.frame(item)) return(.new_rtftable(data = item))
+  if (is.data.frame(item)) return(rtftable(data = item))
   stop("content must be an rtftable, rtfplot, or data.frame.", call. = FALSE)
 }
 

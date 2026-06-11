@@ -38,9 +38,34 @@
   stop("Could not locate SOF marker to read JPEG dimensions.", call. = FALSE)
 }
 
-# Internal S3 constructor.  Public callers use rtfplot() in wrappers.R.
-.new_rtfplot <- function(path, width_twips = NULL, height_twips = NULL,
-                         align = "center") {
+#' Create an RTF figure object
+#'
+#' Embeds a PNG or JPEG image into the RTF output.
+#' The result can be passed directly to `rtf_tables()` in a pipe chain.
+#'
+#' @param path Path to a PNG or JPEG image file.
+#' @param width_twips Display width in twips. `NULL` = full writable width.
+#' @param height_twips Display height in twips. `NULL` = derived from aspect ratio.
+#' @param align Horizontal alignment: `"center"` (default), `"left"`, or `"right"`.
+#'
+#' @return An `rtfplot` (S3) object suitable for use in `rtf_tables()`.
+#'
+#' @examples
+#' \dontrun{
+#' fig <- rtfplot("scatter.png", width_twips = 9000L)
+#'
+#' doc <- rtf_document() %>%
+#'   rtf_section(page = 1, secinfo = list(
+#'     header = rtf_header(rows = list(c(l = "Figure 14.1")))
+#'   )) %>%
+#'   rtf_tables(list(fig))
+#'
+#' generate_rtfreport(doc, "output.rtf", overwrite = TRUE)
+#' }
+#'
+#' @export
+rtfplot <- function(path, width_twips = NULL, height_twips = NULL,
+                    align = "center") {
   if (!file.exists(path)) {
     stop(sprintf("Image file not found: %s", path), call. = FALSE)
   }
