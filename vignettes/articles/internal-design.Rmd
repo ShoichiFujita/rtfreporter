@@ -36,6 +36,25 @@ rtf_document (public, pipe-built)
 * **Sections are an overlay**: each `rtf_sect` assigns a header/footer starting
   at a page and applying until the next section. They do not contain content.
 
+### This is the Builder pattern
+
+The two layers are a deliberate use of the **builder pattern**, not a redundant
+pair of document classes:
+
+* `rtf_document` is the **builder** -- a convenient, incrementally-grown object.
+  The pipe verbs (`rtf_tables()`, `rtf_section()`, …) each return an updated
+  `rtf_document`, accumulating content and section definitions in the order the
+  author writes them.
+* `rtfreport` is the **product** -- the normalised, render-ready form the
+  renderer consumes (content paired with its title/footnote into `rtf_page`s,
+  section definitions resolved to page ranges).
+* `.pipe_doc_to_rtfreport()` is the **build step** that turns one into the
+  other, run once at render time inside `generate_rtfreport()`.
+
+Keeping the two separate means the *authoring* API and the *rendering* model can
+evolve independently, and each stays simple: the builder never has to be
+render-ready, and the product never has to support incremental edits.
+
 ## The objects
 
 ### `rtf_document` (public)
