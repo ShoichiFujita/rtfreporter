@@ -1,5 +1,13 @@
 # rtfreporter (development version)
 
+### Internal: constructor cleanup (no API change)
+
+Collapsed the thin `rtftable()` / `rtfplot()` wrapper layer (a vestige of the
+R6 era) into the public constructors: the exported `rtftable()` / `rtfplot()`
+are now the implementations directly (the internal `.new_rtftable()` /
+`.new_rtfplot()` and `R/wrappers.R` are gone). No change to behaviour, exported
+names, or signatures (#72).
+
 ### Breaking changes: removed no-op deprecated functions
 
 Pre-CRAN cleanup of long-deprecated no-ops:
