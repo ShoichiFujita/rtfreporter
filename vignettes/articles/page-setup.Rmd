@@ -42,20 +42,33 @@ rtf_document() |>
   rtf_config(default_format = list(font_size_half_points = 20L))
 ```
 
-So `rtf_config()` is **not required** -- it simply updates the same single
-config on an existing document (only the arguments you pass change; a `NULL`
-argument leaves that setting untouched). It exists for two conveniences:
+For a brand-new document `rtf_config()` is **not required** -- you can pass the
+same settings straight to `rtf_document()`. Where it earns its keep is **after
+you have composed the report**: build the content and sections once, then derive
+output variants by changing only a document-level setting. Because an
+`rtf_document` is immutable, each variant is an independent copy that shares the
+same content.
 
-* **Pipe-style setup** -- keep configuration as a step in the pipeline:
-  `rtf_document() |> rtf_config(...) |> rtf_tables(...)`.
-* **Variants from a base document** -- configure once, then derive alternatives:
+```{r variants}
+# Compose the report once (content + section).
+base <- rtf_document() |>
+  rtf_tables(as_rtftables(df)) |>
+  rtf_section(page = 1, secinfo = list(header = NULL, footer = NULL))
 
-```{r variants, eval = FALSE}
-base    <- rtf_document(font_table = list(list(name = "Arial")))
-letter  <- base |> rtf_config(page = list(orientation = "landscape"))
-a4_port <- base |> rtf_config(page = list(orientation = "portrait",
-                                          width_in = 8.27, height_in = 11.69))
+# Then render the SAME report in two paper sizes by changing only `page`.
+letter <- base                                                  # landscape Letter
+a4      <- base |> rtf_config(page = list(width_in = 11.69, height_in = 8.27))
+
+# generate_rtfreport(letter, "report-letter.rtf", overwrite = TRUE)
+# generate_rtfreport(a4,     "report-a4.rtf",     overwrite = TRUE)
 ```
+
+`page` and `default_format` are **merged per key**, so the A4 variant above
+keeps `base`'s orientation and margins and only swaps the dimensions. The same
+trick produces a large-print copy
+(`rtf_config(default_format = list(font_size_half_points = 24L))`) or a
+client-specific font (`rtf_config(font_table = list(list(name = "Arial")))`)
+from one composed report.
 
 Both functions take the same four parameters: `page`, `font_table`,
 `color_table`, and `default_format`, covered below.

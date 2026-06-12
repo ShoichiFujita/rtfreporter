@@ -18,6 +18,36 @@ test_that("rtf_config() returns an updated copy without mutating the original", 
   expect_identical(doc$document$page$orientation, "landscape")
 })
 
+test_that("rtf_config() merges page per key, keeping unspecified keys (#108)", {
+  doc  <- rtf_document()                       # default landscape, 11 x 8.5
+  doc2 <- rtf_config(doc, page = list(width_in = 11.69, height_in = 8.27))
+  # Changed keys:
+  expect_identical(doc2$document$page$width_in,  11.69)
+  expect_identical(doc2$document$page$height_in, 8.27)
+  # Untouched keys are preserved (merge, not replace):
+  expect_identical(doc2$document$page$orientation,    "landscape")
+  expect_identical(doc2$document$page$margin_left_in, 0.6)
+})
+
+test_that("rtf_config() merges default_format per key (#108)", {
+  doc  <- rtf_config(rtf_document(),
+                     default_format = list(font_size_half_points = 18L,
+                                           extra = "keep"))
+  doc2 <- rtf_config(doc, default_format = list(font_size_half_points = 24L))
+  expect_identical(doc2$document$default_format$font_size_half_points, 24L)
+  expect_identical(doc2$document$default_format$extra, "keep")
+})
+
+test_that("rtf_config() leaves content and sections intact (#108)", {
+  base <- rtf_document() |>
+    rtf_tables(data.frame(A = "x", B = "y", stringsAsFactors = FALSE)) |>
+    rtf_section(page = 1, secinfo = list(header = NULL, footer = NULL))
+  a4 <- rtf_config(base, page = list(width_in = 11.69, height_in = 8.27))
+  expect_identical(a4$contents, base$contents)
+  expect_identical(a4$sections, base$sections)
+  expect_identical(a4$document$page$width_in, 11.69)
+})
+
 test_that("rtf_tables() promotes bare data.frames and applies shared formatting", {
   df1 <- data.frame(A = 1:3, B = c("x", "y", "z"))
   df2 <- data.frame(ID = c(10, 20, 30), Value = c(100, 200, 300))

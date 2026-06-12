@@ -45,6 +45,17 @@ An rtf_document object (S3 class) with structure:
 Initialize a new RTF document object for building reports with pipes.
 Provides sensible defaults for clinical trial reports.
 }
+\details{
+`rtf_document()` is the **constructor**: it starts a new, empty document and
+supplies a default for anything you do not specify. To **change settings on a
+document you have already composed** -- one that already holds content and
+sections -- use [rtf_config()] instead, which alters only the keys you pass
+and leaves the content untouched. In short: `rtf_document()` *builds a new*
+document from defaults; `rtf_config()` *edits an existing* one in place. The
+two are complementary, not interchangeable -- you cannot change the page of
+an already-composed report with `rtf_document()` without discarding its
+content.
+}
 \examples{
 \dontrun{
 doc <- rtf_document()
