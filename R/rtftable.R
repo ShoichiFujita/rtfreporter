@@ -22,11 +22,46 @@
        "an rtf_table_style object, or a named list.", call. = FALSE)
 }
 
+# Resolve a `row_title` argument (which columns are row-heading columns) into a
+# sorted integer vector of valid column indices.
+#
+#   NULL           -> column 1 only (the default: first column is the row title)
+#   integer vector -> those column indices
+#   character      -> matched against `col_names`
+#
+# Out-of-range indices / unknown names raise an error.
+.normalize_row_title <- function(row_title, ncol_df, col_names = NULL) {
+  if (ncol_df < 1L) return(integer(0))
+  if (is.null(row_title)) return(1L)
+  if (is.character(row_title)) {
+    idx <- match(row_title, col_names)
+    if (anyNA(idx)) {
+      stop(sprintf("`row_title` column(s) not found in data: %s",
+                   paste(row_title[is.na(idx)], collapse = ", ")), call. = FALSE)
+    }
+  } else if (is.numeric(row_title)) {
+    idx <- as.integer(row_title)
+    if (anyNA(idx) || any(idx < 1L) || any(idx > ncol_df)) {
+      stop(sprintf("`row_title` indices must be within 1..%d.", ncol_df),
+           call. = FALSE)
+    }
+  } else {
+    stop("`row_title` must be NULL, an integer vector, or column names.",
+         call. = FALSE)
+  }
+  sort(unique(idx))
+}
+
 # Normalize col_spec: list of per-column lists -> internal indexed form.
 #
 # Each output element:
 #   list(align, bold, italic, underline, indent_twips,
 #        header_bold, header_align, header_italic)
+#
+# Default data alignment depends on `row_title` (the resolved integer vector of
+# row-heading columns): row-title columns default to "left", all other columns
+# default to "center".  An `rtf_table_style`'s `align`, when supplied, still
+# governs (backward compatible); explicit col_spec align always wins.
 #
 # Header-align resolution precedence (highest first):
 #   1. col_spec entry's header_align (per-column override from user)
@@ -34,13 +69,18 @@
 #   3. col_spec entry's align        (inherit data alignment)
 #
 # col_header_align: NULL | character(1) | character(ncol).
+# row_title: resolved integer vector (see .normalize_row_title); NULL -> col 1.
 #
 .normalize_col_spec <- function(col_spec, ncol_df, col_names,
                                  col_header_align = NULL,
-                                 style = NULL) {
+                                 style = NULL,
+                                 row_title = NULL) {
   # Per-column defaults (potentially seeded from `style`).  `header_align`
   # is left NULL so the cascade can fill it in further down.
-  base_align         <- if (!is.null(style)) style$align         else "left"
+  # Data alignment default: a style's align wins if supplied; otherwise
+  # row-title columns are left-aligned and the rest are centred.
+  rt_idx             <- if (is.null(row_title)) 1L else as.integer(row_title)
+  style_align        <- if (!is.null(style)) style$align else NULL
   base_bold          <- if (!is.null(style)) style$bold          else FALSE
   base_italic        <- if (!is.null(style)) style$italic        else FALSE
   base_underline     <- if (!is.null(style)) style$underline     else FALSE
@@ -49,7 +89,7 @@
 
   result <- lapply(seq_len(ncol_df), function(j) {
     list(
-      align         = base_align,
+      align         = style_align %||% (if (j %in% rt_idx) "left" else "center"),
       bold          = base_bold,
       italic        = base_italic,
       underline     = base_underline,
@@ -281,7 +321,17 @@
 #'   `bold`, `italic`, `underline` (logical), `indent_twips` (integer),
 #'   `header_align`, `header_bold`, `header_italic`, and `color` (a
 #'   `"#RRGGBB"` hex string giving the column's **text colour**; the colour is
-#'   added to the document's colour table automatically).
+#'   added to the document's colour table automatically).  An explicit `align`
+#'   here overrides the `row_title`-derived default below.
+#' @param row_title Which columns are **row-heading** columns.  `NULL`
+#'   (default) means the first column only; otherwise an integer vector of
+#'   column indices or a character vector of column names (e.g.
+#'   `row_title = c(1, 2)`).  This sets the per-column **default data
+#'   alignment**: row-heading columns default to `"left"` and every other
+#'   column defaults to `"center"`.  Explicit `col_spec` alignment, an
+#'   `rtf_table_style`, or alignment read from a gt/rtables source all still
+#'   override this default; column headers follow the data alignment via the
+#'   usual cascade.
 #' @param border Border specification.
 #'   - `"tfl"`: clinical TFL preset (header top+bottom, last-row bottom).
 #'   - `"none"`: no borders.
@@ -368,6 +418,7 @@ rtftable <- function(
   col_header_align = NULL,
   spanning_header = NULL,
   col_spec = NULL,
+  row_title = NULL,
   border = "tfl",
   blank_rows = NULL,
   read_attributes = TRUE,
@@ -423,10 +474,12 @@ rtftable <- function(
     #   - list of list(from, to, label, underline)  (spanning row)
     col_hdr_one <- .normalize_col_header_rows(col_header, ncol(data))
 
+    row_title_idx <- .normalize_row_title(row_title, ncol(data), names(data))
     cs <- .normalize_col_spec(
       col_spec, ncol(data), names(data),
       col_header_align = col_header_align,
-      style            = style)
+      style            = style,
+      row_title        = row_title_idx)
 
     # Read recognised attributes off the data.frame as fallback defaults.
     if (isTRUE(read_attributes)) {
@@ -454,10 +507,12 @@ rtftable <- function(
 
     ref_ncol  <- ncols_all[1L]
     ref_names <- names(data[[1L]])
+    row_title_idx <- .normalize_row_title(row_title, ref_ncol, ref_names)
     cs <- .normalize_col_spec(
       col_spec, ref_ncol, ref_names,
       col_header_align = col_header_align,
-      style            = style)
+      style            = style,
+      row_title        = row_title_idx)
 
   } else {
     stop("`data` must be a data.frame or a non-empty list of data.frames.",
@@ -533,6 +588,7 @@ rtftable <- function(
       col_header_list             = col_hdr_list,
       spanning_header             = spanning_header,
       col_spec                    = cs,
+      row_title                   = row_title_idx,
       border                      = border_resolved,
       blank_rows                  = blank_rows_resolved,
       col_rel_width               = col_rel_width,
@@ -643,6 +699,26 @@ rtftable <- function(
       v <- as.integer(ov$blank_rows)
       tbl$blank_rows <- sort(unique(v))
     }
+  }
+
+  # -- row-title columns: re-seed the DEFAULT data/header alignment -------
+  # Changing which columns are row titles only re-aligns columns that are
+  # still at their (old) default alignment; a column whose align was set
+  # explicitly (by col_spec, a style, or gt extraction) is left untouched.
+  if (has("row_title")) {
+    new_rt <- .normalize_row_title(ov$row_title, ncol_df, col_names)
+    old_rt <- tbl$row_title %||% 1L
+    old_def <- function(j) if (j %in% old_rt) "left" else "center"
+    new_def <- function(j) if (j %in% new_rt) "left" else "center"
+    for (j in seq_along(tbl$col_spec)) {
+      if (identical(tbl$col_spec[[j]]$align, old_def(j))) {
+        tbl$col_spec[[j]]$align <- new_def(j)
+        if (identical(tbl$col_spec[[j]]$header_align, old_def(j))) {
+          tbl$col_spec[[j]]$header_align <- new_def(j)
+        }
+      }
+    }
+    tbl$row_title <- new_rt
   }
 
   # -- per-column spec: merge user fields over the existing spec ----------

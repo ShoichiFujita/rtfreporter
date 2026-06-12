@@ -54,6 +54,24 @@ The formatting arguments of `rtf_tables()` (`border`, `col_rel_width`,
 `row_height_twips`, `col_spec`, ...) are documented on `?rtftable`; they are the
 same options either way.
 
+### Column alignment and `row_title`
+
+By default the **row-heading column is left-aligned and every data column is
+centred** — the usual clinical look. The heading column is the first one unless
+you say otherwise with `row_title` (an integer vector of column indices or a
+vector of column names):
+
+```{r row-title}
+# Columns 1-2 are row headings (left); columns 3+ are data (centre).
+tbl <- rtftable(df1, row_title = c(1, 2))
+```
+
+`row_title` only sets the *default* alignment; an explicit `col_spec` `align`,
+an `rtf_table_style`, or alignment read from a gt/rtables source still wins, and
+column headers follow their column's data alignment. `rtf_tables()` and
+`as_rtftables()` take `row_title` too, so the same default applies to a whole
+batch of tables at once.
+
 
 ## The same settings for several tables
 

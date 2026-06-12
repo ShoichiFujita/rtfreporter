@@ -1,5 +1,21 @@
 # rtfreporter (development version)
 
+### New features
+
+- New `row_title` argument on `rtftable()` (and `rtf_tables()` /
+  `as_rtftables()`) names the **row-heading columns** — an integer vector of
+  column indices or column names, defaulting to the first column
+  (e.g. `row_title = c(1, 2)`) (#98).
+
+### Behaviour change
+
+- The per-column **default data alignment** now depends on `row_title`:
+  row-heading columns default to `"left"` and every other column defaults to
+  `"center"` (previously every column defaulted to `"left"`). Explicit
+  `col_spec` alignment, an `rtf_table_style`, or alignment read from a
+  gt/rtables source still override the default; column headers continue to
+  follow their column's data alignment (#98).
+
 # rtfreporter 0.3.4
 
 This release rolls up all development work since v0.1.0 and is published as the

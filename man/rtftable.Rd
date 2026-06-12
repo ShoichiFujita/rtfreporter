@@ -10,6 +10,7 @@ rtftable(
   col_header_align = NULL,
   spanning_header = NULL,
   col_spec = NULL,
+  row_title = NULL,
   border = "tfl",
   blank_rows = NULL,
   read_attributes = TRUE,
@@ -59,7 +60,18 @@ contain: `col` (integer), `align` (`"left"`/`"center"`/`"right"`),
 `bold`, `italic`, `underline` (logical), `indent_twips` (integer),
 `header_align`, `header_bold`, `header_italic`, and `color` (a
 `"#RRGGBB"` hex string giving the column's **text colour**; the colour is
-added to the document's colour table automatically).}
+added to the document's colour table automatically).  An explicit `align`
+here overrides the `row_title`-derived default below.}
+
+\item{row_title}{Which columns are **row-heading** columns.  `NULL`
+(default) means the first column only; otherwise an integer vector of
+column indices or a character vector of column names (e.g.
+`row_title = c(1, 2)`).  This sets the per-column **default data
+alignment**: row-heading columns default to `"left"` and every other
+column defaults to `"center"`.  Explicit `col_spec` alignment, an
+`rtf_table_style`, or alignment read from a gt/rtables source all still
+override this default; column headers follow the data alignment via the
+usual cascade.}
 
 \item{border}{Border specification.
 - `"tfl"`: clinical TFL preset (header top+bottom, last-row bottom).

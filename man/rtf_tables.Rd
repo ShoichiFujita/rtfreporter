@@ -11,6 +11,7 @@ rtf_tables(
   col_header_align = NULL,
   spanning_header = NULL,
   col_spec = NULL,
+  row_title = NULL,
   border = "tfl",
   blank_rows = NULL,
   read_attributes = TRUE,
@@ -57,7 +58,7 @@ element must be one of:
   rows, footnote marks in cells) is **not** transferred to RTF.
   See [as_rtftable()] for details on gtsummary limitations.}
 
-\item{col_header, col_header_align, spanning_header, col_spec, border, blank_rows, read_attributes, style}{Per-table content settings applied to bare `data.frame` elements. See [rtftable()] for details.}
+\item{col_header, col_header_align, spanning_header, col_spec, row_title, border, blank_rows, read_attributes, style}{Per-table content settings applied to bare `data.frame` elements. `row_title` names the row-heading columns (default: column 1) and sets the per-column default alignment (heading columns left, others centre). See [rtftable()] for details.}
 
 \item{col_rel_width, column_widths_twips, table_width_twips, table_width_pct_of_writable, table_width_pct, table_align}{Column-width and table-width settings applied to bare `data.frame` elements. See [rtftable()] for details.}
 

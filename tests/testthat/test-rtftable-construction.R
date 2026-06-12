@@ -152,3 +152,47 @@ test_that("rtf_tables() override clears blank_rows when passed NULL explicitly",
   out <- rtf_tables(rtf_document(), tbl, blank_rows = NULL)$contents[[1L]]
   expect_null(out$blank_rows)
 })
+
+# ── row_title + default alignment (#98) ──────────────────────────────────────
+
+df7 <- function() data.frame(Lab = "x", A = "1", B = "2", C = "3",
+                             D = "4", E = "5", F = "6", stringsAsFactors = FALSE)
+.aligns <- function(tbl) vapply(tbl$col_spec, function(s) s$align, character(1))
+
+test_that("default alignment: first column left, the rest centre (#98)", {
+  expect_identical(.aligns(rtftable(df7())),
+                   c("left", rep("center", 6L)))
+})
+
+test_that("row_title designates the left-aligned heading columns (#98)", {
+  expect_identical(.aligns(rtftable(df7(), row_title = c(1, 2))),
+                   c("left", "left", rep("center", 5L)))
+  # by name
+  expect_identical(.aligns(rtftable(df7(), row_title = "Lab")),
+                   c("left", rep("center", 6L)))
+})
+
+test_that("explicit col_spec align overrides the row_title default (#98)", {
+  tbl <- rtftable(df7(), col_spec = list(list(col = 2, align = "right")))
+  expect_identical(.aligns(tbl)[2L], "right")
+  # column headers follow the data alignment by default
+  expect_identical(tbl$col_spec[[2L]]$header_align, "right")
+})
+
+test_that("row_title validates its range / names (#98)", {
+  expect_error(rtftable(df7(), row_title = 99), "must be within")
+  expect_error(rtftable(df7(), row_title = "Nope"), "not found in data")
+})
+
+test_that("rtf_tables(row_title=) re-aligns only still-default columns (#98)", {
+  tbl <- rtftable(df7())                                  # col1 left, rest center
+  out <- rtf_tables(rtf_document(), tbl, row_title = c(1, 2))$contents[[1L]]
+  expect_identical(.aligns(out), c("left", "left", rep("center", 5L)))
+})
+
+test_that("rtf_tables(row_title=) applies to bare data.frames in bulk (#98)", {
+  out <- rtf_tables(rtf_document(), list(df7(), df7()),
+                    row_title = c(1, 2))$contents
+  expect_identical(.aligns(out[[1L]]), c("left", "left", rep("center", 5L)))
+  expect_identical(.aligns(out[[2L]]), c("left", "left", rep("center", 5L)))
+})
