@@ -20,6 +20,16 @@
 #' Initialize a new RTF document object for building reports with pipes.
 #' Provides sensible defaults for clinical trial reports.
 #'
+#' `rtf_document()` is the **constructor**: it starts a new, empty document and
+#' supplies a default for anything you do not specify. To **change settings on a
+#' document you have already composed** -- one that already holds content and
+#' sections -- use [rtf_config()] instead, which alters only the keys you pass
+#' and leaves the content untouched. In short: `rtf_document()` *builds a new*
+#' document from defaults; `rtf_config()` *edits an existing* one in place. The
+#' two are complementary, not interchangeable -- you cannot change the page of
+#' an already-composed report with `rtf_document()` without discarding its
+#' content.
+#'
 #' @param font_table Optional font table. Default: list(list(name = "Courier"))
 #' @param color_table Optional vector of `"#RRGGBB"` colours to pre-declare in
 #'   the document's colour table (so they are available by index). Default
@@ -53,7 +63,10 @@
 #' @export
 rtf_document <- function(font_table = NULL, color_table = NULL, page = NULL,
                          default_format = NULL) {
-  # Default clinical trial settings
+  # Default clinical trial page used when none is supplied.  A *partial* `page`
+  # is kept as given; any key left out (orientation, dimensions, margins) is
+  # resolved to its default at render time -- including inferring the
+  # orientation from the dimensions when it is omitted (see .orient_page()).
   if (is.null(page)) {
     page <- list(
       orientation = "landscape",
@@ -100,22 +113,43 @@ rtf_document <- function(font_table = NULL, color_table = NULL, page = NULL,
 
 #' Configure document-level settings
 #'
-#' Update font, color, page, or default formatting for the document.
-#' This function is typically called once after creating a document.
-#' Only non-NULL parameters are updated (NULL = no change).
+#' Update the **document-level** settings (font, colour, page, default format)
+#' of an existing `rtf_document`, leaving its content, titles and sections
+#' untouched. Only the arguments you pass are changed (`NULL` = no change).
+#'
+#' The point of `rtf_config()` is *deriving variants from an already-composed
+#' document*. Build the report once -- add tables/figures and sections -- then
+#' produce alternative outputs (a different paper size, font, or default text
+#' size) by changing only the relevant setting and rendering each copy. Because
+#' an `rtf_document` is immutable, each call returns a fresh copy and the
+#' original is left intact, so the variants are independent.
+#'
+#' `page` and `default_format` are **merged per key**: passing
+#' `page = list(width_in = 8.27, height_in = 11.69)` changes only those two keys
+#' and keeps the document's existing orientation and margins. `font_table` and
+#' `color_table` are replaced as a whole.
 #'
 #' @param doc An rtf_document object.
-#' @param font_table Optional font table to replace default.
-#' @param color_table Optional color table to replace default.
-#' @param page Optional page settings list.
-#' @param default_format Optional document-wide default formatting.
+#' @param font_table Optional font table; replaces the current one.
+#' @param color_table Optional colour table; replaces the current one.
+#' @param page Optional page settings list (see [rtf_document()]); merged per
+#'   key onto the current page settings.
+#' @param default_format Optional document-wide default formatting; merged per
+#'   key onto the current defaults.
 #'
 #' @return Modified rtf_document object (new copy, original unchanged).
 #'
 #' @examples
-#' doc <- rtf_document() |>
-#'   rtf_config(default_format = list(font_size_half_points = 20L))  # 10pt
-#' doc$document$default_format$font_size_half_points
+#' # Compose once, then render two paper-size variants from the SAME content.
+#' base <- rtf_document() |>
+#'   rtf_tables(data.frame(Parameter = "Age", Value = "75.1")) |>
+#'   rtf_section(page = 1, secinfo = list(header = NULL, footer = NULL))
+#'
+#' letter <- base                                   # landscape Letter (default)
+#' a4     <- base |> rtf_config(page = list(width_in = 11.69, height_in = 8.27))
+#'
+#' # Only the page changed; the content/section are shared.
+#' identical(letter$contents, a4$contents)
 #'
 #' @export
 rtf_config <- function(doc, font_table = NULL, color_table = NULL, page = NULL,
@@ -127,18 +161,20 @@ rtf_config <- function(doc, font_table = NULL, color_table = NULL, page = NULL,
   # Create a copy (immutable pattern)
   doc_copy <- doc
 
-  # Update only non-NULL parameters
+  # Whole-object replacements.
   if (!is.null(font_table)) {
     doc_copy$document$font_table <- font_table
   }
   if (!is.null(color_table)) {
     doc_copy$document$color_table <- color_table
   }
+  # Per-key merges, so "change only the paper size" keeps the other page keys.
   if (!is.null(page)) {
-    doc_copy$document$page <- page
+    doc_copy$document$page <- .merge_list(doc_copy$document$page, page)
   }
   if (!is.null(default_format)) {
-    doc_copy$document$default_format <- default_format
+    doc_copy$document$default_format <-
+      .merge_list(doc_copy$document$default_format, default_format)
   }
 
   doc_copy

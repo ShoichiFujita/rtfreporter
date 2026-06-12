@@ -2,6 +2,15 @@
 
 ### New features
 
+- `rtf_config()` now **merges `page` and `default_format` per key** instead of
+  replacing the whole block, so changing only the paper size (for example
+  `rtf_config(page = list(width_in = 11.69, height_in = 8.27))`) keeps the
+  document's existing orientation and margins. This clarifies the split between
+  the two functions: `rtf_document()` *constructs* a new document from defaults,
+  while `rtf_config()` *edits* an already-composed document (content and
+  sections preserved), changing only the keys you pass. `font_table` /
+  `color_table` are still whole-object replacements (#108).
+
 - Page `orientation` is now authoritative: when set, the long/short page sides
   are assigned to match it, so `rtf_document(page = list(orientation =
   "landscape", width_in = 8.27, height_in = 11.69))` (A4 sizes in either order)
