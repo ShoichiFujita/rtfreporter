@@ -153,8 +153,10 @@ page without you having to compute the width.}
 defaults to `"tfl"`.}
 
 \item{...}{Further arguments forwarded to [rtftable()] for every page
-(e.g. `col_header`, `col_spec`, `col_rel_width`, `row_height_twips`).
-Explicit values always win over the gt-extracted ones.}
+(e.g. `col_header`, `col_spec`, `row_title`, `col_rel_width`,
+`row_height_twips`).  `row_title` names the row-heading columns (default:
+column 1) and sets the per-column default alignment (heading columns left,
+others centre).  Explicit values always win over the gt-extracted ones.}
 }
 \value{
 A list of `rtftable` objects, one per page.  When the split is

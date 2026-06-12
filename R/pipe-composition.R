@@ -174,7 +174,7 @@ rtf_config <- function(doc, font_table = NULL, color_table = NULL, page = NULL,
 #'     rows, footnote marks in cells) is **not** transferred to RTF.
 #'     See [as_rtftable()] for details on gtsummary limitations.
 #' @param col_rel_width,column_widths_twips,table_width_twips,table_width_pct_of_writable,table_width_pct,table_align Column-width and table-width settings applied to bare `data.frame` elements. See [rtftable()] for details.
-#' @param col_header,col_header_align,spanning_header,col_spec,border,blank_rows,read_attributes,style Per-table content settings applied to bare `data.frame` elements. See [rtftable()] for details.
+#' @param col_header,col_header_align,spanning_header,col_spec,row_title,border,blank_rows,read_attributes,style Per-table content settings applied to bare `data.frame` elements. `row_title` names the row-heading columns (default: column 1) and sets the per-column default alignment (heading columns left, others centre). See [rtftable()] for details.
 #' @param row_height_twips,row_height_exact,header_row_height_twips,blank_row_height_twips Row-height settings applied to bare `data.frame` elements. See [rtftable()] for details.
 #' @param cell_padding_left_twips,cell_padding_right_twips,cell_valign Cell layout settings applied to bare `data.frame` elements. See [rtftable()] for details.
 #' @param titles `NULL` (default) or a list of length `length(tables)`. Each
@@ -235,6 +235,7 @@ rtf_tables <- function(doc, tables,
                         col_header_align = NULL,
                         spanning_header = NULL,
                         col_spec = NULL,
+                        row_title = NULL,
                         border = "tfl",
                         blank_rows = NULL,
                         read_attributes = TRUE,
@@ -277,7 +278,7 @@ rtf_tables <- function(doc, tables,
   # touch the rtftable's own / gt-derived values.  Detection via match.call()
   # so we can tell "passed border = 'tfl'" from "defaulted to 'tfl'".
   .fmt_args <- c("col_header", "col_header_align", "spanning_header",
-                 "col_spec", "border", "blank_rows", "style",
+                 "col_spec", "row_title", "border", "blank_rows", "style",
                  "col_rel_width", "column_widths_twips", "table_width_twips",
                  "table_width_pct_of_writable", "table_width_pct",
                  "table_align", "row_height_twips", "row_height_exact",
@@ -370,6 +371,7 @@ rtf_tables <- function(doc, tables,
         col_header_align            = col_header_align,
         spanning_header             = spanning_header,
         col_spec                    = eff_col_spec,
+        row_title                   = row_title,
         border                      = border,
         blank_rows                  = blank_rows,
         read_attributes             = read_attributes,
