@@ -17,21 +17,24 @@ page_split_group_safe(
   max_rows = NULL,
   group_col = NULL,
   min_group_rows = 2L,
-  cont_label = " (Cont.)"
+  cont_label = " (Cont.)",
+  group_by = "auto"
 )
 
 page_split_group_force(
   max_rows = NULL,
   group_col = NULL,
   min_group_rows = 2L,
-  cont_label = " (Cont.)"
+  cont_label = " (Cont.)",
+  group_by = "auto"
 )
 
 page_split_by_value(
   group_col = NULL,
   max_rows = NULL,
   min_group_rows = 2L,
-  cont_label = " (Cont.)"
+  cont_label = " (Cont.)",
+  group_by = "auto"
 )
 }
 \arguments{
@@ -41,14 +44,18 @@ page_split_by_value(
 [page_split_group_safe()] / [page_split_group_force()]; optional for
 [page_split_by_value()] (force-splits an over-long group when set).}
 
-\item{group_col}{Group column: a name, a 1-based index, or `NULL` to
-auto-detect groups from leading whitespace in the first column.}
+\item{group_col}{Group column: a name, a 1-based index, or `NULL` for
+column 1.  Selects only the column; `group_by` selects how a boundary is
+found on it.}
 
 \item{min_group_rows}{Widow/orphan control (default `2`); see
 [as_rtftables()].}
 
 \item{cont_label}{Continuation suffix for repeated group labels (default
 `" (Cont.)"`).}
+
+\item{group_by}{How a group boundary is detected on `group_col`: `"auto"`
+(default), `"indent"`, `"value"`, or `"filled"`.  See [as_rtftables()].}
 }
 \value{
 A function `f(df, ...)` returning a list of per-page data.frames.
