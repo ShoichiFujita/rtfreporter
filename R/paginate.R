@@ -309,6 +309,8 @@ paginate.data.frame <- function(x, ...) {
                                                   "by_value"),
                                  split_rows  = NULL,
                                  group_col   = NULL,
+                                 group_by    = c("auto", "indent", "value",
+                                                 "filled"),
                                  cont_label  = " (Cont.)",
                                  min_group_rows   = 2L,
                                  blank_rows       = NULL,
@@ -322,6 +324,7 @@ paginate.data.frame <- function(x, ...) {
   # user-supplied custom function that cuts the body into per-page chunks.
   is_custom_split <- is.function(split)
   if (!is_custom_split) split <- match.arg(split)
+  group_by <- match.arg(group_by)
 
   if (!is_custom_split) {
     if (split %in% c("group_safe", "group_force") && is.null(max_rows)) {
@@ -381,6 +384,7 @@ paginate.data.frame <- function(x, ...) {
   # elements become page names (as with "by_value").
   if (is_custom_split) {
     chunks <- split(x, max_rows = max_rows, group_col = group_col,
+                    group_by = group_by,
                     cont_label = cont_label, min_group_rows = min_group_rows)
     if (!is.list(chunks) || length(chunks) == 0L ||
         !all(vapply(chunks, is.data.frame, logical(1L)))) {
@@ -394,11 +398,11 @@ paginate.data.frame <- function(x, ...) {
       none         = page_split_none(),
       rows         = page_split_rows(split_rows),
       group_safe   = page_split_group_safe(max_rows, group_col,
-                                            min_group_rows, cont_label),
+                                            min_group_rows, cont_label, group_by),
       group_force  = page_split_group_force(max_rows, group_col,
-                                            min_group_rows, cont_label),
+                                            min_group_rows, cont_label, group_by),
       by_value     = page_split_by_value(group_col, max_rows,
-                                         min_group_rows, cont_label)
+                                         min_group_rows, cont_label, group_by)
     )
     chunks <- strat_fn(x)
   }
@@ -464,60 +468,77 @@ paginate.data.frame <- function(x, ...) {
   idx
 }
 
+# Indent characters that mark a cell as a sub-row of the current group: a
+# regular space, a tab, or a non-breaking space (U+00A0) -- gt/tfrmt bake
+# row-label indentation as leading NBSPs.
+.GROUP_INDENT_CHARS <- c(" ", "\t", intToUtf8(160L))
+
+# Auto-detect the group-detection mode from one column's content:
+#   * any non-empty cell that begins with indentation  -> "indent"
+#   * otherwise, empty / NA cells interspersed among non-empty ones -> "filled"
+#   * otherwise (all non-empty, no indentation)         -> "value"
+.detect_group_mode <- function(col) {
+  nonempty <- !is.na(col) & nzchar(col)
+  first_ch <- substr(col, 1L, 1L)
+  if (any(nonempty & first_ch %in% .GROUP_INDENT_CHARS)) return("indent")
+  if (any(!nonempty) && any(nonempty)) return("filled")
+  "value"
+}
+
 # Compute per-row group id + label, used by all group-aware split modes.
 # Returns list(id, label, headers) all length nrow(df).
 #
-# When group_idx is NULL: auto-detect from col 1.  A row whose first
-# column starts with a non-space character is a group header; subsequent
-# rows whose first column starts with whitespace are sub-rows of that
-# group.  Rows before the first header have id = NA.
-#
-# When group_idx is supplied: each maximal run of consecutive identical
-# values in df[[group_idx]] is one group; the first row of each run is
-# the header.
-.compute_group_info <- function(df, group_idx) {
+# `group_idx` is the column the grouping is detected on (NULL -> column 1).
+# `group_by` selects the detection logic:
+#   "indent" -- a row is a group *header* when its cell is non-empty and does
+#               NOT start with indentation; indented / empty cells are members.
+#   "value"  -- each maximal run of identical cell values is one group.
+#   "filled" -- a row is a header when its cell is non-empty; only NA / "" cells
+#               are members of the current group.
+#   "auto"   -- pick one of the above from the column content (.detect_group_mode).
+# Rows before the first header (indent / filled) have id = NA.
+.compute_group_info <- function(df, group_idx, group_by = "auto") {
   n <- nrow(df)
   if (n == 0L) {
     return(list(id = integer(0), label = character(0), headers = logical(0)))
   }
+  idx <- if (is.null(group_idx)) 1L else as.integer(group_idx)
+  col <- as.character(df[[idx]])
+  mode <- if (identical(group_by, "auto")) .detect_group_mode(col) else group_by
 
-  if (is.null(group_idx)) {
-    col1 <- as.character(df[[1L]])
-    first_ch <- substr(col1, 1L, 1L)
-    # A row is a group *header* when its first column starts with a
-    # non-indent character.  Indentation may be encoded as a regular space,
-    # a tab, or a non-breaking space (U+00A0) -- gt/tfrmt bakes row-label
-    # indentation as leading NBSPs, so those must count as indent too,
-    # otherwise every indented sub-row is mistaken for a new group.
-    nbsp <- intToUtf8(160L)            # non-breaking space (U+00A0)
-    indent_chars <- c(" ", "	", nbsp)
-    is_header <- !is.na(col1) & nzchar(col1) &
-                   !(first_ch %in% indent_chars)
-    raw_id <- cumsum(is_header)
-    id <- ifelse(raw_id == 0L, NA_integer_, as.integer(raw_id))
-    labels <- character(n)
-    current <- ""
-    for (i in seq_len(n)) {
-      if (isTRUE(is_header[i])) current <- col1[i]
-      labels[i] <- current
+  if (mode == "value") {
+    # count_blank_rows marker transparency: a materialised blank row joins the
+    # preceding group (carry the previous group value forward) so it does not
+    # break the run-length grouping.
+    if (".__rtf_blank__" %in% names(df)) {
+      mk <- as.logical(df[[".__rtf_blank__"]]); mk[is.na(mk)] <- FALSE
+      for (i in seq_len(n)) if (mk[i]) col[i] <- if (i > 1L) col[i - 1L] else col[i]
     }
-    return(list(id = id, label = labels, headers = is_header))
+    rl  <- rle(col)
+    id  <- as.integer(rep(seq_along(rl$lengths), rl$lengths))
+    labels <- rep(rl$values, rl$lengths)
+    headers <- c(TRUE, id[-1L] != id[-n])
+    return(list(id = id, label = labels, headers = headers))
   }
 
-  col <- as.character(df[[group_idx]])
-  # count_blank_rows marker transparency: a materialised blank row joins the
-  # preceding group (carry the previous group value forward) so it does not
-  # break the run-length grouping. (Indent-based detection above already treats
-  # an empty first-column row as a member of the current group.)
-  if (".__rtf_blank__" %in% names(df)) {
-    mk <- as.logical(df[[".__rtf_blank__"]]); mk[is.na(mk)] <- FALSE
-    for (i in seq_len(n)) if (mk[i]) col[i] <- if (i > 1L) col[i - 1L] else col[i]
+  # "indent" / "filled": header-based grouping.  A materialised blank row has an
+  # empty cell, so it is naturally treated as a member of the current group.
+  first_ch <- substr(col, 1L, 1L)
+  nonempty <- !is.na(col) & nzchar(col)
+  is_header <- if (mode == "filled") {
+    nonempty
+  } else {
+    nonempty & !(first_ch %in% .GROUP_INDENT_CHARS)
   }
-  rl  <- rle(col)
-  id  <- as.integer(rep(seq_along(rl$lengths), rl$lengths))
-  labels <- rep(rl$values, rl$lengths)
-  headers <- c(TRUE, id[-1L] != id[-n])
-  list(id = id, label = labels, headers = headers)
+  raw_id <- cumsum(is_header)
+  id <- ifelse(raw_id == 0L, NA_integer_, as.integer(raw_id))
+  labels <- character(n)
+  current <- ""
+  for (i in seq_len(n)) {
+    if (isTRUE(is_header[i])) current <- col[i]
+    labels[i] <- current
+  }
+  list(id = id, label = labels, headers = is_header)
 }
 
 
@@ -600,8 +621,11 @@ add_cont_label <- function(chunk, label, cont_label = " (Cont.)", col = 1L) {
 #' @param max_rows Maximum data rows per page.  Required for
 #'   [page_split_group_safe()] / [page_split_group_force()]; optional for
 #'   [page_split_by_value()] (force-splits an over-long group when set).
-#' @param group_col Group column: a name, a 1-based index, or `NULL` to
-#'   auto-detect groups from leading whitespace in the first column.
+#' @param group_col Group column: a name, a 1-based index, or `NULL` for
+#'   column 1.  Selects only the column; `group_by` selects how a boundary is
+#'   found on it.
+#' @param group_by How a group boundary is detected on `group_col`: `"auto"`
+#'   (default), `"indent"`, `"value"`, or `"filled"`.  See [as_rtftables()].
 #' @param min_group_rows Widow/orphan control (default `2`); see
 #'   [as_rtftables()].
 #' @param cont_label Continuation suffix for repeated group labels (default
@@ -644,20 +668,22 @@ page_split_rows <- function(split_rows = NULL) {
 #' @export
 page_split_group_safe <- function(max_rows = NULL, group_col = NULL,
                                   min_group_rows = 2L,
-                                  cont_label = " (Cont.)") {
+                                  cont_label = " (Cont.)",
+                                  group_by = "auto") {
   cfg_mr  <- max_rows; cfg_gc <- group_col
-  cfg_mgr <- min_group_rows; cfg_cl <- cont_label
+  cfg_mgr <- min_group_rows; cfg_cl <- cont_label; cfg_gb <- group_by
   function(df, max_rows = NULL, group_col = NULL,
-           cont_label = " (Cont.)", min_group_rows = 2L, ...) {
+           cont_label = " (Cont.)", min_group_rows = 2L, group_by = NULL, ...) {
     mr  <- cfg_mr %||% max_rows
     gc  <- cfg_gc %||% group_col
     cl  <- cfg_cl %||% cont_label
     mgr <- if (!is.null(cfg_mgr)) cfg_mgr else min_group_rows
+    gb  <- group_by %||% cfg_gb
     if (is.null(mr)) {
       stop("`max_rows` is required for group_safe pagination.", call. = FALSE)
     }
     gidx <- .resolve_group_col(gc, df)
-    info <- .compute_group_info(df, gidx)
+    info <- .compute_group_info(df, gidx, gb)
     .split_group_safe(df, info, mr, cl, gidx, mgr)
   }
 }
@@ -666,20 +692,22 @@ page_split_group_safe <- function(max_rows = NULL, group_col = NULL,
 #' @export
 page_split_group_force <- function(max_rows = NULL, group_col = NULL,
                                    min_group_rows = 2L,
-                                   cont_label = " (Cont.)") {
+                                   cont_label = " (Cont.)",
+                                   group_by = "auto") {
   cfg_mr  <- max_rows; cfg_gc <- group_col
-  cfg_mgr <- min_group_rows; cfg_cl <- cont_label
+  cfg_mgr <- min_group_rows; cfg_cl <- cont_label; cfg_gb <- group_by
   function(df, max_rows = NULL, group_col = NULL,
-           cont_label = " (Cont.)", min_group_rows = 2L, ...) {
+           cont_label = " (Cont.)", min_group_rows = 2L, group_by = NULL, ...) {
     mr  <- cfg_mr %||% max_rows
     gc  <- cfg_gc %||% group_col
     cl  <- cfg_cl %||% cont_label
     mgr <- if (!is.null(cfg_mgr)) cfg_mgr else min_group_rows
+    gb  <- group_by %||% cfg_gb
     if (is.null(mr)) {
       stop("`max_rows` is required for group_force pagination.", call. = FALSE)
     }
     gidx <- .resolve_group_col(gc, df)
-    info <- .compute_group_info(df, gidx)
+    info <- .compute_group_info(df, gidx, gb)
     .split_group_force(df, info, mr, cl, gidx, mgr)
   }
 }
@@ -688,17 +716,19 @@ page_split_group_force <- function(max_rows = NULL, group_col = NULL,
 #' @export
 page_split_by_value <- function(group_col = NULL, max_rows = NULL,
                                 min_group_rows = 2L,
-                                cont_label = " (Cont.)") {
+                                cont_label = " (Cont.)",
+                                group_by = "auto") {
   cfg_gc  <- group_col; cfg_mr <- max_rows
-  cfg_mgr <- min_group_rows; cfg_cl <- cont_label
+  cfg_mgr <- min_group_rows; cfg_cl <- cont_label; cfg_gb <- group_by
   function(df, max_rows = NULL, group_col = NULL,
-           cont_label = " (Cont.)", min_group_rows = 2L, ...) {
+           cont_label = " (Cont.)", min_group_rows = 2L, group_by = NULL, ...) {
     gc  <- cfg_gc %||% group_col
     mr  <- cfg_mr %||% max_rows
     cl  <- cfg_cl %||% cont_label
     mgr <- if (!is.null(cfg_mgr)) cfg_mgr else min_group_rows
+    gb  <- group_by %||% cfg_gb
     gidx <- .resolve_group_col(gc, df)
-    info <- .compute_group_info(df, gidx)
+    info <- .compute_group_info(df, gidx, gb)
     .split_by_value(df, info, mr, cl, gidx, mgr)
   }
 }

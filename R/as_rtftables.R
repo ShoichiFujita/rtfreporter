@@ -127,7 +127,7 @@
 #'
 #'   `split` may also be a **custom function** for bespoke page-break rules.
 #'   It is called as
-#'   `split(df, max_rows = , group_col = , cont_label = , min_group_rows = )`
+#'   `split(df, max_rows = , group_col = , group_by = , cont_label = , min_group_rows = )`
 #'   on the (cell-formatted) body and must return a **non-empty list of
 #'   data.frames** -- one per page.  Named list elements become page names (as
 #'   with `"by_value"`).  Your function implements only the split; the shared
@@ -140,9 +140,27 @@
 #'   `"none"`, `"rows"` (which uses `split_rows`) and `"by_value"`.
 #' @param split_rows Integer or `NULL`.  Rows per page for `split = "rows"`
 #'   (required by it; ignored otherwise).
-#' @param group_col Character or `NULL`.  Name of the column that defines a
-#'   group, used by `"group_safe"`, `"group_force"` and `"by_value"`.  A group
-#'   is a maximal run of rows sharing this column's value.
+#' @param group_col Character, integer, or `NULL`.  The column the group-aware
+#'   splits (`"group_safe"`, `"group_force"`, `"by_value"`) detect groups on,
+#'   given by name or position.  `NULL` (default) uses **column 1**.  This
+#'   selects only the *column*; how a group boundary is found on it is set by
+#'   `group_by`.  Note that for gt / gtsummary the body keeps gt's column
+#'   **ids** (e.g. `"label"`, `"stat_1"`), and for rtables / flextable /
+#'   huxtable the columns are renamed `V1`, `V2`, ... -- so an **integer** index
+#'   is the most portable.
+#' @param group_by How a group boundary is detected on `group_col`.  One of:
+#'   * `"auto"` (default) -- pick from the column content: leading indentation
+#'     present -> `"indent"`; otherwise empty cells interspersed -> `"filled"`;
+#'     otherwise -> `"value"`.
+#'   * `"indent"` -- a row starts a group when its `group_col` cell is non-empty
+#'     and does **not** begin with whitespace (space / tab / non-breaking
+#'     space); indented or empty cells are members.  This is the typical
+#'     clinical row-label layout (gt / tfrmt bake indentation as NBSP).
+#'   * `"value"` -- each maximal run of rows sharing the same `group_col` value
+#'     is one group.
+#'   * `"filled"` -- a row starts a group when its `group_col` cell is non-empty;
+#'     only `NA` / `""` cells are members (the group label appears once, on the
+#'     first row of the group).
 #' @param cont_label Character (default `" (Cont.)"`).  Suffix appended to a
 #'   group's label on the second and later pages it continues onto (the
 #'   group-aware splits), marking a continued group.
@@ -262,6 +280,8 @@ as_rtftables <- function(x,
                                              "group_force", "by_value"),
                          split_rows      = NULL,
                          group_col       = NULL,
+                         group_by        = c("auto", "indent", "value",
+                                             "filled"),
                          cont_label      = " (Cont.)",
                          min_group_rows  = 2L,
                          blank_rows      = NULL,
@@ -277,6 +297,7 @@ as_rtftables <- function(x,
                          ...) {
   # `split` is a built-in strategy name OR a custom pagination function.
   if (!is.function(split)) split <- match.arg(split)
+  group_by <- match.arg(group_by)
   user_args <- list(...)
 
   # ---- list input: recurse, concatenate, propagate names ----------------
@@ -289,8 +310,8 @@ as_rtftables <- function(x,
     for (i in seq_along(x)) {
       chunks <- as_rtftables(
         x[[i]], read_meta = read_meta, max_rows = max_rows, split = split,
-        split_rows = split_rows, group_col = group_col, cont_label = cont_label,
-        min_group_rows = min_group_rows,
+        split_rows = split_rows, group_col = group_col, group_by = group_by,
+        cont_label = cont_label, min_group_rows = min_group_rows,
         blank_rows = blank_rows, blank_row_first = blank_row_first,
         blank_row_end = blank_row_end, count_blank_rows = count_blank_rows,
         align_count_pct = align_count_pct,
@@ -395,7 +416,7 @@ as_rtftables <- function(x,
 
   pages <- .paginate_df(
     body, max_rows = max_rows, split = split, split_rows = split_rows,
-    group_col = group_col, cont_label = cont_label,
+    group_col = group_col, group_by = group_by, cont_label = cont_label,
     min_group_rows = min_group_rows, blank_rows = blank_rows,
     blank_row_first = blank_row_first, blank_row_end = blank_row_end,
     count_blank_rows = count_blank_rows,

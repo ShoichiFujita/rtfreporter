@@ -2,6 +2,23 @@
 
 ### New features
 
+- `as_rtftables()` group-aware pagination (`split = "group_safe"` /
+  `"group_force"` / `"by_value"`) gains a **`group_by`** argument that selects
+  *how* a group boundary is detected, decoupled from `group_col` (which now
+  only selects *which* column) (#128):
+  - `"indent"` -- a non-empty, non-whitespace-leading cell starts a group
+    (the previous behaviour, now usable on any column, not just column 1);
+  - `"value"` -- maximal runs of the same value form a group;
+  - `"filled"` -- a non-empty cell starts a group, `NA` / `""` cells are
+    members (**new**);
+  - `"auto"` (default) -- picks one of the above from the column content, so
+    existing tables are unaffected.
+
+  `group_col` now accepts an integer index and defaults to column 1, and the
+  grouping column need not be the first column. (For gt/gtsummary the body keeps
+  gt's column ids, e.g. `"label"`; for rtables/flextable/huxtable the columns
+  are renamed `V1`, `V2`, ... -- so an integer index is the most portable.)
+
 - `as_rtftables()` / `as_rtftable()` can now read **huxtable** objects (#120),
   joining gt, gtsummary, rtables/tern and flextable. The *displayed* text is
   read with the huxtable's `number_format` applied; header rows

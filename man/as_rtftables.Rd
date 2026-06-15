@@ -11,6 +11,7 @@ as_rtftables(
   split = c("none", "rows", "group_safe", "group_force", "by_value"),
   split_rows = NULL,
   group_col = NULL,
+  group_by = c("auto", "indent", "value", "filled"),
   cont_label = " (Cont.)",
   min_group_rows = 2L,
   blank_rows = NULL,
@@ -59,7 +60,7 @@ gt/gtsummary: `"col_header"`, `"alignment"`, `"spanning"`, `"widths"`,
 
   `split` may also be a **custom function** for bespoke page-break rules.
   It is called as
-  `split(df, max_rows = , group_col = , cont_label = , min_group_rows = )`
+  `split(df, max_rows = , group_col = , group_by = , cont_label = , min_group_rows = )`
   on the (cell-formatted) body and must return a **non-empty list of
   data.frames** -- one per page.  Named list elements become page names (as
   with `"by_value"`).  Your function implements only the split; the shared
@@ -71,9 +72,28 @@ gt/gtsummary: `"col_header"`, `"alignment"`, `"spanning"`, `"widths"`,
 \item{split_rows}{Integer or `NULL`.  Rows per page for `split = "rows"`
 (required by it; ignored otherwise).}
 
-\item{group_col}{Character or `NULL`.  Name of the column that defines a
-group, used by `"group_safe"`, `"group_force"` and `"by_value"`.  A group
-is a maximal run of rows sharing this column's value.}
+\item{group_col}{Character, integer, or `NULL`.  The column the group-aware
+splits (`"group_safe"`, `"group_force"`, `"by_value"`) detect groups on,
+given by name or position.  `NULL` (default) uses **column 1**.  This
+selects only the *column*; how a group boundary is found on it is set by
+`group_by`.  Note that for gt / gtsummary the body keeps gt's column
+**ids** (e.g. `"label"`, `"stat_1"`), and for rtables / flextable /
+huxtable the columns are renamed `V1`, `V2`, ... -- so an **integer** index
+is the most portable.}
+
+\item{group_by}{How a group boundary is detected on `group_col`.  One of:
+* `"auto"` (default) -- pick from the column content: leading indentation
+  present -> `"indent"`; otherwise empty cells interspersed -> `"filled"`;
+  otherwise -> `"value"`.
+* `"indent"` -- a row starts a group when its `group_col` cell is non-empty
+  and does **not** begin with whitespace (space / tab / non-breaking
+  space); indented or empty cells are members.  This is the typical
+  clinical row-label layout (gt / tfrmt bake indentation as NBSP).
+* `"value"` -- each maximal run of rows sharing the same `group_col` value
+  is one group.
+* `"filled"` -- a row starts a group when its `group_col` cell is non-empty;
+  only `NA` / `""` cells are members (the group label appears once, on the
+  first row of the group).}
 
 \item{cont_label}{Character (default `" (Cont.)"`).  Suffix appended to a
 group's label on the second and later pages it continues onto (the
