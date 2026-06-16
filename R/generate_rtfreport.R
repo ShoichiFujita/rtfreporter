@@ -753,7 +753,8 @@
     hdr_h, data_h, blank_h, blank_set,
     pad_l, pad_r, valign_cmd,
     spanning_header, table_align = "left",
-    cell_styles = NULL, color_index_map = NULL) {
+    cell_styles = NULL, color_index_map = NULL,
+    blank_row_normalize = character(0)) {
 
   ncols <- length(cellx)
   nrows <- nrow(df)
@@ -836,31 +837,64 @@
   }
 
   # Data rows, with blank separator rows spliced in.
-  if (0L %in% blank_set) lines <- c(lines, .blank_row_rtf())
+  #
+  # blank_row_normalize controls two render-time behaviours:
+  #   "detect"   -- a data row whose every cell is NA / "" (empty or ASCII
+  #                 whitespace) is emitted as a single full-width blank row
+  #                 (via .blank_row_rtf()) rather than one empty cell per column.
+  #   "collapse" -- a run of >= 2 consecutive blank rows (separator rows and/or
+  #                 detected empty data rows) is reduced to a single blank row.
+  detect_blank   <- "detect"   %in% blank_row_normalize
+  collapse_blank <- "collapse" %in% blank_row_normalize
 
-  for (i in seq_len(nrows)) {
-    # When nrows == 1 the only row is BOTH the first and the last row;
-    # merge both overrides so e.g. the TFL "bottom on last row" still
-    # applies to a single-row table.
-    row_border <- border$body
-    if (i == 1L && !is.null(border$first_row)) {
-      row_border <- .effective_row_border(row_border, border$first_row)
-    }
-    if (i == nrows && !is.null(border$last_row)) {
-      row_border <- .effective_row_border(row_border, border$last_row)
-    }
-    rcs <- if (!is.null(cell_styles) && i <= length(cell_styles))
-             cell_styles[[i]] else NULL
-    lines <- c(lines, .render_data_row(
-      as.list(df[i, , drop = FALSE]),
-      cellx, row_border, data_h, pad_l, pad_r, valign_cmd, col_spec, table_align,
-      row_cell_styles = rcs,
-      color_index_map = color_index_map
-    ))
-    if (i %in% blank_set) lines <- c(lines, .blank_row_rtf())
+  # A cell is "empty" when NA or, after trimming ASCII whitespace, "".  NBSP
+  # (U+00A0) is NOT ASCII whitespace, so an indent-only cell is not empty.
+  .row_all_empty <- function(row) {
+    vals <- as.character(unlist(row, use.names = FALSE))
+    all(is.na(vals) | !nzchar(trimws(vals)))
   }
 
-  lines
+  out        <- character()
+  prev_blank <- FALSE
+  add_blank  <- function() {
+    if (collapse_blank && prev_blank) return(invisible())
+    out        <<- c(out, .blank_row_rtf())
+    prev_blank <<- TRUE
+  }
+  add_data <- function(txt) {
+    out        <<- c(out, txt)
+    prev_blank <<- FALSE
+  }
+
+  if (0L %in% blank_set) add_blank()
+
+  for (i in seq_len(nrows)) {
+    if (detect_blank && .row_all_empty(df[i, , drop = FALSE])) {
+      add_blank()
+    } else {
+      # When nrows == 1 the only row is BOTH the first and the last row;
+      # merge both overrides so e.g. the TFL "bottom on last row" still
+      # applies to a single-row table.
+      row_border <- border$body
+      if (i == 1L && !is.null(border$first_row)) {
+        row_border <- .effective_row_border(row_border, border$first_row)
+      }
+      if (i == nrows && !is.null(border$last_row)) {
+        row_border <- .effective_row_border(row_border, border$last_row)
+      }
+      rcs <- if (!is.null(cell_styles) && i <= length(cell_styles))
+               cell_styles[[i]] else NULL
+      add_data(.render_data_row(
+        as.list(df[i, , drop = FALSE]),
+        cellx, row_border, data_h, pad_l, pad_r, valign_cmd, col_spec, table_align,
+        row_cell_styles = rcs,
+        color_index_map = color_index_map
+      ))
+    }
+    if (i %in% blank_set) add_blank()
+  }
+
+  c(lines, out)
 }
 
 # Render an rtftable object to a character vector of RTF row strings.
@@ -949,7 +983,8 @@
         spanning_header = tbl$spanning_header,
         table_align     = table_align,
         cell_styles     = cs_section,
-        color_index_map = color_index_map
+        color_index_map = color_index_map,
+        blank_row_normalize = tbl$blank_row_normalize %||% character(0)
       ))
       row_offset <- row_offset + n_this
     }
@@ -976,7 +1011,8 @@
     spanning_header = tbl$spanning_header,
     table_align     = table_align,
     cell_styles     = tbl$cell_styles,
-    color_index_map = color_index_map
+    color_index_map = color_index_map,
+    blank_row_normalize = tbl$blank_row_normalize %||% character(0)
   )
 }
 

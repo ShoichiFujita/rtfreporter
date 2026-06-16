@@ -28,7 +28,8 @@ rtftable(
   cell_padding_left_twips = NULL,
   cell_padding_right_twips = NULL,
   cell_valign = "bottom",
-  cell_styles = NULL
+  cell_styles = NULL,
+  blank_row_normalize = c("detect", "collapse")
 )
 }
 \arguments{
@@ -149,6 +150,21 @@ named list with optional vectors of length `ncol(data)`:
 `NA` entries within a vector mean "no override; use the column default".
 This argument is populated automatically by [as_rtftable()] when reading
 from a `gt_tbl` or gtsummary table with `read = TRUE`.}
+
+\item{blank_row_normalize}{How blank rows are normalised at render time. A
+character vector of zero or more of:
+\describe{
+  \item{`"detect"`}{a **data** row whose every cell is `NA` / `""` (empty
+    or ASCII-whitespace only) is treated as a blank row and rendered as a
+    single full-width cell, like an explicit blank separator row, instead
+    of one empty cell per column.}
+  \item{`"collapse"`}{a run of two or more consecutive blank rows (separator
+    rows and/or `"detect"`-detected empty data rows) is reduced to a single
+    blank row.}
+}
+Default `c("detect", "collapse")` (both on). Pass `"none"`, `NULL`, or
+`character(0)` to disable. Both behaviours act per rendered table, so for a
+paginated table they apply per page (i.e. after the split).}
 }
 \value{
 An `rtftable` (S3) object suitable for use in `rtf_tables()`.

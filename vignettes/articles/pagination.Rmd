@@ -389,6 +389,38 @@ Control the separator height with `blank_row_height_twips` (e.g. half the data
 row height); see [Page & document setup](page-setup.html). The full spec forms
 are documented in `?rtftable` and `?set_blank_rows`.
 
+### Normalising blank rows -- `blank_row_normalize`
+
+Two render-time clean-ups are applied to blank rows by default, controlled by
+the single `blank_row_normalize` argument (on `rtftable()`, and forwarded by
+`as_rtftables()` / `rtf_tables()`):
+
+| token | effect |
+|-------|--------|
+| `"detect"`   | a **data** row whose every cell is `NA` / `""` (empty or ASCII-whitespace only) is rendered as a single full-width blank row -- like an explicit separator -- instead of one empty cell per column (which would draw the internal column rules across the gap). |
+| `"collapse"` | a run of two or more consecutive blank rows (separators and/or detected empty rows) is reduced to a single blank row. |
+
+The default is `c("detect", "collapse")` -- the combination wanted for most
+clinical TFLs. Because both act on the *rendered* table, they apply **per page**
+for a paginated table (i.e. after the split), so a stray empty row left at a page
+edge, or two separators meeting at a group boundary, collapse cleanly. Pass
+`"none"` (or `NULL`) to switch the normalisation off and render blank data rows
+verbatim:
+
+```{r blank-normalize}
+df_b <- data.frame(
+  A = c("x", "", "", "y"),     # two adjacent all-empty rows
+  B = c("1", "", "", "2"),
+  stringsAsFactors = FALSE
+)
+rtftable(df_b)                                   # default: one blank row
+rtftable(df_b, blank_row_normalize = "none")     # keep both empty data rows
+```
+
+Note `"detect"` only fires when **all** columns are empty; an NBSP-indented
+label (the clinical sub-row layout) is not whitespace-empty, so indented rows are
+never mistaken for blanks.
+
 
 ## Choosing an approach
 

@@ -29,6 +29,7 @@ rtf_tables(
   cell_padding_left_twips = NULL,
   cell_padding_right_twips = NULL,
   cell_valign = "bottom",
+  blank_row_normalize = c("detect", "collapse"),
   titles = NULL,
   footnotes = NULL,
   auto_section = FALSE,
@@ -65,6 +66,12 @@ element must be one of:
 \item{row_height_twips, row_height_exact, header_row_height_twips, blank_row_height_twips}{Row-height settings applied to bare `data.frame` elements. See [rtftable()] for details.}
 
 \item{cell_padding_left_twips, cell_padding_right_twips, cell_valign}{Cell layout settings applied to bare `data.frame` elements. See [rtftable()] for details.}
+
+\item{blank_row_normalize}{Blank-row normalisation applied to bare
+`data.frame` elements (default `c("detect", "collapse")`): `"detect"`
+renders an all-empty data row as a single full-width blank row, `"collapse"`
+reduces a run of consecutive blank rows to one. Pre-built `rtftable()`
+pages keep their own setting. See [rtftable()] for details.}
 
 \item{titles}{`NULL` (default) or a list of length `length(tables)` **or
 length 1** (a single block applied to every page). Each element is a
