@@ -126,12 +126,21 @@ figure objects are never modified.)
 
 ## Titles and footnotes
 
-Each page can carry a title block and a footnote block. Each block renders as a
-single-column table **the same width as the content**, so titles and footnotes
-line up with the table or figure above/below them. One block element becomes one
-row. Title rows default to centred + bold; footnote rows default to left, and
-the footnote's first row carries a top rule as the separator. Use `NULL` for a
-page with none.
+Each page can carry a title block and a footnote block. One block element becomes
+one line. Title lines default to centred + bold; footnote lines default to left,
+and the footnote's first line carries a top rule as the separator. Use `NULL` for
+a page with none.
+
+By default the **title** renders as plain **text paragraphs** spanning the
+writable page width (so it is centred over the page), while the **footnote**
+renders as a content-width single-column **table** (which carries the separator
+rule). You can switch either form with the document defaults
+`title_format` / `footnote_format` (`"text"` or `"table"`):
+
+```{r title-format}
+doc <- rtf_document(default_format = list(title_format = "table")) |>  # legacy
+  rtf_tables(list(df1), titles = list("Table 14.1.1"))
+```
 
 Pass `titles` / `footnotes` as lists parallel to the content (one element per
 page):

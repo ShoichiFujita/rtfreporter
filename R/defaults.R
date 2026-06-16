@@ -49,7 +49,12 @@
     rtfreporter.cell_padding_right_twips = NULL,
     # Cell-text markup applied at render time. "script" = ^{}/_{} super/subscript
     # only; the >=/<= -> symbol conversion ("relational") is opt-in.
-    rtfreporter.markup                   = "script"
+    rtfreporter.markup                   = "script",
+    # How the page title / footnote blocks are rendered: "text" = plain
+    # paragraphs (full writable width), "table" = a content-width single-column
+    # table.  Title defaults to text; footnote keeps the table form.
+    rtfreporter.title_format             = "text",
+    rtfreporter.footnote_format          = "table"
   )
 }
 

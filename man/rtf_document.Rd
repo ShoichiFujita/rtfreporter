@@ -60,6 +60,13 @@ merged per key). Recognised keys:
   whether `^{}`/`_{}` render as super/subscript and whether `>=`/`<=` are
   converted to the `>=`/`<=` symbols. A per-table `rtftable(markup = )`
   overrides it. See [rtftable()].
+* `title_format` -- how the page **title** block renders: `"text"`
+  (default) = plain centred paragraphs across the writable width, or
+  `"table"` = a content-width single-column table (the form used since
+  v0.4.0).
+* `footnote_format` -- how the **footnote** block renders: `"table"`
+  (default) keeps the content-width table with the separator rule, or
+  `"text"` = plain paragraphs (no separator rule).
 These are **defaults**: a per-module value -- `rtftable()` /
 `rtf_header()` / `rtf_footer()` / `rtf_table_style()` -- always overrides
 them. They can also be set globally as `rtfreporter.*` options (see

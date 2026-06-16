@@ -2,6 +2,17 @@
 
 ### New features
 
+- The page **title** now renders as plain **text paragraphs** across the
+  writable page width again (centred over the page), instead of the
+  content-width single-column table introduced in v0.4.0 (#144). The legacy
+  table form is available with `rtf_document(default_format =
+  list(title_format = "table"))` (or the `rtfreporter.title_format` option).
+  **Footnotes are unchanged** -- they keep the content-width table form (so the
+  separator rule is preserved); switch them with `footnote_format = "text"` if
+  desired. The text form honours each line's `align` / `bold` / `italic` /
+  `underline` / `color` and the document-wide cell padding; a row `border` only
+  applies in the table form.
+
 - `rtftable()` gains a **`markup`** argument (forwarded by `as_rtftables()` /
   `rtf_tables()`, with a document-wide default via
   `rtf_document(default_format = list(markup = ))` / the `rtfreporter.markup`

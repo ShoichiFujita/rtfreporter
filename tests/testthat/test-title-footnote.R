@@ -12,28 +12,47 @@
   rtf_tables(doc, tables, ...)
 }
 
-test_that("title = NULL renders one blank centred table row (the default gap)", {
+test_that("title = NULL renders one blank centred paragraph (the default gap)", {
   txt <- .render_with(.doc_tbl())
-  # A single-cell centred blank row, not a paragraph.
-  expect_match(txt, "\\\\cellx[0-9]+\\\\qc\\\\li0\\\\ri0 \\\\cell")
+  # A centred empty paragraph, NOT a table cell (the default is now text).
+  expect_match(txt, "\\\\pard\\\\qc\\\\li0\\\\ri0\\\\par")
 })
 
-test_that("title text renders as centred bold cells, one row per line", {
+test_that("title text renders as centred bold paragraphs, one per line (text default)", {
   txt <- .render_with(.doc_tbl(titles = list(c("Table 14.1.1", "Safety Population"))))
-  expect_match(txt, "\\\\qc\\\\li0\\\\ri0 \\\\b Table 14\\.1\\.1\\\\b0 \\\\cell")
-  expect_match(txt, "\\\\qc\\\\li0\\\\ri0 \\\\b Safety Population\\\\b0 \\\\cell")
+  expect_match(txt, "\\\\pard\\\\qc\\\\li0\\\\ri0 \\\\b Table 14\\.1\\.1\\\\b0 \\\\par")
+  expect_match(txt, "\\\\pard\\\\qc\\\\li0\\\\ri0 \\\\b Safety Population\\\\b0 \\\\par")
+  # Not a single-column table cell.
+  expect_false(grepl("\\\\qc\\\\li0\\\\ri0 \\\\b Table 14\\.1\\.1\\\\b0 \\\\cell", txt))
 })
 
-test_that("an empty string within a title yields a blank row", {
+test_that("an empty string within a title yields a blank paragraph", {
   txt <- .render_with(.doc_tbl(titles = list(c("Table 14.1.1", "", "Safety Population"))))
   expect_match(txt, "Table 14\\.1\\.1")
   expect_match(txt, "Safety Population")
-  expect_match(txt, "\\\\qc\\\\li0\\\\ri0 \\\\cell")   # the blank middle row
+  expect_match(txt, "\\\\pard\\\\qc\\\\li0\\\\ri0\\\\par")   # the blank middle row
 })
 
 test_that("title = character(0) suppresses the title block entirely", {
   txt <- .render_with(.doc_tbl(titles = list(character(0))))
-  expect_false(grepl("\\\\qc\\\\li0\\\\ri0 \\\\cell", txt))
+  expect_false(grepl("\\\\pard\\\\qc\\\\li0\\\\ri0", txt))   # no title paragraph
+})
+
+test_that("title_format = 'table' restores the legacy content-width table form", {
+  df  <- data.frame(A = 1L, B = "x", stringsAsFactors = FALSE)
+  doc <- rtf_document(default_format = list(title_format = "table")) |>
+    rtf_section(page = 1, secinfo = list(header = NULL, footer = NULL)) |>
+    rtf_tables(list(df), titles = list(c("Table 14.1.1")))
+  txt <- .render_with(doc)
+  expect_match(txt, "\\\\qc\\\\li0\\\\ri0 \\\\b Table 14\\.1\\.1\\\\b0 \\\\cell")
+})
+
+test_that("an invalid title_format errors", {
+  df  <- data.frame(A = 1L, B = "x", stringsAsFactors = FALSE)
+  doc <- rtf_document(default_format = list(title_format = "bogus")) |>
+    rtf_section(page = 1, secinfo = list(header = NULL, footer = NULL)) |>
+    rtf_tables(list(df))
+  expect_error(.render_with(doc), "text.*table")
 })
 
 test_that("footnote: top rule on the first row only; blank rows preserved", {
@@ -85,7 +104,8 @@ test_that("per-line styling sets align / bold / colour", {
     )))
   txt <- .render_with(doc)
   # Left aligned, not bold, coloured (\cf with a non-reserved index >= 3).
-  expect_match(txt, "\\\\ql\\\\li0\\\\ri0 \\\\cf[3-9][0-9]* Left red\\\\cf1")
+  # Title is a text paragraph by default.
+  expect_match(txt, "\\\\pard\\\\ql\\\\li0\\\\ri0 \\\\cf[3-9][0-9]* Left red\\\\cf1")
   expect_false(grepl("\\\\b Left red", txt))   # not bold
 })
 

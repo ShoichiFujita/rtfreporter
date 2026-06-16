@@ -1442,6 +1442,47 @@
   }, character(1L))
 }
 
+# Render a title/footnote block as plain paragraphs (one per line) spanning the
+# writable width, honouring per-row align / bold / italic / underline / colour.
+# A row `border` does NOT apply in text mode (a paragraph carries no cell rule),
+# so the footnote separator is only drawn in the table form.
+.render_text_block_text <- function(block, is_footer, color_index_map = NULL,
+                                    markup = "script", pad_l = 0L, pad_r = 0L) {
+  rows <- .normalize_text_block(block, is_footer)
+  if (length(rows) == 0L) return(character())
+  # Honour the document-wide cell padding as left/right paragraph indent, so the
+  # "every element inherits the document padding" contract still holds.
+  indent <- paste0("\\li", as.integer(pad_l), "\\ri", as.integer(pad_r))
+  vapply(rows, function(rec) {
+    align_cmd <- switch(rec$align, left = "\\ql", right = "\\qr",
+                        center = "\\qc", "\\ql")
+    if (isTRUE(rec$blank)) {
+      return(paste0("\\pard", align_cmd, indent, "\\par"))
+    }
+    txt <- .format_cell_text(rec$text, markup)
+    if (isTRUE(rec$underline)) txt <- paste0("\\ul ", txt, "\\ulnone ")
+    if (isTRUE(rec$italic))    txt <- paste0("\\i ",  txt, "\\i0 ")
+    if (isTRUE(rec$bold))      txt <- paste0("\\b ",  txt, "\\b0 ")
+    if (!is.null(rec$color) && !is.null(color_index_map) &&
+        !is.null(color_index_map[[rec$color]])) {
+      txt <- paste0("\\cf", as.integer(color_index_map[[rec$color]]), " ",
+                    txt, "\\cf1 ")
+    }
+    paste0("\\pard", align_cmd, indent, " ", txt, "\\par")
+  }, character(1L))
+}
+
+# Validate a title/footnote format selector ("text" | "table"); NULL -> default.
+.resolve_text_block_format <- function(x, default) {
+  if (is.null(x)) return(default)
+  x <- as.character(x)[1L]
+  if (!x %in% c("text", "table")) {
+    stop("`title_format` / `footnote_format` must be \"text\" or \"table\"; got '",
+         x, "'.", call. = FALSE)
+  }
+  x
+}
+
 # Build the RTF color table string from a character vector of hex colors.
 # Returns the RTF {\colortbl ...} string.
 #
@@ -1758,6 +1799,15 @@ generate_rtfreport <- function(report, file_path, overwrite = FALSE) {
   doc_markup <- .resolve_markup(doc$default_format$markup %||%
                                   .opt("rtfreporter.markup") %||% "script")
 
+  # How the page title / footnote blocks render: "text" (plain paragraphs) or
+  # "table" (content-width single-column table).  Title defaults to text;
+  # footnote keeps the table form.
+  doc_title_format <- .resolve_text_block_format(
+    doc$default_format$title_format %||% .opt("rtfreporter.title_format"), "text")
+  doc_footnote_format <- .resolve_text_block_format(
+    doc$default_format$footnote_format %||% .opt("rtfreporter.footnote_format"),
+    "table")
+
   # Resolve sections (sorted, with from_page / to_page assigned).
   resolved_sections <- .resolve_sections(report)
 
@@ -1874,10 +1924,18 @@ generate_rtfreport <- function(report, file_path, overwrite = FALSE) {
       tf_valign     <- "\\clvertalt"
 
       # -- Title (default centre + bold; NULL -> one blank gap row) ----------
-      lines <- c(lines, .render_text_block_table(
-        page$title, content_w, is_footer = FALSE, font_half_points,
-        tf_pad_l, tf_pad_r, tf_valign, content_align, color_index_map,
-        doc_row_height = doc_row_height, markup = doc_markup))
+      # Default renders as plain paragraphs (full writable width); the legacy
+      # content-width table form is opt-in via title_format = "table".
+      lines <- c(lines, if (identical(doc_title_format, "text")) {
+        .render_text_block_text(page$title, is_footer = FALSE,
+                                color_index_map, markup = doc_markup,
+                                pad_l = tf_pad_l, pad_r = tf_pad_r)
+      } else {
+        .render_text_block_table(
+          page$title, content_w, is_footer = FALSE, font_half_points,
+          tf_pad_l, tf_pad_r, tf_valign, content_align, color_index_map,
+          doc_row_height = doc_row_height, markup = doc_markup)
+      })
       if (!is.null(ct)) {
         if (inherits(ct, "rtftable")) {
           lines <- c(lines, .render_rtftable(ct, writable_w, font_half_points,
@@ -1892,10 +1950,18 @@ generate_rtfreport <- function(report, file_path, overwrite = FALSE) {
       }
 
       # -- Footnote (default left; first row carries the separator top rule) -
-      lines <- c(lines, .render_text_block_table(
-        page$footnote, content_w, is_footer = TRUE, font_half_points,
-        tf_pad_l, tf_pad_r, tf_valign, content_align, color_index_map,
-        doc_row_height = doc_row_height, markup = doc_markup))
+      # Default keeps the content-width table form (so the separator rule is
+      # drawn); footnote_format = "text" switches to plain paragraphs.
+      lines <- c(lines, if (identical(doc_footnote_format, "text")) {
+        .render_text_block_text(page$footnote, is_footer = TRUE,
+                                color_index_map, markup = doc_markup,
+                                pad_l = tf_pad_l, pad_r = tf_pad_r)
+      } else {
+        .render_text_block_table(
+          page$footnote, content_w, is_footer = TRUE, font_half_points,
+          tf_pad_l, tf_pad_r, tf_valign, content_align, color_index_map,
+          doc_row_height = doc_row_height, markup = doc_markup)
+      })
 
       # End-of-page break.  A table must be terminated before any paragraph-level
       # break or the document close, or strict readers absorb the break into the
