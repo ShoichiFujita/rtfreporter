@@ -2,6 +2,18 @@
 
 ### New features
 
+- `rtftable()` gains a **`blank_row_normalize`** argument controlling two
+  render-time blank-row clean-ups, forwarded by `as_rtftables()` / `rtf_tables()`
+  (#136): `"detect"` renders a data row whose every cell is `NA` / `""` (empty or
+  ASCII-whitespace only) as a single full-width blank row instead of one empty
+  cell per column; `"collapse"` reduces a run of two or more consecutive blank
+  rows (separators and/or detected empty rows) to one. Default
+  `c("detect", "collapse")` (both on); pass `"none"` / `NULL` to disable. Both
+  act on the rendered table, so for a paginated table they apply per page (after
+  the split). NBSP indentation is not whitespace-empty, so indented sub-rows are
+  never mistaken for blanks. **Note:** with the default on, an existing all-empty
+  data row now renders as one merged blank cell rather than N empty cells.
+
 - `as_rtftables()` / `as_rtftable()` gain a **`collapse_repeats`** argument that
   blanks **consecutive repeated values** in the named column(s) -- repeat
   suppression for row-label / key columns (#131). Only the first value of each
