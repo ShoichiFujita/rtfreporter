@@ -2,6 +2,15 @@
 
 ### New features
 
+- New constructors **`rtf_page()`** and **`rtf_default_format()`** turn the
+  structured `rtf_document()` / `rtf_config()` settings into first-class S3
+  objects whose **defaults are visible in their own signature / Usage** (#152):
+  `rtf_document(page = rtf_page(paper_size = "A4", orientation = "portrait"))`.
+  Site defaults still apply -- an argument you do not pass falls back to the
+  matching `rtfreporter.*` option (explicit argument > option > the factory
+  default shown in the signature). A plain named `list` is still accepted, so
+  existing code is unchanged.
+
 - The page **title** now renders as plain **text paragraphs** across the
   writable page width again (centred over the page), instead of the
   content-width single-column table introduced in v0.4.0 (#144). The legacy

@@ -24,60 +24,17 @@ index). Default `c("#000000")`. Colours actually used by borders and by
 need this to declare colours you reference elsewhere. Black and white are
 reserved and added implicitly.}
 
-\item{page}{Optional page geometry, as a named list. All distances are in
-  **inches** unless noted. The default is **landscape Letter** with 0.9"
-  top/bottom and 0.6" left/right margins. Recognised keys:
-  \describe{
-    \item{`paper_size`}{A named preset, case-insensitive: `"letter"`
-      (8.5x11"), `"legal"` (8.5x14"), `"A4"` (210x297mm), `"A3"`, or `"A5"`.}
-    \item{`orientation`}{`"landscape"` or `"portrait"`.}
-    \item{`width_in`, `height_in`}{Explicit page dimensions. When supplied
-      these **win** over `paper_size` and the orientation is inferred from
-      them (see *Geometry* below).}
-    \item{`margin_top_in`, `margin_bottom_in`, `margin_left_in`,
-      `margin_right_in`}{The four page margins.}
-    \item{`header_dist_in`, `footer_dist_in`}{Distance of the header / footer
-      band from the page edge. When omitted, each defaults to **half** the
-      corresponding top / bottom margin.}
-  }
-  A *partial* list is fine -- any key you omit falls back to the
-  corresponding `rtfreporter.*` option (a site can set these in
-  `Rprofile.site`; see [rtfreporter_options()]). An explicit key always wins.
+\item{page}{The page geometry. Pass an [rtf_page()] object (recommended --
+its help lists every key with its default), a named list with the same
+keys, or `NULL` (default) to use the option / factory defaults (landscape
+Letter, 0.9" top/bottom and 0.6" left/right margins). An omitted key falls
+back to the corresponding `rtfreporter.*` option (see [rtfreporter_options()]).}
 
-  **Geometry resolution** (highest priority first):
-  \enumerate{
-    \item Explicit `width_in` / `height_in` are used **as given**; the
-      orientation is *inferred* (`width_in >= height_in` means landscape). A
-      contradicting `orientation` warns and the dimensions are kept (not
-      swapped); a `paper_size` supplied alongside is ignored (with a warning).
-    \item Otherwise `paper_size` + `orientation` select and orient a preset
-      (so `list(paper_size = "A4")` is A4 landscape, and adding
-      `orientation = "portrait"` makes it A4 portrait).
-    \item Otherwise the default (landscape Letter) is used.
-  }}
-
-\item{default_format}{Optional document-wide default formatting, as a named
-list (merged per key). Each is a **default**: a per-module value set on
-`rtftable()` / `rtf_header()` / `rtf_footer()` / `rtf_table_style()` always
-overrides it, and each can also be set globally as an `rtfreporter.*` option
-(see [rtfreporter_options()]). Recognised keys:
-\describe{
-  \item{`font_size_half_points`}{Body font size in half-points (`18` = 9pt).}
-  \item{`row_height_twips`}{Default **row height** for every table-shaped
-    element (content table, page header / footer, title / footnote). `NULL`
-    keeps the font-aware default.}
-  \item{`cell_padding_left_twips`, `cell_padding_right_twips`}{Default
-    **cell padding** (border-to-text distance), applied to every element.}
-  \item{`markup`}{Default cell-text markup: `"script"` (`^{}`/`_{}`
-    super/subscript, the default), `"relational"` (`>=`/`<=` to the
-    symbols), `"all"`, or `"none"`. See [rtftable()].}
-  \item{`title_format`}{How the page **title** renders: `"text"` (default,
-    plain centred paragraphs across the writable width) or `"table"` (a
-    content-width single-column table).}
-  \item{`footnote_format`}{How the **footnote** renders: `"table"` (default,
-    content-width table with the separator rule) or `"text"` (plain
-    paragraphs, no separator rule).}
-}}
+\item{default_format}{Document-wide default formatting. Pass an
+[rtf_default_format()] object (recommended -- its help lists every key with
+its default), a named list with the same keys, or `NULL` (default). Each
+value is a *default* that a per-module setting ([rtftable()] /
+[rtf_header()] / [rtf_footer()] / [rtf_table_style()]) overrides.}
 }
 \value{
 An `rtf_document` S3 object: a list with `document`
@@ -101,26 +58,18 @@ an already-composed report with `rtf_document()` without discarding its
 content.
 }
 \examples{
-# 1. Simplest: every default (landscape Letter, Courier 9pt, 0.9"/0.6"
-#    margins).
+# 1. Simplest: every default (landscape Letter, Courier 9 pt).
 doc <- rtf_document()
 
-# 2. A fully specified document: A4 portrait, Arial 10pt, tighter margins,
-#    a pre-declared accent colour, and document-wide row-height / padding.
+# 2. A fully specified document, built from the rtf_page() /
+#    rtf_default_format() constructors (whose own help shows every default):
 doc <- rtf_document(
-  font_table  = list(list(name = "Arial")),
-  color_table = c("#000000", "#1F4E79"),
-  page = list(
-    paper_size      = "A4",
-    orientation     = "portrait",
-    margin_top_in   = 1.0, margin_bottom_in = 1.0,
-    margin_left_in  = 0.75, margin_right_in = 0.75
-  ),
-  default_format = list(
-    font_size_half_points   = 20L,   # 10 pt
-    row_height_twips        = 240L,
-    cell_padding_left_twips = 30L
-  )
+  font_table     = list(list(name = "Arial")),
+  color_table    = c("#000000", "#1F4E79"),
+  page           = rtf_page(paper_size = "A4", orientation = "portrait",
+                            margin_left_in = 0.75, margin_right_in = 0.75),
+  default_format = rtf_default_format(font_size_half_points = 20L,  # 10 pt
+                                      row_height_twips = 240L)
 )
 
 # ... then add content and render:
@@ -133,7 +82,8 @@ generate_rtfreport(doc, "demographics.rtf", overwrite = TRUE)
 
 }
 \seealso{
-[rtf_config()] to edit an already-composed document, [rtf_tables()] /
-  [rtf_figures()] to add content, [rtf_section()] for headers / footers, and
+[rtf_page()] / [rtf_default_format()] for the page / formatting
+  settings, [rtf_config()] to edit an already-composed document, [rtf_tables()]
+  / [rtf_figures()] to add content, [rtf_section()] for headers / footers, and
   [generate_rtfreport()] to render.
 }
