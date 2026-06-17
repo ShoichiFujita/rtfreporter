@@ -39,6 +39,16 @@
   (e.g. `"0 (0.0%)"` still becomes `"0"`, `"10 (100.0)"` still `"10 (100)"`)
   (#148).
 
+### Documentation
+
+- Reference pages are being made easier to read (#150): list-valued parameters
+  now break their keys out with a `\describe{}` list (so each sub-option is
+  headlined), and examples are fuller and story-driven. First batch:
+  `rtf_document()` (the `page` / `default_format` keys + a full worked example),
+  `rtf_section()` (the `secinfo` keys + a self-contained example), and
+  `rtf_header()` / `rtf_footer()` (the `l` / `c` / `r` cell rule + page-number
+  tokens). More functions to follow.
+
 
 # rtfreporter 0.4.0
 

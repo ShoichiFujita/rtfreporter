@@ -30,71 +30,108 @@
 #' an already-composed report with `rtf_document()` without discarding its
 #' content.
 #'
-#' @param font_table Optional font table. Default: list(list(name = "Courier"))
-#' @param color_table Optional vector of `"#RRGGBB"` colours to pre-declare in
-#'   the document's colour table (so they are available by index). Default
-#'   `c("#000000")`. Colours used by borders and by `col_spec`/`cell_styles`
-#'   `color` are added automatically, so you only need this to declare colours
-#'   you reference elsewhere. Black/white are reserved and added implicitly.
-#' @param page Optional page settings as a named list. Recognised keys (all in
-#'   inches unless noted): `paper_size` (a named preset, see below),
-#'   `orientation` (`"landscape"` / `"portrait"`), `width_in`, `height_in`,
-#'   `margin_top_in` / `margin_bottom_in` / `margin_left_in` / `margin_right_in`,
-#'   and `header_dist_in` / `footer_dist_in` (distance of the header/footer band
-#'   from the page edge; when omitted, each defaults to half the corresponding
-#'   top/bottom margin). Default: landscape letter, margins 0.9 inch
-#'   (top/bottom) and 0.6 inch (left/right).
+#' @param font_table Optional font table: a list of font specifications, each a
+#'   named list with a `name` (e.g. `list(list(name = "Arial"))`). The first
+#'   entry is the document's default font. Default: `list(list(name =
+#'   "Courier"))` (a fixed-width font, which keeps clinical columns aligned).
+#' @param color_table Optional character vector of `"#RRGGBB"` colours to
+#'   pre-declare in the document's colour table (so they are available by
+#'   index). Default `c("#000000")`. Colours actually used by borders and by
+#'   `col_spec` / `cell_styles` `color` are added automatically, so you only
+#'   need this to declare colours you reference elsewhere. Black and white are
+#'   reserved and added implicitly.
+#' @param page Optional page geometry, as a named list. All distances are in
+#'   **inches** unless noted. The default is **landscape Letter** with 0.9"
+#'   top/bottom and 0.6" left/right margins. Recognised keys:
+#'   \describe{
+#'     \item{`paper_size`}{A named preset, case-insensitive: `"letter"`
+#'       (8.5x11"), `"legal"` (8.5x14"), `"A4"` (210x297mm), `"A3"`, or `"A5"`.}
+#'     \item{`orientation`}{`"landscape"` or `"portrait"`.}
+#'     \item{`width_in`, `height_in`}{Explicit page dimensions. When supplied
+#'       these **win** over `paper_size` and the orientation is inferred from
+#'       them (see *Geometry* below).}
+#'     \item{`margin_top_in`, `margin_bottom_in`, `margin_left_in`,
+#'       `margin_right_in`}{The four page margins.}
+#'     \item{`header_dist_in`, `footer_dist_in`}{Distance of the header / footer
+#'       band from the page edge. When omitted, each defaults to **half** the
+#'       corresponding top / bottom margin.}
+#'   }
+#'   A *partial* list is fine -- any key you omit falls back to the
+#'   corresponding `rtfreporter.*` option (a site can set these in
+#'   `Rprofile.site`; see [rtfreporter_options()]). An explicit key always wins.
 #'
-#'   These defaults are read from the `rtfreporter.*` options, so a site can
-#'   change them in `Rprofile.site` (see [rtfreporter_options()]); an explicit
-#'   key here always wins.
+#'   **Geometry resolution** (highest priority first):
+#'   \enumerate{
+#'     \item Explicit `width_in` / `height_in` are used **as given**; the
+#'       orientation is *inferred* (`width_in >= height_in` means landscape). A
+#'       contradicting `orientation` warns and the dimensions are kept (not
+#'       swapped); a `paper_size` supplied alongside is ignored (with a warning).
+#'     \item Otherwise `paper_size` + `orientation` select and orient a preset
+#'       (so `list(paper_size = "A4")` is A4 landscape, and adding
+#'       `orientation = "portrait"` makes it A4 portrait).
+#'     \item Otherwise the default (landscape Letter) is used.
+#'   }
+#' @param default_format Optional document-wide default formatting, as a named
+#'   list (merged per key). Each is a **default**: a per-module value set on
+#'   `rtftable()` / `rtf_header()` / `rtf_footer()` / `rtf_table_style()` always
+#'   overrides it, and each can also be set globally as an `rtfreporter.*` option
+#'   (see [rtfreporter_options()]). Recognised keys:
+#'   \describe{
+#'     \item{`font_size_half_points`}{Body font size in half-points (`18` = 9pt).}
+#'     \item{`row_height_twips`}{Default **row height** for every table-shaped
+#'       element (content table, page header / footer, title / footnote). `NULL`
+#'       keeps the font-aware default.}
+#'     \item{`cell_padding_left_twips`, `cell_padding_right_twips`}{Default
+#'       **cell padding** (border-to-text distance), applied to every element.}
+#'     \item{`markup`}{Default cell-text markup: `"script"` (`^{}`/`_{}`
+#'       super/subscript, the default), `"relational"` (`>=`/`<=` to the
+#'       symbols), `"all"`, or `"none"`. See [rtftable()].}
+#'     \item{`title_format`}{How the page **title** renders: `"text"` (default,
+#'       plain centred paragraphs across the writable width) or `"table"` (a
+#'       content-width single-column table).}
+#'     \item{`footnote_format`}{How the **footnote** renders: `"table"` (default,
+#'       content-width table with the separator rule) or `"text"` (plain
+#'       paragraphs, no separator rule).}
+#'   }
 #'
-#'   `paper_size` selects a named preset (case-insensitive): `"letter"`
-#'   (8.5x11"), `"legal"` (8.5x14"), `"A4"` (210x297mm), `"A3"`, `"A5"`. So
-#'   `list(paper_size = "A4")` gives **A4 landscape** in one line, and
-#'   `list(paper_size = "A4", orientation = "portrait")` gives A4 portrait.
+#' @return An `rtf_document` S3 object: a list with `document`
+#'   (`font_table` / `color_table` / `page` / `default_format`), `contents`
+#'   (filled by [rtf_tables()] / [rtf_figures()]), `titles`, `footnotes`, and
+#'   `sections` (filled by [rtf_section()]).
 #'
-#'   Geometry is resolved as follows: (1) explicit `width_in` / `height_in`
-#'   **win** and are used as given -- the orientation is *inferred* from them
-#'   (`width_in >= height_in` means landscape); an explicit `orientation` that
-#'   contradicts the dimensions emits a warning and the dimensions are kept as
-#'   given (not swapped). If `paper_size` is also supplied it is ignored (with a
-#'   warning). (2) Otherwise `paper_size` + `orientation` selects and orients a
-#'   preset. (3) Otherwise the default (landscape letter) is used.
-#' @param default_format Optional document-wide default formatting (a list,
-#'   merged per key). Recognised keys:
-#'   * `font_size_half_points` -- body font size in half-points (18 = 9 pt).
-#'   * `row_height_twips` -- document-wide default **row height** for every
-#'     table-shaped element (content table, page header/footer, title/footnote).
-#'     `NULL` keeps the font-aware default.
-#'   * `cell_padding_left_twips`, `cell_padding_right_twips` -- document-wide
-#'     default **cell padding** (border-to-text distance), likewise applied to
-#'     every element.
-#'   * `markup` -- document-wide default cell-text **markup** (`"script"`,
-#'     `"relational"`, `"all"`, or `"none"`; default `"script"`). Controls
-#'     whether `^{}`/`_{}` render as super/subscript and whether `>=`/`<=` are
-#'     converted to the `>=`/`<=` symbols. A per-table `rtftable(markup = )`
-#'     overrides it. See [rtftable()].
-#'   * `title_format` -- how the page **title** block renders: `"text"`
-#'     (default) = plain centred paragraphs across the writable width, or
-#'     `"table"` = a content-width single-column table (the form used since
-#'     v0.4.0).
-#'   * `footnote_format` -- how the **footnote** block renders: `"table"`
-#'     (default) keeps the content-width table with the separator rule, or
-#'     `"text"` = plain paragraphs (no separator rule).
-#'   These are **defaults**: a per-module value -- `rtftable()` /
-#'   `rtf_header()` / `rtf_footer()` / `rtf_table_style()` -- always overrides
-#'   them. They can also be set globally as `rtfreporter.*` options (see
-#'   [rtfreporter_options()]).
-#'
-#' @return An rtf_document object (S3 class) with structure:
-#'   - document: list(font_table, color_table, page, default_format)
-#'   - contents: list (initially empty, populated by rtf_tables/rtf_figures)
-#'   - sections: list (initially empty, populated by rtf_section)
+#' @seealso [rtf_config()] to edit an already-composed document, [rtf_tables()] /
+#'   [rtf_figures()] to add content, [rtf_section()] for headers / footers, and
+#'   [generate_rtfreport()] to render.
 #'
 #' @examples
-#' \dontrun{
+#' # 1. Simplest: every default (landscape Letter, Courier 9pt, 0.9"/0.6"
+#' #    margins).
 #' doc <- rtf_document()
+#'
+#' # 2. A fully specified document: A4 portrait, Arial 10pt, tighter margins,
+#' #    a pre-declared accent colour, and document-wide row-height / padding.
+#' doc <- rtf_document(
+#'   font_table  = list(list(name = "Arial")),
+#'   color_table = c("#000000", "#1F4E79"),
+#'   page = list(
+#'     paper_size      = "A4",
+#'     orientation     = "portrait",
+#'     margin_top_in   = 1.0, margin_bottom_in = 1.0,
+#'     margin_left_in  = 0.75, margin_right_in = 0.75
+#'   ),
+#'   default_format = list(
+#'     font_size_half_points   = 20L,   # 10 pt
+#'     row_height_twips        = 240L,
+#'     cell_padding_left_twips = 30L
+#'   )
+#' )
+#'
+#' # ... then add content and render:
+#' df <- data.frame(Parameter = c("Age, Mean (SD)", "Sex, n (%)"),
+#'                  Value = c("75.1 (8.2)", "120 (53%)"))
+#' doc <- rtf_tables(doc, as_rtftables(df), titles = list("Table 14.1.1"))
+#' \dontrun{
+#' generate_rtfreport(doc, "demographics.rtf", overwrite = TRUE)
 #' }
 #'
 #' @export
@@ -753,28 +790,40 @@ rtf_footnotes <- function(doc, footnotes) {
 #' Map page numbers to sections with headers/footers.
 #' Pages are automatically numbered based on content order (starting at 1).
 #'
-#' @param doc An rtf_document object.
-#' @param page Integer or vector of page numbers to assign this section.
-#'   - Single integer: one section starts at this page
-#'   - Vector: assign multiple pages to sections (length must match secinfo)
-#' @param secinfo Section information (one or more section definitions):
-#'   - Single section: list(header = ..., footer = ...)
-#'   - Multiple sections: list(sec1, sec2, ...) where each is a section list
+#' @param doc An `rtf_document` object.
+#' @param page Where this section starts. Pages are auto-numbered from the
+#'   content order (starting at 1), so this is a **page number**. A single
+#'   integer starts one section at that page; a vector starts several sections
+#'   at once (its length must match the number of sections in `secinfo`).
+#' @param secinfo The section definition(s). A single section is a named list:
+#'   \describe{
+#'     \item{`header`}{an [rtf_header()] object, or `NULL` for no header}
+#'     \item{`footer`}{an [rtf_footer()] object, or `NULL` for no footer}
+#'   }
+#'   For several sections, pass a `list` of such section lists -- one per entry
+#'   of `page`.
 #'
-#' @return Modified rtf_document with section definitions added.
-#'
-#' @details
-#' The `page` parameter identifies where each section starts. Pages are
-#' auto-numbered from your content list (rtf_tables and rtf_figures).
+#' @return The `rtf_document` with the section definition(s) added.
 #'
 #' @examples
-#' \dontrun{
-#' doc <- rtf_document() %>%
-#'   rtf_tables(list(df1, df2, df3)) %>%
-#'   rtf_section(page = 1, secinfo = list(header = h1, footer = f1)) %>%
-#'   rtf_section(page = 3, secinfo = list(header = h2, footer = f2))
-#' }
+#' df  <- data.frame(Parameter = "Age, Mean (SD)", Value = "75.1 (8.2)")
+#' h1  <- rtf_header(c(l = "Table 14.1.1", r = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}"))
+#' h2  <- rtf_header(c(l = "Table 14.2.1", r = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}"))
+#' ftr <- rtf_footer(c(l = "Confidential"))
 #'
+#' # One header / footer applied to the whole document:
+#' doc <- rtf_document() |>
+#'   rtf_tables(list(df, df)) |>
+#'   rtf_section(page = 1, secinfo = list(header = h1, footer = ftr))
+#'
+#' # A second section, with a different header, starting at page 2:
+#' doc <- rtf_document() |>
+#'   rtf_tables(list(df, df)) |>
+#'   rtf_section(page = 1, secinfo = list(header = h1, footer = ftr)) |>
+#'   rtf_section(page = 2, secinfo = list(header = h2, footer = ftr))
+#'
+#' @seealso [rtf_header()] / [rtf_footer()] to build the header / footer, and
+#'   [rtf_document()] for the document and its `page` geometry.
 #' @export
 rtf_section <- function(doc, page = NULL, secinfo) {
   if (!inherits(doc, "rtf_document")) {
