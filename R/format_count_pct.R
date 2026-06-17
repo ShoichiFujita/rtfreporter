@@ -159,22 +159,21 @@ realign_count_pct <- function(x, nbsp = "\u00a0") {
 }
 
 
-# Internal: align the count-percent cells of every character column of `df`
+# Internal: realign the count-percent cells of every character column of `df`
 # except the first (the row label by clinical convention).  Used by
 # paginate(align_count_pct = TRUE).
 #
-# Delegates to fmt_count_paren() (the adaptive `.fmt_count_core(bare = FALSE)`):
-# ONLY cells of the form "integer (inner)" are reformatted -- the count digit
-# and the parenthetical part are right-justified to the widest *matching* cell,
-# so they line up with or without a "%".  Cells whose "count" is not a bare
-# integer (a continuous statistic like "75.2 (8.59)"), bare integers (a plain
-# "n" / N, e.g. "86"), free text, and empty cells are returned UNCHANGED -- they
-# are not count-percent cells and must not be padded (#80, #148).
+# Only cells of the form "integer (real)" -- the real part optionally ending in
+# "%" -- are reformatted by realign_count_pct().  Everything else (a bare
+# integer / plain N such as "86", a continuous statistic like "75.2 (8.59)"
+# whose "count" is not a bare integer, free text, and empty cells) is returned
+# UNCHANGED.  Bare integers are NOT padded (#80 wrongly padded them against the
+# count-percent cells; that is removed -- #148).
 .realign_count_pct_df <- function(df, nbsp = "\u00a0") {
   if (ncol(df) < 2L) return(df)
   df[, -1L] <- lapply(df[, -1L, drop = FALSE], function(col) {
     if (!is.character(col)) return(col)
-    fmt_count_paren(col, nbsp = nbsp)
+    realign_count_pct(col, nbsp = nbsp)
   })
   df
 }

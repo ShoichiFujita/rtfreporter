@@ -121,23 +121,25 @@ test_that(".realign_count_pct_df() leaves an integer-only column untouched (#80)
   expect_identical(out$n, c("", "3", "12"))
 })
 
-test_that(".realign_count_pct_df() leaves bare integers and continuous stats untouched (#148)", {
-  # align_count_pct only reformats "integer (inner)" cells.  A bare integer
-  # (a plain N / count) and a continuous statistic like "75.2 (8.6)" (whose
-  # "count" is not an integer) must pass through UNCHANGED, even when the
-  # column also contains count-percent cells.
+test_that(".realign_count_pct_df() reformats only 'integer (real)' cells (#148)", {
+  # align_count_pct only reformats "integer (real)" count-percent cells (the
+  # real part may end in "%").  A bare integer (a plain N) and a continuous
+  # statistic like "75.2 (8.6)" (whose "count" is not a bare integer) must pass
+  # through UNCHANGED, even when the column also contains count-percent cells.
   df <- data.frame(
-    label = c("N", "Sex", "  Female", "  Male", "  Mean (SD)"),
-    a     = c("86", "", "16 (53.3%)", "8 (46.7%)", "75.2 (8.6)"),
+    label = c("N", "  Mean (SD)", "Sex", "  Female", "  Male"),
+    a     = c("86", "75.2 (8.6)", "", "16 (53.3%)", "8 (46.7%)"),
     stringsAsFactors = FALSE
   )
   out <- rtfreporter:::.realign_count_pct_df(df, nbsp = " ")
   expect_identical(out$a[1L], "86")           # bare N untouched
-  expect_identical(out$a[5L], "75.2 (8.6)")   # continuous stat untouched
-  expect_identical(out$a[2L], "")             # empty untouched
-  # The count-percent cells ARE aligned (count right-justified, equal width).
-  expect_equal(nchar(out$a[3L]), nchar(out$a[4L]))
-  expect_true(grepl("^ 8 ", out$a[4L]))       # "8" right-justified under "16"
+  expect_identical(out$a[2L], "75.2 (8.6)")   # continuous stat untouched
+  expect_identical(out$a[3L], "")             # empty untouched
+  # The count-percent cells ARE reformatted to a common width, count
+  # right-justified (the 3-wide count field, so "8" -> "  8 (...)").
+  expect_equal(nchar(out$a[4L]), nchar(out$a[5L]))
+  expect_match(out$a[5L], "^\\s+8 ")
+  expect_true(endsWith(out$a[4L], ")"))
 })
 
 test_that("realign_count_pct() aligns percent-sign cells, keeping the %", {
