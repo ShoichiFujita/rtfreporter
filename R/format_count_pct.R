@@ -159,39 +159,22 @@ realign_count_pct <- function(x, nbsp = "\u00a0") {
 }
 
 
-# Internal: apply realign_count_pct() to every character column of `df`
-# except the first column (which by clinical convention is the row label,
-# not a count cell).  Used by paginate(align_count_pct = TRUE).
+# Internal: align the count-percent cells of every character column of `df`
+# except the first (the row label by clinical convention).  Used by
+# paginate(align_count_pct = TRUE).
 #
-# After re-padding the "n (xx.x[%])" cells, bare-integer cells in the same
-# column (e.g. a lone "0" collapsed from "0 (0.0)") are right-padded to the
-# column's display width too, so they line up with the count-percent cells
-# instead of sitting flush-left.
-#
-# This padding is applied ONLY when the column actually contains count-percent
-# (parenthesised) cells.  A column that is purely integers -- e.g. a plain "n"
-# count column with no "n (xx.x)" cells -- is a different kind of data and must
-# pass through untouched; padding it would wrongly insert leading spaces before
-# values such as "3" (see issue #80).  Empty cells (group-label rows) are left
-# empty.
+# Delegates to fmt_count_paren() (the adaptive `.fmt_count_core(bare = FALSE)`):
+# ONLY cells of the form "integer (inner)" are reformatted -- the count digit
+# and the parenthetical part are right-justified to the widest *matching* cell,
+# so they line up with or without a "%".  Cells whose "count" is not a bare
+# integer (a continuous statistic like "75.2 (8.59)"), bare integers (a plain
+# "n" / N, e.g. "86"), free text, and empty cells are returned UNCHANGED -- they
+# are not count-percent cells and must not be padded (#80, #148).
 .realign_count_pct_df <- function(df, nbsp = "\u00a0") {
   if (ncol(df) < 2L) return(df)
   df[, -1L] <- lapply(df[, -1L, drop = FALSE], function(col) {
     if (!is.character(col)) return(col)
-    col <- realign_count_pct(col, nbsp = nbsp)
-    has_paren <- grepl("(", col, fixed = TRUE)         # a count-percent cell
-    is_int    <- grepl("^\\s*\\d+\\s*$", col)          # a lone count, no paren
-    # Only align bare integers against count-percent cells when the column
-    # genuinely mixes the two; never reformat an integer-only column.
-    if (any(has_paren) && any(is_int)) {
-      width <- max(nchar(col[nzchar(trimws(col))]), 0L)
-      pad   <- if (identical(nbsp, " ")) " " else nbsp
-      col[is_int] <- vapply(col[is_int], function(x) {
-        x <- trimws(x)
-        paste0(strrep(pad, max(width - nchar(x), 0L)), x)
-      }, character(1L))
-    }
-    col
+    fmt_count_paren(col, nbsp = nbsp)
   })
   df
 }

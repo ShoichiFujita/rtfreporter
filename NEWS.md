@@ -25,6 +25,16 @@
   marks `^{N}`) keep working. Applies to data cells, column / spanning headers,
   and title / footnote blocks.
 
+### Bug fixes
+
+- `as_rtftables(align_count_pct = TRUE)` no longer mis-aligns mixed columns. It
+  now delegates to `fmt_count_paren()`, so only `"integer (inner)"` cells are
+  reformatted -- a bare integer (a plain N such as `"86"`) and a continuous
+  statistic (`"75.2 (8.59)"`, whose "count" is not an integer) are left
+  **unchanged** instead of being padded with stray leading spaces, and the count
+  / parenthetical widths are taken from the matching cells only, so they line up
+  correctly with or without a `%` (#148).
+
 
 # rtfreporter 0.4.0
 
