@@ -97,16 +97,16 @@ test_that("format_count_pct validates its inputs", {
                "same length")
 })
 
-# ── .realign_count_pct_df(): lone integers padded to the column width ────────
+# ── .realign_count_pct_df(): lone integers left untouched (#148) ─────────────
 
-test_that(".realign_count_pct_df aligns lone counts to the count-percent width", {
+test_that(".realign_count_pct_df leaves a lone count untouched, aligns paren cells", {
   realign <- rtfreporter:::.realign_count_pct_df
   df <- data.frame(label = c("x", "y"),
                    b     = c("12 (50%)", "3"),
                    stringsAsFactors = FALSE)
   out <- realign(df, nbsp = " ")          # plain spaces -> readable assertion
-  # After re-padding, the lone "3" lines up to the same display width.
-  expect_equal(nchar(out$b[1L]), nchar(out$b[2L]))
+  # A lone count ("3") is NOT a count-percent cell and must pass through as-is.
+  expect_identical(out$b[2L], "3")
   # The row-label column (column 1) is never touched.
   expect_identical(out$label, df$label)
 })

@@ -92,9 +92,11 @@ test_that("paginate(align_count_pct = TRUE) realigns columns 2..N", {
   )
   pages <- paginate(df, align_count_pct = TRUE)
   out_a <- pages[[1L]]$a
-  # All non-empty cells now have width 10 (uniform with NBSP padding)
+  # Count-percent cells are aligned: within a column every non-empty cell has
+  # the same (content-adaptive) width, the count right-justified.
   non_empty <- nzchar(out_a)
-  expect_true(all(nchar(out_a[non_empty]) == 10L))
+  expect_equal(length(unique(nchar(out_a[non_empty]))), 1L)
+  expect_true(grepl(")$", out_a[2L]))
 })
 
 test_that("paginate(align_count_pct = FALSE) leaves columns untouched (default)", {
@@ -119,18 +121,25 @@ test_that(".realign_count_pct_df() leaves an integer-only column untouched (#80)
   expect_identical(out$n, c("", "3", "12"))
 })
 
-test_that(".realign_count_pct_df() aligns a bare 0 only against count-pct cells (#80)", {
-  # When the column mixes a lone "0" with "n (xx.x)" cells, the "0" is padded
-  # to the count-percent width so it lines up.
+test_that(".realign_count_pct_df() reformats only 'integer (real)' cells (#148)", {
+  # align_count_pct only reformats "integer (real)" count-percent cells (the
+  # real part may end in "%").  A bare integer (a plain N) and a continuous
+  # statistic like "75.2 (8.6)" (whose "count" is not a bare integer) must pass
+  # through UNCHANGED, even when the column also contains count-percent cells.
   df <- data.frame(
-    label = c("Sex", "  Female", "  Male"),
-    a     = c("",    "16 (53.3)", "0"),
+    label = c("N", "  Mean (SD)", "Sex", "  Female", "  Male"),
+    a     = c("86", "75.2 (8.6)", "", "16 (53.3%)", "8 (46.7%)"),
     stringsAsFactors = FALSE
   )
   out <- rtfreporter:::.realign_count_pct_df(df, nbsp = " ")
-  non_empty <- nzchar(out$a)
-  expect_true(all(nchar(out$a[non_empty]) == nchar(out$a[2L])))
-  expect_true(endsWith(out$a[3L], "0"))
+  expect_identical(out$a[1L], "86")           # bare N untouched
+  expect_identical(out$a[2L], "75.2 (8.6)")   # continuous stat untouched
+  expect_identical(out$a[3L], "")             # empty untouched
+  # The count-percent cells ARE reformatted to a common width, count
+  # right-justified (the 3-wide count field, so "8" -> "  8 (...)").
+  expect_equal(nchar(out$a[4L]), nchar(out$a[5L]))
+  expect_match(out$a[5L], "^\\s+8 ")
+  expect_true(endsWith(out$a[4L], ")"))
 })
 
 test_that("realign_count_pct() aligns percent-sign cells, keeping the %", {
