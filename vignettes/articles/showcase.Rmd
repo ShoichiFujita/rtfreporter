@@ -5,6 +5,26 @@ title: "Same report, every table framework"
 ```{r, include = FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
                       message = FALSE, warning = FALSE, eval = FALSE)
+
+# Show a screenshot of the rendered RTF if it has been captured.  The PNGs sit
+# next to the .rtf files in inst/rtf-examples/showcase/; we copy the one we need
+# into the article's own figures/ folder (so pkgdown serves it) and include it.
+# If the screenshot does not exist yet, a small placeholder is shown instead so
+# the article still builds.
+.snapshot <- function(file, alt = "rendered RTF") {
+  src <- file.path("..", "..", "inst", "rtf-examples", "showcase", file)
+  if (file.exists(src)) {
+    dir.create(file.path("figures", "showcase"), showWarnings = FALSE,
+               recursive = TRUE)
+    dest <- file.path("figures", "showcase", file)
+    file.copy(src, dest, overwrite = TRUE)
+    knitr::include_graphics(dest)
+  } else {
+    knitr::asis_output(sprintf(
+      "<p><em>(snapshot <code>inst/rtf-examples/showcase/%s</code> not captured yet)</em></p>",
+      file))
+  }
+}
 ```
 
 ```{r setup}
@@ -26,7 +46,10 @@ the RTF back end**.
 > The code below is shown for reference (`eval = FALSE`); each table's RTF is
 > rendered offline and the Word output is shown as a screenshot. The full,
 > runnable generator lives in
-> [`data-raw/showcase_dm.R`](https://github.com/ichirio/rtfreporter/blob/main/data-raw/showcase_dm.R).
+> [`data-raw/showcase_dm.R`](https://github.com/ichirio/rtfreporter/blob/main/data-raw/showcase_dm.R),
+> and the rendered `.rtf` files are committed to
+> [`inst/rtf-examples/showcase/`](https://github.com/ichirio/rtfreporter/tree/main/inst/rtf-examples/showcase)
+> so you can open them yourself.
 
 ## The data
 
@@ -116,7 +139,7 @@ as_rtftables(tbl, read_meta = TRUE)   # column labels + Ns read from gtsummary
 ```
 
 ```{r img-gtsummary, eval = TRUE, echo = FALSE, out.width = "100%"}
-knitr::include_graphics("figures/showcase/dm_gtsummary.png")
+.snapshot("dm_gtsummary.png", "DM summary via gtsummary")
 ```
 
 ### gtsummary on a cards / cardx ARD
@@ -146,7 +169,7 @@ as_rtftables(tbl, read_meta = TRUE)
 ```
 
 ```{r img-gtsummary-ard, eval = TRUE, echo = FALSE, out.width = "100%"}
-knitr::include_graphics("figures/showcase/dm_gtsummary_ard.png")
+.snapshot("dm_gtsummary_ard.png", "DM summary via gtsummary on a cards/cardx ARD")
 ```
 
 ### rtables / tern
@@ -169,7 +192,7 @@ as_rtftables(tbl, read_meta = TRUE)
 ```
 
 ```{r img-rtables, eval = TRUE, echo = FALSE, out.width = "100%"}
-knitr::include_graphics("figures/showcase/dm_rtables.png")
+.snapshot("dm_rtables.png", "DM summary via rtables/tern")
 ```
 
 ### cards + tfrmt
@@ -227,7 +250,7 @@ as_rtftables(g1, read_meta = TRUE)              # tfrmt's own alignment, untouch
 ```
 
 ```{r img-tfrmt, eval = TRUE, echo = FALSE, out.width = "100%"}
-knitr::include_graphics("figures/showcase/dm_tfrmt.png")
+.snapshot("dm_tfrmt.png", "DM summary via cards + tfrmt, formatted by tfrmt")
 ```
 
 **Way 2 -- rtfreporter formats.** tfrmt does the bare minimum -- just clean
@@ -242,7 +265,7 @@ as_rtftables(g2, read_meta = TRUE, align_count_pct = TRUE)   # rtfreporter align
 ```
 
 ```{r img-tfrmt-rtfreporter, eval = TRUE, echo = FALSE, out.width = "100%"}
-knitr::include_graphics("figures/showcase/dm_tfrmt_rtfreporter.png")
+.snapshot("dm_tfrmt_rtfreporter.png", "DM summary via cards + tfrmt, formatted by rtfreporter")
 ```
 
 The two are deliberately *not* byte-identical. tfrmt anchors the `(` right after
@@ -293,7 +316,7 @@ rtftable(disp, col_header = col_header)
 ```
 
 ```{r img-tplyr, eval = TRUE, echo = FALSE, out.width = "100%"}
-knitr::include_graphics("figures/showcase/dm_tplyr.png")
+.snapshot("dm_tplyr.png", "DM summary via Tplyr")
 ```
 
 ## Two ways to divide the work

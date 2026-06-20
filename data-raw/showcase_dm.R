@@ -6,9 +6,13 @@
 # title in the running header; analysis note / program path / run time in the
 # footer).
 #
-# Each framework writes data-raw/showcase/rtf/dm_<framework>.rtf .  PNG snapshots
-# for the article are created MANUALLY from these RTFs (open in Word) and saved
-# to vignettes/articles/figures/showcase/dm_<framework>.png (same basename).
+# Each framework writes inst/rtf-examples/showcase/dm_<framework>.rtf .  PNG
+# snapshots for the article are created MANUALLY from these RTFs (open the .rtf
+# in Word, export / screenshot) and saved NEXT TO them as
+# inst/rtf-examples/showcase/dm_<framework>.png (same basename).  The article
+# (vignettes/articles/showcase.Rmd) copies whichever PNGs exist into its own
+# figures/ folder at build time and shows a "snapshot not captured yet"
+# placeholder for any that are missing -- so it builds with or without them.
 #
 # Run with:  Rscript data-raw/showcase_dm.R
 # ---------------------------------------------------------------------------
@@ -18,7 +22,7 @@ suppressMessages({
   devtools::load_all(".", quiet = TRUE)   # rtfreporter (dev)
 })
 
-rtf_dir <- "data-raw/showcase/rtf"
+rtf_dir <- "inst/rtf-examples/showcase"
 dir.create(rtf_dir, showWarnings = FALSE, recursive = TRUE)
 
 # -- Common analysis data ---------------------------------------------------
@@ -319,24 +323,9 @@ try_block("cards-tfrmt", local({
               "dm_tfrmt_rtfreporter")
 }))
 
-# -- Placeholder snapshots --------------------------------------------------
-# The article embeds a PNG snapshot per RTF (made MANUALLY in Word).  Until a
-# real snapshot exists, drop a "pending" placeholder so the pkgdown article
-# still builds.  Existing PNGs are NEVER overwritten.
-fig_dir <- "vignettes/articles/figures/showcase"
-dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
-for (rtf in list.files(rtf_dir, pattern = "\\.rtf$", full.names = TRUE)) {
-  nm  <- sub("\\.rtf$", "", basename(rtf))
-  png <- file.path(fig_dir, paste0(nm, ".png"))
-  if (file.exists(png)) next
-  grDevices::png(png, width = 1200, height = 720, res = 120)
-  op <- graphics::par(mar = c(0, 0, 0, 0))
-  graphics::plot.new(); graphics::rect(0, 0, 1, 1, col = "#f4f4f4", border = "#cccccc")
-  graphics::text(0.5, 0.6, paste0("Snapshot pending: ", nm), cex = 1.4)
-  graphics::text(0.5, 0.42, paste0("Open ", nm, ".rtf in Word and replace this PNG"),
-                 cex = 1.0, col = "#666666")
-  graphics::par(op); grDevices::dev.off()
-  cat(sprintf("  placeholder %s\n", png))
-}
-
-cat("Done.\n")
+# -- Snapshots --------------------------------------------------------------
+# The article embeds a PNG snapshot per RTF, made MANUALLY in Word and saved
+# next to each .rtf as inst/rtf-examples/showcase/dm_<framework>.png .  Nothing
+# to generate here: showcase.Rmd copies whatever PNGs exist and shows a textual
+# "snapshot not captured yet" placeholder for any that are missing.
+cat("Done.  Capture PNGs into", rtf_dir, "to replace the article placeholders.\n")
