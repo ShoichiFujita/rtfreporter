@@ -1,5 +1,17 @@
 # rtfreporter (development version)
 
+### Documentation
+
+- New showcase article *"Same report, every table framework"* (#146): the same
+  demographics (DM) report built from gtsummary, gtsummary on a cards/cardx ARD,
+  rtables/tern, tfrmt and Tplyr, each rendered to RTF by rtfreporter --
+  contrasting the two metadata philosophies (let rtfreporter *read* the
+  framework's headers via `read_meta`, vs. *set* them in rtfreporter on a
+  body-only result). The tfrmt example is shown **two ways** -- formatted by
+  tfrmt, and formatted by rtfreporter (`align_count_pct`) from the same table --
+  to contrast who owns the `n (x.x%)` count/percent alignment. Generator in
+  `data-raw/showcase_dm.R`.
+
 ### New features
 
 - New constructors **`rtf_page()`** and **`rtf_default_format()`** turn the

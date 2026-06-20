@@ -1,0 +1,342 @@
+---
+title: "Same report, every table framework"
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
+                      message = FALSE, warning = FALSE, eval = FALSE)
+
+# Show a screenshot of the rendered RTF if it has been captured.  The PNGs sit
+# next to the .rtf files in inst/rtf-examples/showcase/; we copy the one we need
+# into the article's own figures/ folder (so pkgdown serves it) and include it.
+# If the screenshot does not exist yet, a small placeholder is shown instead so
+# the article still builds.
+.snapshot <- function(file, alt = "rendered RTF") {
+  src <- file.path("..", "..", "inst", "rtf-examples", "showcase", file)
+  if (file.exists(src)) {
+    dir.create(file.path("figures", "showcase"), showWarnings = FALSE,
+               recursive = TRUE)
+    dest <- file.path("figures", "showcase", file)
+    file.copy(src, dest, overwrite = TRUE)
+    knitr::include_graphics(dest)
+  } else {
+    knitr::asis_output(sprintf(
+      "<p><em>(snapshot <code>inst/rtf-examples/showcase/%s</code> not captured yet)</em></p>",
+      file))
+  }
+}
+```
+
+```{r setup}
+library(rtfreporter)
+```
+
+The R ecosystem for clinical tables is wonderfully diverse -- **rtables/tern**,
+**tfrmt**, **gtsummary** (on its own or on a **cards/cardx** ARD), **Tplyr**,
+**gt**, **flextable**, **huxtable** -- and teams pick whichever fits their style
+and validation story. What they all have in common is the *last* step: a
+**regulatory RTF** that opens cleanly in Word.
+
+That last step is exactly what `rtfreporter` does, for **all of them**. This
+article builds the **same demographics report from the same data** with several
+frameworks and renders each to RTF through `rtfreporter`. The point is not that
+one framework is best -- it is that **whatever you already use, rtfreporter is
+the RTF back end**.
+
+> The code below is shown for reference (`eval = FALSE`); each table's RTF is
+> rendered offline and the Word output is shown as a screenshot. The full,
+> runnable generator lives in
+> [`data-raw/showcase_dm.R`](https://github.com/ichirio/rtfreporter/blob/main/data-raw/showcase_dm.R),
+> and the rendered `.rtf` files are committed to
+> [`inst/rtf-examples/showcase/`](https://github.com/ichirio/rtfreporter/tree/main/inst/rtf-examples/showcase)
+> so you can open them yourself.
+
+## The data
+
+We use [`pharmaverseadam`](https://pharmaverse.github.io/pharmaverseadam/)'s
+`adsl`, restricted to the three randomised arms, and summarise **age** (as `n`,
+`Mean (SD)`, `Median`, `Min, Max`), an **age category**, **sex** and **race** by
+treatment -- a production-style Table 14.1 demographics layout.
+
+```{r data}
+library(dplyr)
+arm_levels <- c("Placebo", "Xanomeline Low Dose", "Xanomeline High Dose")
+adsl <- pharmaverseadam::adsl |>
+  filter(TRT01A %in% arm_levels) |>
+  mutate(
+    TRT01A = factor(TRT01A, levels = arm_levels),
+    SEX    = factor(SEX, levels = c("M", "F"), labels = c("Male", "Female")),
+    AGEGR  = cut(AGE, breaks = c(-Inf, 65, 81, Inf),
+                 labels = c("<65", "65 - 80", ">80"), right = FALSE),
+    # All race categories as a factor, so even zero-count levels (Asian,
+    # American Indian) appear as "0 (0.0%)" in every framework.
+    RACE   = factor(RACE, levels = c(
+      "WHITE", "BLACK OR AFRICAN AMERICAN", "ASIAN",
+      "AMERICAN INDIAN OR ALASKA NATIVE"),
+      labels = c("White", "Black or African American", "Asian",
+                 "American Indian or Alaska Native")))
+arm_n <- table(adsl$TRT01A)
+```
+
+## The report furniture lives in rtfreporter
+
+The running **header** (sponsor, protocol, page number and the table title) and
+the **footer** (analysis note, program path and run time), the **Letter
+landscape** page -- all of this is set **once, in rtfreporter**, and is identical
+for every framework below. Only the *body* changes from framework to framework.
+
+```{r furniture}
+dm_header <- rtf_header(rows = list(
+  c(l = "Acme Biopharma, Inc.", r = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}"),
+  c(l = "Protocol ABC-2026-001", r = "Status: Draft"),
+  c(c = "Table 14.1.1"),
+  c(c = "Summary of Demographic and Baseline Characteristics"),
+  c(c = "Safety Population"),
+  c(c = "")))
+dm_footer <- rtf_footer(rows = list(
+  c(l = "Note: Percentages are based on the number of non-missing subjects in each treatment group."),
+  c(l = "Program: /prod/abc/tfl/t_14_1_1.R", r = "Generated: 2026-06-17 09:14"),
+  c(l = "Source: ADSL", r = "CONFIDENTIAL")))
+
+# Every framework feeds its result to the same call.  `align_count_pct` pads the
+# "n (xx.x%)" cells to a common width so they line up in the fixed-width font;
+# the generator also gives every page the same column header (with the arm Ns),
+# 40 : 20 : 20 : 20 widths, centred data columns, and a blank row between groups
+# and at the top / bottom (see data-raw/showcase_dm.R).
+doc <- rtf_document(page = list(paper_size = "letter", orientation = "landscape")) |>
+  rtf_section(page = 1, secinfo = list(header = dm_header, footer = dm_footer)) |>
+  rtf_tables(as_rtftables(tbl, align_count_pct = TRUE))   # `tbl` = framework table
+generate_rtfreport(doc, "dm.rtf", overwrite = TRUE)
+```
+
+# Demographics (DM)
+
+## Build it once, let rtfreporter read it
+
+These frameworks already carry the column labels, spanning headers, alignment
+and cell formatting. `as_rtftables(read_meta = TRUE)` (the default) **reads that
+metadata** straight off the object -- you do not re-specify the header.
+
+### gtsummary
+
+```{r gtsummary}
+library(gtsummary)
+tbl <- adsl |>
+  select(TRT01A, AGE, AGEGR, SEX, RACE) |>
+  tbl_summary(
+    by = TRT01A,
+    type = list(AGE ~ "continuous2"),                       # the 4-line age block
+    label = list(AGE = "Age (years)", AGEGR = "Age category",
+                 SEX = "Sex", RACE = "Race"),
+    statistic = list(
+      AGE ~ c("{N_nonmiss}", "{mean} ({sd})", "{median}", "{min}, {max}"),
+      all_categorical() ~ "{n} ({p}%)"),
+    digits = list(AGE ~ list(N_nonmiss = 0, mean = 1, sd = 2,
+                             median = 1, min = 0, max = 0))) |>
+  modify_header(all_stat_cols() ~ "**{level}**  \nN = {n}")
+
+as_rtftables(tbl, read_meta = TRUE)   # column labels + Ns read from gtsummary
+```
+
+```{r img-gtsummary, eval = TRUE, echo = FALSE, out.width = "100%"}
+.snapshot("dm_gtsummary.png", "DM summary via gtsummary")
+```
+
+### gtsummary on a cards / cardx ARD
+
+The modern, ARD-first workflow: compute an **Analysis Results Dataset** with
+`cards`, summarise it with `gtsummary::tbl_ard_summary()`, then hand the table
+to `rtfreporter` exactly as above.
+
+```{r gtsummary-ard}
+library(cards); library(gtsummary)
+ard <- ard_stack(
+  data = adsl, .by = TRT01A,
+  ard_continuous(variables = AGE,
+                 statistic = ~ list(N = length, mean = mean, sd = sd,
+                                    median = median, min = min, max = max)),
+  ard_categorical(variables = c(AGEGR, SEX, RACE)), .total_n = TRUE)
+
+tbl <- tbl_ard_summary(
+  ard, by = TRT01A,
+  type = list(AGE = "continuous2"),
+  label = list(AGE = "Age (years)", AGEGR = "Age category",
+               SEX = "Sex", RACE = "Race"),
+  statistic = list(AGE = c("{N}", "{mean} ({sd})", "{median}", "{min}, {max}"),
+                   all_categorical() ~ "{n} ({p}%)"))
+
+as_rtftables(tbl, read_meta = TRUE)
+```
+
+```{r img-gtsummary-ard, eval = TRUE, echo = FALSE, out.width = "100%"}
+.snapshot("dm_gtsummary_ard.png", "DM summary via gtsummary on a cards/cardx ARD")
+```
+
+### rtables / tern
+
+`tern::analyze_vars()` produces a `VTableTree`; `rtfreporter` reads its row
+labels, column counts and spanning structure via `formatters::matrix_form()`.
+
+```{r rtables}
+library(rtables); library(tern)
+lyt <- basic_table(show_colcounts = TRUE) |>
+  split_cols_by("TRT01A") |>
+  analyze_vars(
+    vars = c("AGE", "AGEGR", "SEX", "RACE"),
+    var_labels = c(AGE = "Age (years)", AGEGR = "Age category",
+                   SEX = "Sex", RACE = "Race"),
+    .stats = c("n", "mean_sd", "median", "range", "count_fraction"))
+tbl <- build_table(lyt, adsl)
+
+as_rtftables(tbl, read_meta = TRUE)
+```
+
+```{r img-rtables, eval = TRUE, echo = FALSE, out.width = "100%"}
+.snapshot("dm_rtables.png", "DM summary via rtables/tern")
+```
+
+### cards + tfrmt
+
+The *same* cards ARD as above, rendered with **tfrmt** instead of gtsummary --
+so the one ARD drives two different formatters. The ARD is reshaped to tfrmt's
+`group / label / column / param / value` long form, a `tfrmt` spec formats it,
+and `print_to_gt()` produces the `gt` that `rtfreporter` reads.
+
+```{r cards-tfrmt}
+library(cards); library(tfrmt)
+ard <- ard_stack(
+  data = adsl, .by = TRT01A,
+  ard_continuous(variables = AGE,
+                 statistic = ~ list(n = length, Mean = mean, SD = sd,
+                                    Median = median, Min = min, Max = max)),
+  ard_categorical(variables = c(AGEGR, SEX, RACE)))
+
+# reshape the ARD to tfrmt's long form: group / label / column / param / value
+long <- as.data.frame(ard) |> ...
+
+# Everything except the categorical "n (pct%)" cell is shared; only the
+# count/percent formatting -- and who aligns it -- changes between the two
+# renders below.
+tfrmt_spec <- function(count_pct) tfrmt(
+  group = group, label = label, column = column, param = param, value = value,
+  body_plan = body_plan(
+    frmt_structure(".default", ".default", frmt("xx.x")),
+    frmt_structure("Age (years)", "n", frmt("xx")),
+    frmt_structure(".default", "Mean (SD)",
+                   frmt_combine("{Mean} ({SD})",
+                                Mean = frmt("xx.x"), SD = frmt("xx.xx"))),
+    frmt_structure(c("Age category", "Sex", "Race"), ".default", count_pct))
+```
+
+#### Who formats the `n (xx.x%)` cell?
+
+This is a nice place to see the same table formatted **two ways**, because the
+count/percent cell is exactly where formatters differ.
+
+A small but important detail first: write the percent as **`x.x`**, not `xx.x`.
+`frmt("xx.x")` right-pads the integer part, so a one-digit percent prints with a
+leading space *inside* the parentheses -- `( 3.5%)`. `frmt("x.x")` gives a clean
+`(3.5%)`.
+
+**Way 1 -- tfrmt formats and aligns.** The percent uses `x.x`; the count is
+padded to `xx`. `rtfreporter` reads the strings and renders them *as-is*
+(`align_count_pct` left off):
+
+```{r tfrmt-self}
+g1 <- print_to_gt(
+  tfrmt_spec(frmt_combine("{n} ({pct}%)", n = frmt("xx"), pct = frmt("x.x"))),
+  long)
+as_rtftables(g1, read_meta = TRUE)              # tfrmt's own alignment, untouched
+```
+
+```{r img-tfrmt, eval = TRUE, echo = FALSE, out.width = "100%"}
+.snapshot("dm_tfrmt.png", "DM summary via cards + tfrmt, formatted by tfrmt")
+```
+
+**Way 2 -- rtfreporter formats.** tfrmt does the bare minimum -- just clean
+`n (x.x%)` strings, no count padding -- and `rtfreporter` re-aligns them with
+`align_count_pct = TRUE`:
+
+```{r tfrmt-rtfreporter}
+g2 <- print_to_gt(
+  tfrmt_spec(frmt_combine("{n} ({pct}%)", n = frmt("x"), pct = frmt("x.x"))),
+  long)
+as_rtftables(g2, read_meta = TRUE, align_count_pct = TRUE)   # rtfreporter aligns
+```
+
+```{r img-tfrmt-rtfreporter, eval = TRUE, echo = FALSE, out.width = "100%"}
+.snapshot("dm_tfrmt_rtfreporter.png", "DM summary via cards + tfrmt, formatted by rtfreporter")
+```
+
+The two are deliberately *not* byte-identical. tfrmt anchors the `(` right after
+the count, so the percentages stay left-aligned within the parentheses.
+`rtfreporter`'s `align_count_pct` instead right-aligns the whole parenthetical so
+the **decimal points line up**, and drops the redundant decimal at 100%
+(`100%`, not `100.0%`). Use whichever convention your SAP calls for -- the point
+is that you can hand `rtfreporter` already-formatted strings *or* let it own the
+count/percent alignment, from the very same tfrmt table.
+
+## Shape the body, set the look in rtfreporter
+
+Some frameworks return just the **formatted body** -- the numbers, as strings --
+and leave presentation to you. Here you do the opposite of the section above:
+the framework transposes/summarises, and **`rtfreporter` supplies the column
+header, alignment and grouping**.
+
+### Tplyr
+
+`Tplyr::build()` returns a data frame of formatted strings (plus ordering
+helpers). We reshape it into a labelled body and pass the column header to
+`rtftable()` ourselves.
+
+```{r tplyr}
+library(Tplyr)
+built <- tplyr_table(adsl, TRT01A) |>
+  add_layer(group_desc(AGE, by = "Age (years)") |>
+              set_format_strings("n"         = f_str("xx", n),
+                                 "Mean (SD)" = f_str("xx.x (xx.xx)", mean, sd),
+                                 "Median"    = f_str("xx.x", median),
+                                 "Min, Max"  = f_str("xx, xx", min, max))) |>
+  # "x.x" (not "xx.x") so a one-digit percent has no leading space inside the
+  # parens -- a clean " 1 (1.2%)" that align_count_pct can re-align.
+  add_layer(group_count(AGEGR, by = "Age category") |>
+              set_format_strings(f_str("xx (x.x%)", n, pct))) |>
+  add_layer(group_count(SEX, by = "Sex") |>
+              set_format_strings(f_str("xx (x.x%)", n, pct))) |>
+  add_layer(group_count(RACE, by = "Race") |>
+              set_format_strings(f_str("xx (x.x%)", n, pct))) |>
+  build()
+
+# ... reshape `built` into `disp`: a label column (group headers + indented
+#     stats, a "Number of Subjects" row on top) and one column per arm ...
+
+# Metadata lives HERE, in rtfreporter -- not in Tplyr:
+col_header <- c("Characteristic", paste0(arm_levels, "\nN = ", arm_n))
+rtftable(disp, col_header = col_header)
+```
+
+```{r img-tplyr, eval = TRUE, echo = FALSE, out.width = "100%"}
+.snapshot("dm_tplyr.png", "DM summary via Tplyr")
+```
+
+## Two ways to divide the work
+
+The two sections above are the key choice when wiring any framework to
+`rtfreporter`:
+
+| | **Build-and-read** | **Transpose-and-set** |
+|---|---|---|
+| Who owns the column header / spanning / formatting? | the table framework | `rtfreporter` |
+| How rtfreporter gets it | `as_rtftables(read_meta = TRUE)` | you pass `col_header`, `col_spec`, ... |
+| Best for | metadata-rich frameworks (rtables/tern, tfrmt, gtsummary) | body-only frameworks (Tplyr, tidytlg) |
+| Trade-off | least code; depends on the framework's metadata | full control; you re-state the look once |
+
+Both produce the **same RTF**. Pick whichever keeps the work where it already
+lives: if your framework already knows the headers, let `rtfreporter` read them;
+if it only knows the numbers, let `rtfreporter` dress them.
+
+---
+
+*Coming next: the same treatment for an **Adverse Events (AE)** summary (SOC / PT
+with spanning headers), and additional frameworks (tidytlg, flextable,
+huxtable).*
