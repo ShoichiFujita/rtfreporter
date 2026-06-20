@@ -287,14 +287,16 @@ rtf_config <- function(doc, font_table = NULL, color_table = NULL, page = NULL,
 #'   the page-level titles / footnotes flow through automatically (via the
 #'   `rtf_titles` / `rtf_footnotes` attributes) with `read_gt` left at its
 #'   default.  Allowed values:
-#'   * `FALSE` (default) -- treat `gt_tbl` items as a rendered body only;
-#'     ignore titles / labels / source notes.
-#'   * `TRUE` -- read the render-relevant metadata: column labels,
-#'     per-column alignment, spanning headers, widths, plus the page-level
-#'     title / subtitle and footnote / source notes.  See [as_rtftables()]
-#'     for the full *What is carried, by source* table.
-#'   * A character vector of tokens -- selective opt-in.  See
-#'     [as_rtftables()] for the token list.
+#'   \describe{
+#'     \item{`FALSE` (default)}{treat `gt_tbl` items as a rendered body only;
+#'       ignore titles / labels / source notes.}
+#'     \item{`TRUE`}{read the render-relevant metadata: column labels,
+#'       per-column alignment, spanning headers, widths, plus the page-level
+#'       title / subtitle and footnote / source notes.  See [as_rtftables()]
+#'       for the full *What is carried, by source* table.}
+#'     \item{a character vector of tokens}{selective opt-in.  See
+#'       [as_rtftables()] for the token list.}
+#'   }
 #'   Explicit `rtf_tables()` / `rtf_titles()` / `rtf_footnotes()`
 #'   values always override gt-extracted ones.
 #'

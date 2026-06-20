@@ -57,6 +57,10 @@
   `rtf_section()` (the `secinfo` keys + a self-contained example), and
   `rtf_header()` / `rtf_footer()` (the `l` / `c` / `r` cell rule + page-number
   tokens). More functions to follow.
+- Continued the sweep (#150): the `read_gt` token list in `rtf_tables()`, the
+  accepted row forms in `rtf_col_header()`, and the `cover` fields / `toc`
+  shapes / `toc_page_numbering` options in `assemble_rtf()` now use `\describe{}`
+  lists instead of plain bullet prose.
 
 
 # rtfreporter 0.4.0
