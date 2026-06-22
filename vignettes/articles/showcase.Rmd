@@ -351,10 +351,11 @@ by treatment group, shown as `n (xx.x%)`:
 - Each level is an **independent distinct-subject count**: the SOC count sits on
   the **SOC row itself** and counts a subject once even if they had several PTs
   in that class, so a SOC count is **not** the sum of its PTs.
-- Limited to PTs occurring in **>= 2.5% of subjects in any group** (the overall /
+- Limited to PTs occurring in **>= 3% of subjects in any group** (the overall /
   SOC counts are still over *all* TEAEs), so the table is a readable couple of
   pages.
-- Rows ordered by **subject count, descending**; ties broken **alphabetically**.
+- **SOCs are listed alphabetically**; within each SOC the **PTs are ordered by
+  subject count (all arms), descending**, ties broken **alphabetically**.
 
 ## rtables / tern
 
@@ -376,10 +377,14 @@ adae <- pharmaverseadam::adae |>
          AESOC   = factor(AESOC,   levels = sort(unique(AESOC))),     # ties A->Z
          AEDECOD = factor(AEDECOD, levels = sort(unique(AEDECOD))))
 
-# distinct subjects with any AE in a SOC, per column -- shown on the SOC row
+# distinct subjects with any AE in a SOC, per column -- shown on the SOC row.
+# A zero count prints as a bare "0" (no parens), exactly like count_occurrences()
+# renders the PT rows, so both levels format a zero the same way.
 soc_count <- function(df, labelstr, .N_col, ...) {
   n <- length(unique(df$USUBJID))
-  in_rows(rcell(c(n, n / .N_col), format = "xx (xx.x%)"), .labels = labelstr)
+  cell <- if (n == 0L) rcell(0L, format = "xx")
+          else         rcell(c(n, n / .N_col), format = "xx (xx.x%)")
+  in_rows(cell, .labels = labelstr)
 }
 
 ae <- basic_table(show_colcounts = TRUE) |>
@@ -391,8 +396,9 @@ ae <- basic_table(show_colcounts = TRUE) |>
   summarize_row_groups(cfun = soc_count) |>              # SOC count on the SOC row
   count_occurrences(vars = "AEDECOD", .indent_mods = 1L) |>
   build_table(df = adae, alt_counts_df = adsl) |>
-  prune_table(keep_rows(has_fraction_in_any_col(atleast = 0.025))) |>   # >= 2.5%
-  sort_at_path(path = c("AESOC"),                 scorefun = cont_n_allcols) |>
+  prune_table(keep_rows(has_fraction_in_any_col(atleast = 0.03))) |>    # >= 3%
+  # SOCs stay alphabetical (factor order); only the PTs within each SOC are
+  # ordered by subject count (all arms), ties A -> Z.
   sort_at_path(path = c("AESOC", "*", "AEDECOD"), scorefun = score_occurrences)
 
 # group_force = fill each page to max_rows and repeat a split SOC with "(Cont.)"

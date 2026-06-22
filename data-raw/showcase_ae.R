@@ -60,7 +60,7 @@ ae_header <- function() rtf_header(rows = list(
   c(l = sponsor,  r = "Page {AUTO_PAGE} of {AUTO_TOTAL_PAGES}"),
   c(l = protocol, r = "Status: Draft"),
   c(c = "Table 14.3.1"),
-  c(c = "Treatment-Emergent Adverse Events Occurring in >= 2.5% of Subjects in Any Treatment Group"),
+  c(c = "Treatment-Emergent Adverse Events Occurring in >= 3% of Subjects in Any Treatment Group"),
   c(c = "by System Organ Class and Preferred Term -- Safety Population"),
   c(c = "")
 ))
@@ -74,7 +74,7 @@ ae_footer <- function(program) rtf_footer(rows = list(
 ae_col_header <- c("System Organ Class /\nPreferred Term",
                    paste0(arm_levels, "\nN = ", as.integer(arm_n)))
 ae_col_spec <- c(
-  list(list(col = 1L, align = "left",   header_align = "center")),
+  list(list(col = 1L, align = "left",   header_align = "left")),
   lapply(2:4, function(j) list(col = j, align = "center", header_align = "center")))
 ae_widths   <- c(0.52, 0.16, 0.16, 0.16)
 AE_MAX_ROWS <- 32L
@@ -117,9 +117,13 @@ try_block("tern", local({
     mutate(AESOC   = factor(AESOC,   levels = sort(unique(AESOC))),
            AEDECOD = factor(AEDECOD, levels = sort(unique(AEDECOD))))
   # Content function: distinct subjects with any AE in this SOC, per column.
+  # A zero count prints as a bare "0" (no parentheses), matching how
+  # count_occurrences() renders the PT rows -- so both levels format 0 the same.
   soc_count <- function(df, labelstr, .N_col, ...) {
     n <- length(unique(df$USUBJID))
-    in_rows(rcell(c(n, n / .N_col), format = "xx (xx.x%)"), .labels = labelstr)
+    cell <- if (n == 0L) rcell(0L, format = "xx")
+            else         rcell(c(n, n / .N_col), format = "xx (xx.x%)")
+    in_rows(cell, .labels = labelstr)
   }
   lyt <- basic_table(show_colcounts = TRUE) |>
     split_cols_by("TRT01A") |>
@@ -129,9 +133,10 @@ try_block("tern", local({
                   split_fun = drop_split_levels) |>
     summarize_row_groups(cfun = soc_count) |>
     count_occurrences(vars = "AEDECOD", .indent_mods = 1L)
+  # SOC (level 1) stays in alphabetical order (the factor levels above); only the
+  # PTs within each SOC are ordered by subject count (all arms), ties A -> Z.
   tbl <- build_table(lyt, df = adae_f, alt_counts_df = adsl) |>
-    prune_table(keep_rows(has_fraction_in_any_col(atleast = 0.025))) |>
-    sort_at_path(path = c("AESOC"),               scorefun = cont_n_allcols) |>
+    prune_table(keep_rows(has_fraction_in_any_col(atleast = 0.03))) |>
     sort_at_path(path = c("AESOC", "*", "AEDECOD"), scorefun = score_occurrences)
   pages <- as_rtftables(tbl, split = "group_force", max_rows = AE_MAX_ROWS,
                         blank_rows = "between_groups",
