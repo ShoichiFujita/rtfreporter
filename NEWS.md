@@ -14,9 +14,12 @@
 - Showcase gained an **Adverse Events (AE)** section (#146): subjects with a
   treatment-emergent AE by System Organ Class / Preferred Term. The **SOC-level
   count sits on the SOC row itself** (an independent distinct-subject count, not
-  the sum of its PTs), with the overall any-AE on top and PTs (in >= 2.5% of any
-  group) indented under each SOC; ordered by subject count then alphabetically.
-  Built with rtables/tern (`summarize_row_groups()` for the SOC row) and
+  the sum of its PTs), with the overall any-AE on top and PTs (in >= 3% of any
+  group) indented under each SOC. SOCs are listed alphabetically; PTs within a
+  SOC are ordered by subject count (all arms) then alphabetically. Zero cells
+  render as a bare `0` at both levels, and the row-label column header is
+  left-aligned. Built with rtables/tern (`summarize_row_groups()` for the SOC row)
+  and
   **paginated** by rtfreporter with `split = "group_force"` so a class split
   across a page repeats with `(Cont.)`. Generator in `data-raw/showcase_ae.R`.
   (cards+tfrmt / Tplyr / gtsummary AE variants to follow.)
