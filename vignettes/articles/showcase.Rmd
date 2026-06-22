@@ -472,8 +472,39 @@ as_rtftables(tbl, read_meta = TRUE, split = "group_force", max_rows = 32,
 > The three AE tables above are the **same report** -- same numbers, same SOC /
 > PT order -- built three different ways and all rendered by `rtfreporter`.
 
+## Tplyr (transpose-and-set)
+
+`Tplyr` returns **formatted strings**; as with the DM table we do the
+*transpose-and-set* here -- Tplyr counts the distinct subjects, and we assemble
+the layout (overall row, SOC count on the SOC row, indented PTs) and hand the
+column header to `rtfreporter`.
+
+```{r ae-tplyr}
+library(Tplyr)
+# distinct-subject counts: one layer for SOC totals, one for PT-by-SOC
+soc <- tplyr_table(adae, TRT01A) |> set_pop_data(adsl) |> set_pop_treat_var(TRT01A) |>
+  add_layer(group_count(AESOC) |> set_distinct_by(USUBJID) |>
+              set_format_strings(f_str("xx (xx.x%)", distinct_n, distinct_pct))) |>
+  build()
+pt <- tplyr_table(adae, TRT01A) |> set_pop_data(adsl) |> set_pop_treat_var(TRT01A) |>
+  add_layer(group_count(AEDECOD, by = vars(AESOC)) |> set_distinct_by(USUBJID) |>
+              set_format_strings(f_str("xx (xx.x%)", distinct_n, distinct_pct))) |>
+  build()
+
+# ... keep real SOC/PT pairs and PTs >= 3%, then assemble `disp`: an overall
+#     row, each SOC row (its count), and its PTs indented in subject-count order
+#     (see data-raw/showcase_ae.R) ...
+
+# Metadata lives HERE, in rtfreporter -- not in Tplyr:
+as_rtftables(disp, col_header = ae_col_header, split = "group_force",
+             max_rows = 32, blank_rows = "between_groups", cell_format = fmt_ae)
+```
+
+```{r img-ae-tplyr, eval = TRUE, echo = FALSE, out.width = "100%"}
+.snapshot("ae_tplyr.png", "AE summary via Tplyr (transpose-and-set)")
+```
+
 ---
 
-*Coming next, under the same showcase: the AE table in the **transpose-and-set**
-style (**Tplyr**) and via **cards + tfrmt**, then real Word snapshots, plus
-flextable / huxtable variants.*
+*Coming next, under the same showcase: the AE table via **cards + tfrmt**, then
+real Word snapshots, plus flextable / huxtable variants.*
