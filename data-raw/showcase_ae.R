@@ -103,6 +103,15 @@ try_block <- function(name, expr) {
   dplyr::count(AEDECOD, name = "tot")
 .pt_order <- .pt_tot |> dplyr::arrange(dplyr::desc(tot), AEDECOD) |>
   dplyr::pull(AEDECOD) |> as.character()
+# PTs kept in the table: >= 3% of subjects in any treatment group.
+.keep_pt <- adae |> dplyr::distinct(USUBJID, TRT01A, AEDECOD) |>
+  dplyr::count(TRT01A, AEDECOD, name = "n") |>
+  dplyr::mutate(p = 100 * n / as.integer(arm_n[as.character(TRT01A)])) |>
+  dplyr::group_by(AEDECOD) |> dplyr::summarise(mx = max(p), .groups = "drop") |>
+  dplyr::filter(mx >= 3) |> dplyr::pull(AEDECOD) |> as.character()
+# Real SOC / PT pairs (a PT belongs to exactly one SOC).
+.soc_pt <- adae |> dplyr::distinct(AESOC, AEDECOD) |>
+  dplyr::mutate(dplyr::across(dplyr::everything(), as.character))
 
 # Cell format shared by the read-meta frameworks: collapse a zero cell
 # "0 (0.0%)" to a bare "0" (so SOC and PT zeros match), then align the column.
@@ -256,6 +265,66 @@ try_block("gtsummary-ARD", local({
                         col_header = ae_col_header, col_spec = ae_col_spec,
                         col_rel_width = ae_widths, row_height_twips = 200)
   render_ae(pages, "ae_gtsummary_ard")
+}))
+
+# ===========================================================================
+# D. Tplyr  -- transpose-and-set (body from Tplyr; metadata set in rtfreporter)
+# ===========================================================================
+# Tplyr counts the distinct subjects; we assemble the layout ourselves (the
+# transpose-and-set philosophy): an overall any-AE row, then per SOC the SOC
+# count on the SOC row, then the indented PT rows.  The column header, widths
+# and alignment are supplied to rtfreporter, not read from the framework.
+try_block("Tplyr", local({
+  library(Tplyr)
+  varcols <- paste0("var1_", arm_levels)
+  rn <- function(df) df |>
+    dplyr::rename_with(~ arm_levels, dplyr::all_of(varcols))
+
+  soc <- tplyr_table(adae, TRT01A) |>
+    set_pop_data(adsl) |> set_pop_treat_var(TRT01A) |>
+    add_layer(group_count(AESOC) |> set_distinct_by(USUBJID) |>
+                set_format_strings(f_str("xx (xx.x%)", distinct_n, distinct_pct))) |>
+    build() |> dplyr::transmute(AESOC = as.character(row_label1),
+                                dplyr::across(dplyr::all_of(varcols))) |> rn()
+  pt <- tplyr_table(adae, TRT01A) |>
+    set_pop_data(adsl) |> set_pop_treat_var(TRT01A) |>
+    add_layer(group_count(AEDECOD, by = vars(AESOC)) |> set_distinct_by(USUBJID) |>
+                set_format_strings(f_str("xx (xx.x%)", distinct_n, distinct_pct))) |>
+    build() |> dplyr::transmute(AESOC = as.character(row_label1),
+                                AEDECOD = as.character(row_label2),
+                                dplyr::across(dplyr::all_of(varcols))) |>
+    dplyr::semi_join(.soc_pt, by = c("AESOC", "AEDECOD")) |>
+    dplyr::filter(AEDECOD %in% .keep_pt) |> rn()
+
+  any_n <- adae |> dplyr::distinct(TRT01A, USUBJID) |> dplyr::count(TRT01A)
+  ov <- vapply(arm_levels, function(a) {
+    n <- any_n$n[match(a, as.character(any_n$TRT01A))]
+    sprintf("%d (%.1f%%)", n, 100 * n / as.integer(arm_n[a]))
+  }, character(1))
+
+  rows <- list(setNames(data.frame(ANY_AE, t(ov), check.names = FALSE,
+                                   stringsAsFactors = FALSE),
+                        c("Characteristic", arm_levels)))
+  for (s in sort(unique(pt$AESOC))) {
+    sc <- soc |> dplyr::filter(AESOC == s)
+    rows[[length(rows) + 1]] <- setNames(
+      data.frame(s, sc[, arm_levels], check.names = FALSE, stringsAsFactors = FALSE),
+      c("Characteristic", arm_levels))
+    pts <- pt |> dplyr::filter(AESOC == s) |>
+      dplyr::arrange(match(AEDECOD, .pt_order))
+    if (nrow(pts))
+      rows[[length(rows) + 1]] <- setNames(
+        data.frame(paste0("    ", pts$AEDECOD), pts[, arm_levels],
+                   check.names = FALSE, stringsAsFactors = FALSE),
+        c("Characteristic", arm_levels))
+  }
+  disp <- dplyr::bind_rows(rows)
+
+  pages <- as_rtftables(disp, col_header = ae_col_header, split = "group_force",
+                        max_rows = AE_MAX_ROWS, blank_rows = "between_groups",
+                        cell_format = fmt_ae_cell, col_spec = ae_col_spec,
+                        col_rel_width = ae_widths, row_height_twips = 200)
+  render_ae(pages, "ae_tplyr")
 }))
 
 cat("Done.  Capture PNGs into", rtf_dir, "to replace the article placeholders.\n")
