@@ -43,6 +43,7 @@ Suggests:
     tidyr,
     cards,
     forcats,
+    labelled,
     random.cdisc.data,
     pharmaverseadam,
     writexl,
