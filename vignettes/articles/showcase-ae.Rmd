@@ -50,9 +50,9 @@ table; this article tackles a longer table that `rtfreporter` must **paginate**.
 > the data and the shared rtfreporter header / footer / column spec), then copy
 > any single framework block: it builds that framework's table and then calls
 > rtfreporter **directly** -- `as_rtftables()`, `rtf_document()`,
-> `generate_rtfreport()` -- to write its `.rtf`. (A few sibling blocks share a
-> small sort rule or ordering vector, each defined at its first use and flagged
-> there.) We render with `eval = FALSE` in the
+> `generate_rtfreport()` -- to write its `.rtf`. (The data block also defines the
+> shared `AE_SORT` rule and PT orderings, so a framework block runs on its own
+> once the data block has.) We render with `eval = FALSE` in the
 > article itself -- so pkgdown does not have to run the entire framework stack --
 > and show the Word output as a screenshot. The same generator also lives in
 > [`data-raw/showcase_ae.R`](https://github.com/ichirio/rtfreporter/blob/main/data-raw/showcase_ae.R),
@@ -74,8 +74,7 @@ by treatment group, shown as `n (xx.x%)`:
   the **SOC row itself** and counts a subject once even if they had several PTs
   in that class, so a SOC count is **not** the sum of its PTs.
 - Limited to PTs occurring in **>= 3% of subjects in any group** (the overall /
-  SOC counts are still over *all* TEAEs), so the table is a readable couple of
-  pages.
+  SOC counts are still over *all* TEAEs), so the table is a readable few pages.
 - **SOCs are listed alphabetically**; within each SOC the **PTs are ordered by
   subject count (all arms), descending**, ties broken **alphabetically**.
 
@@ -83,8 +82,10 @@ by treatment group, shown as `n (xx.x%)`:
 
 We use [`pharmaverseadam`](https://pharmaverse.github.io/pharmaverseadam/)'s
 `adsl` (for the treatment groups and their denominators) and `adae`, both
-restricted to the three randomised arms. The orderings and filters that only
-*some* frameworks need are defined further down, beside the blocks that use them.
+restricted to the three randomised arms. This block also defines the canonical
+sort rule and the PT orderings/filters that the framework blocks reuse -- each
+commented with *which* blocks use it -- so that, once this block has run, any one
+framework block below is self-contained.
 
 ```{r ae-data}
 library(dplyr)
@@ -99,6 +100,27 @@ adae <- pharmaverseadam::adae |>
   filter(TRT01A %in% arm_levels, TRTEMFL == "Y") |>
   mutate(TRT01A = factor(TRT01A, levels = arm_levels))
 ANY_AE <- "Subjects with any adverse event"
+
+# AE_SORT: native per-hierarchy-level sort rule -- SOCs alphanumeric, PTs by total
+# distinct-subject count (all arms) descending, ties A -> Z.  USED BY the
+# gtsummary-family blocks: gtsummary, cards + gtsummary, and flextable / huxtable.
+AE_SORT <- list(AESOC ~ "alphanumeric", AEDECOD ~ "descending")
+
+# The next three are USED BY the transpose-and-set blocks (Tplyr and cards +
+# tfrmt), which assemble the body themselves and so need the orderings as data:
+#   .pt_order = canonical PT order (subject count desc, ties A -> Z);
+#   .keep_pt  = PTs kept (>= 3% of subjects in any arm);
+#   .soc_pt   = the real SOC / PT pairs (a PT belongs to exactly one SOC).
+.pt_order <- adae |> distinct(USUBJID, AEDECOD) |>
+  count(AEDECOD, name = "tot") |>
+  arrange(desc(tot), AEDECOD) |> pull(AEDECOD) |> as.character()
+.keep_pt <- adae |> distinct(USUBJID, TRT01A, AEDECOD) |>
+  count(TRT01A, AEDECOD, name = "n") |>
+  mutate(p = 100 * n / as.integer(arm_n[as.character(TRT01A)])) |>
+  group_by(AEDECOD) |> summarise(mx = max(p), .groups = "drop") |>
+  filter(mx >= 3) |> pull(AEDECOD) |> as.character()
+.soc_pt <- adae |> distinct(AESOC, AEDECOD) |>
+  mutate(across(everything(), as.character))
 ```
 
 ## The shared rtfreporter furniture, defined once
@@ -117,7 +139,8 @@ ae_col_spec <- c(
   list(list(col = 1L, align = "left",   header_align = "left")),
   lapply(2:4, function(j) list(col = j, align = "center", header_align = "center")))
 ae_widths   <- c(0.52, 0.16, 0.16, 0.16)
-AE_MAX_ROWS <- 30L   # rows per page; tuned so page 1 fits when Word re-renders
+AE_MAX_ROWS <- 16L   # rows/page: small enough that a SOC is split across a page
+                     # (so "(Cont.)" shows) and the table runs to 3 pages
 
 # Running header and the shared footer (one footer for every framework).
 ae_header <- rtf_header(rows = list(
@@ -132,12 +155,13 @@ ae_footer <- rtf_footer(rows = list(
   c(l = "Program: /prod/abc/tfl/t_14_3_1_ae.R", r = "Generated: 2026-06-17 09:14"),
   c(l = "Source: ADSL, ADAE", r = "CONFIDENTIAL")))
 
-# fmt_ae(): cell formatter used by every framework EXCEPT tern (which formats its
-# own zeros). Collapse a zero cell "0 (0.0%)" to a bare "0" (so SOC and PT zeros
-# match tern), then align.
+# fmt_ae(): cell formatter used by EVERY framework (tern included). Expand a bare
+# zero "0" to "0 (0.0%)" so it lines up with the count/percent cells -- a bare "0"
+# is otherwise left ragged by the aligner -- then align the column. tern's
+# count_occurrences() emits bare zeros; gtsummary / tfrmt / Tplyr already emit
+# "0 (0.0%)", so for them the expansion is a no-op.
 fmt_ae <- function(x, nbsp = " ") {
-  z <- grepl("^[[:space:]]*0[[:space:]]*\\([[:space:]]*0(\\.0)?%?[[:space:]]*\\)[[:space:]]*$", x)
-  x[z] <- "0"
+  x[trimws(x) == "0"] <- "0 (0.0%)"
   fmt_count_paren_bare(x, nbsp = nbsp)
 }
 ```
@@ -178,8 +202,9 @@ adae_f <- adae |>
          AEDECOD = factor(AEDECOD, levels = sort(unique(AEDECOD))))
 
 # Distinct subjects with any AE in a SOC, per column -- shown on the SOC row.
-# A zero count prints as a bare "0" (no parens), exactly like count_occurrences()
-# renders the PT rows, so both levels format a zero the same way.
+# Zero counts are emitted bare ("0") here and by count_occurrences() for the PT
+# rows; the shared fmt_ae() later expands every "0" to "0 (0.0%)" so the column
+# aligns.
 soc_count <- function(df, labelstr, .N_col, ...) {
   n <- length(unique(df$USUBJID))
   cell <- if (n == 0L) rcell(0L, format = "xx")
@@ -203,7 +228,7 @@ ae <- basic_table(show_colcounts = TRUE) |>
 
 # group_force = fill each page to max_rows and repeat a split SOC with "(Cont.)"
 pages <- as_rtftables(ae, read_meta = FALSE, split = "group_force", max_rows = AE_MAX_ROWS,
-                      blank_rows = "between_groups", cell_format = fmt_count_paren_bare,
+                      blank_rows = "between_groups", cell_format = fmt_ae,
                       col_header = ae_col_header, col_spec = ae_col_spec,
                       col_rel_width = ae_widths, row_height_twips = 200)
 doc <- rtf_document(page = list(paper_size = "letter", orientation = "landscape")) |>
@@ -226,17 +251,13 @@ renders them in order, and the running header's `{AUTO_PAGE}` /
 `overall_row = TRUE` is the any-AE row, each SOC row carries its own subject
 count, and PTs are nested beneath. `filter_hierarchical()` keeps the >= 3% PTs,
 and `sort_hierarchical()` puts them in the canonical order natively -- its `sort`
-takes one rule **per hierarchy level** (`AE_SORT`, defined at the top of this
-block: SOCs alphabetical, PTs by subject count, ties A -> Z). The overall row is
-labelled to match tern via the native `label` argument, and `fmt_ae()` collapses
-a zero cell to a bare `0`.
+takes one rule **per hierarchy level** (`AE_SORT`, from the data block: SOCs
+alphabetical, PTs by subject count, ties A -> Z). The overall row is labelled to
+match tern via the native `label` argument, and the shared `fmt_ae()` expands a
+zero cell to a clean, aligned `0 (0.0%)`.
 
 ```{r ae-gtsummary}
 library(gtsummary)
-# AE_SORT: the native per-hierarchy-level sort rule -- SOCs alphanumeric, PTs by
-# total distinct-subject count (all arms) descending, ties A -> Z. Shared by the
-# gtsummary-family blocks: this one, cards + gtsummary, and flextable / huxtable.
-AE_SORT <- list(AESOC ~ "alphanumeric", AEDECOD ~ "descending")
 tbl <- tbl_hierarchical(
     data = adae, variables = c(AESOC, AEDECOD), by = TRT01A,
     denominator = adsl, id = USUBJID, overall_row = TRUE,
@@ -353,22 +374,6 @@ order) and hand the column header to `rtfreporter` via the setup block's
 
 ```{r ae-tplyr}
 library(Tplyr)
-# These three are needed only by the transpose-and-set blocks -- this one and
-# cards + tfrmt below -- which assemble the body themselves:
-#   .pt_order = canonical PT order (subject count desc, ties A -> Z);
-#   .keep_pt  = PTs kept (>= 3% of subjects in any arm);
-#   .soc_pt   = the real SOC / PT pairs (a PT belongs to exactly one SOC).
-.pt_order <- adae |> distinct(USUBJID, AEDECOD) |>
-  count(AEDECOD, name = "tot") |>
-  arrange(desc(tot), AEDECOD) |> pull(AEDECOD) |> as.character()
-.keep_pt <- adae |> distinct(USUBJID, TRT01A, AEDECOD) |>
-  count(TRT01A, AEDECOD, name = "n") |>
-  mutate(p = 100 * n / as.integer(arm_n[as.character(TRT01A)])) |>
-  group_by(AEDECOD) |> summarise(mx = max(p), .groups = "drop") |>
-  filter(mx >= 3) |> pull(AEDECOD) |> as.character()
-.soc_pt <- adae |> distinct(AESOC, AEDECOD) |>
-  mutate(across(everything(), as.character))
-
 varcols <- paste0("var1_", arm_levels)
 rn <- function(df) df |> dplyr::rename_with(~ arm_levels, dplyr::all_of(varcols))
 
@@ -526,8 +531,8 @@ bake_indent <- function(tbl, n = 4L) {
   tbl
 }
 
-# The same gtsummary table as the gtsummary section above (AE_SORT comes from the
-# gtsummary block).
+# The same gtsummary table as the gtsummary section above (AE_SORT is from the
+# data block).
 g <- tbl_hierarchical(
     data = adae, variables = c(AESOC, AEDECOD), by = TRT01A,
     denominator = adsl, id = USUBJID, overall_row = TRUE,

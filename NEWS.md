@@ -2,6 +2,25 @@
 
 ### Documentation
 
+- `showcase-ae` article + `data-raw/showcase_ae.R` generator + regenerated
+  `inst/rtf-examples/showcase/ae_*.rtf` (#177):
+  - **Zero cells now align.** `fmt_ae` previously collapsed a zero cell
+    "0 (0.0%)" to a bare "0", which the count/percent aligner then left ragged.
+    It now does the reverse -- **expands** a bare "0" to "0 (0.0%)" -- and is used
+    by *every* framework including tern (whose `count_occurrences()` emits bare
+    zeros), so all seven tables show an aligned `0 (0.0%)`.
+  - **A SOC now splits across a page with `(Cont.)`.** `AE_MAX_ROWS` 32 -> 16, so
+    the table runs to **3 pages** and a System Organ Class is continued with
+    `(Cont.)` at the top of the next page (verified with the real splitter).
+  - **Generator caught up to the article.** It still passed `read_meta = TRUE`
+    (so the committed RTFs carried the gtsummary `{n} ({p}%)` footnote that #175
+    removed from the article) and used the old collapse / `max_rows = 32`; it now
+    matches, and the AE RTFs were regenerated.
+  - **`AE_SORT` and the PT orderings move back to the data block** (revising
+    #176), each commented with which blocks use it, so every framework block is
+    copy-paste-runnable once the data block has run. The single-use helpers
+    `add_overall_row()` / `bake_indent()` stay in their blocks. Refs #146.
+
 - `showcase-ae` article, three fixes from maintainer review (#175): (1) lower
   `AE_MAX_ROWS` 32 -> 30 so page 1 still fits once Word re-renders the RTF; (2)
   pass `read_meta = FALSE` in every framework block so the gtsummary hierarchical
