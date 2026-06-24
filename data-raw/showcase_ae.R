@@ -77,7 +77,7 @@ ae_col_spec <- c(
   list(list(col = 1L, align = "left",   header_align = "left")),
   lapply(2:4, function(j) list(col = j, align = "center", header_align = "center")))
 ae_widths   <- c(0.52, 0.16, 0.16, 0.16)
-AE_MAX_ROWS <- 32L
+AE_MAX_ROWS <- 16L   # rows/page: split a SOC across a page ("(Cont.)"); 3 pages
 
 # Wrap a paginated list of rtftable pages into the AE document and write it.
 render_ae <- function(pages, name) {
@@ -113,11 +113,10 @@ try_block <- function(name, expr) {
 .soc_pt <- adae |> dplyr::distinct(AESOC, AEDECOD) |>
   dplyr::mutate(dplyr::across(dplyr::everything(), as.character))
 
-# Cell format shared by the read-meta frameworks: collapse a zero cell
-# "0 (0.0%)" to a bare "0" (so SOC and PT zeros match), then align the column.
+# Cell formatter shared by every framework: expand a bare zero "0" to "0 (0.0%)"
+# so it aligns (tern emits bare zeros; gtsummary/tfrmt/Tplyr already do, no-op).
 fmt_ae_cell <- function(x, nbsp = " ") {
-  z <- grepl("^[[:space:]]*0[[:space:]]*\\([[:space:]]*0(\\.0)?%?[[:space:]]*\\)[[:space:]]*$", x)
-  x[z] <- "0"
+  x[trimws(x) == "0"] <- "0 (0.0%)"
   fmt_count_paren_bare(x, nbsp = nbsp)
 }
 
@@ -238,9 +237,9 @@ try_block("tern", local({
   tbl <- build_table(lyt, df = adae_f, alt_counts_df = adsl) |>
     prune_table(keep_rows(has_fraction_in_any_col(atleast = 0.03))) |>
     sort_at_path(path = c("AESOC", "*", "AEDECOD"), scorefun = score_occurrences)
-  pages <- as_rtftables(tbl, split = "group_force", max_rows = AE_MAX_ROWS,
-                        blank_rows = "between_groups",
-                        cell_format = fmt_count_paren_bare,
+  pages <- as_rtftables(tbl, read_meta = FALSE, split = "group_force",
+                        max_rows = AE_MAX_ROWS, blank_rows = "between_groups",
+                        cell_format = fmt_ae_cell,
                         col_header = ae_col_header, col_spec = ae_col_spec,
                         col_rel_width = ae_widths, row_height_twips = 200)
   render_ae(pages, "ae_tern")
@@ -255,7 +254,7 @@ try_block("tern", local({
 try_block("gtsummary", local({
   library(gtsummary)
   tbl <- ae_gtsummary_tbl()
-  pages <- as_rtftables(tbl, read_meta = TRUE, split = "group_force",
+  pages <- as_rtftables(tbl, read_meta = FALSE, split = "group_force",
                         max_rows = AE_MAX_ROWS, blank_rows = "between_groups",
                         cell_format = fmt_ae_cell,
                         col_header = ae_col_header, col_spec = ae_col_spec,
@@ -279,7 +278,7 @@ try_block("gtsummary-ARD", local({
     filter_hierarchical(p >= 0.03) |>
     add_any_ae_row() |>
     reorder_ae()
-  pages <- as_rtftables(tbl, read_meta = TRUE, split = "group_force",
+  pages <- as_rtftables(tbl, read_meta = FALSE, split = "group_force",
                         max_rows = AE_MAX_ROWS, blank_rows = "between_groups",
                         cell_format = fmt_ae_cell,
                         col_header = ae_col_header, col_spec = ae_col_spec,
@@ -355,7 +354,7 @@ try_block("Tplyr", local({
 # group = label = <SOC> puts the SOC count ON the SOC row, exactly like the
 # others; the PT rows (group = SOC, label = PT) are the indented children, and
 # the overall row is its own one-row group.  We complete the arm x row grid so a
-# zero cell is a real 0 (printed bare), and sort SOCs alphabetically / PTs by
+# zero cell is a real 0 (rendered "0 (0.0%)"), and sort SOCs alphabetically / PTs by
 # subject count.
 try_block("cards-tfrmt", local({
   library(tidyr); library(tfrmt)
@@ -402,7 +401,7 @@ try_block("cards-tfrmt", local({
                         `Xanomeline High Dose`, -ord1, -ord2))
   g <- print_to_gt(spec, long)
 
-  pages <- as_rtftables(g, read_meta = TRUE, split = "group_force",
+  pages <- as_rtftables(g, read_meta = FALSE, split = "group_force",
                         max_rows = AE_MAX_ROWS, blank_rows = "between_groups",
                         cell_format = fmt_ae_cell,
                         col_header = ae_col_header, col_spec = ae_col_spec,
@@ -419,7 +418,7 @@ try_block("cards-tfrmt", local({
 try_block("flextable", local({
   library(gtsummary); library(flextable)
   ft <- gtsummary::as_flex_table(bake_indent(ae_gtsummary_tbl()))
-  pages <- as_rtftables(ft, split = "group_force", max_rows = AE_MAX_ROWS,
+  pages <- as_rtftables(ft, read_meta = FALSE, split = "group_force", max_rows = AE_MAX_ROWS,
                         blank_rows = "between_groups", cell_format = fmt_ae_cell,
                         col_header = ae_col_header, col_spec = ae_col_spec,
                         col_rel_width = ae_widths, row_height_twips = 200)
@@ -432,7 +431,7 @@ try_block("flextable", local({
 try_block("huxtable", local({
   library(gtsummary); library(huxtable)
   hx <- gtsummary::as_hux_table(bake_indent(ae_gtsummary_tbl()))
-  pages <- as_rtftables(hx, split = "group_force", max_rows = AE_MAX_ROWS,
+  pages <- as_rtftables(hx, read_meta = FALSE, split = "group_force", max_rows = AE_MAX_ROWS,
                         blank_rows = "between_groups", cell_format = fmt_ae_cell,
                         col_header = ae_col_header, col_spec = ae_col_spec,
                         col_rel_width = ae_widths, row_height_twips = 200)
