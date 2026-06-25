@@ -24,6 +24,77 @@ access / maintainer status** (the ability to push branches, label issues,
 and review PRs) — just ask, or it will be offered.  Contributions of every
 size are valued, including docs, tests, and bug reports.
 
+## Contributor vs Collaborator: two ways to push your work
+
+Everyone follows the **same** issue → branch → PR → review → merge lifecycle
+and the **same** branch-naming rules (below).  The only thing that differs is
+**where your topic branch lives**, which depends on whether you have write
+access to this repository.
+
+| | **Contributor** (no write access) | **Collaborator** (write access) |
+|---|---|---|
+| Who | Anyone — this is the default. | Maintainers / trusted regulars (offered after a few good PRs). |
+| Repo you push to | **Your fork** (`<you>/rtfreporter`). | **This repo** (`ichirio/rtfreporter`) directly. |
+| Open the PR | From your fork's branch → `ichirio/rtfreporter:main` (a *cross-fork* PR). | From the branch → `main`, same repo. |
+| Label / merge | A Collaborator does it for you. | Yourself. |
+
+Both paths are standard **GitHub flow**; follow the row that matches your
+access.
+
+### Contributor workflow (fork → pull request)
+
+```bash
+# 1. Fork on GitHub (the "Fork" button), then clone YOUR fork:
+git clone https://github.com/<you>/rtfreporter.git
+cd rtfreporter
+
+# 2. Add the canonical repo as "upstream" (one time only):
+git remote add upstream https://github.com/ichirio/rtfreporter.git
+
+# 3. Before each new piece of work, sync your fork's main with upstream:
+git checkout main
+git fetch upstream
+git merge --ff-only upstream/main      # fast-forward only; no local commits on main
+git push origin main                   # keep your fork's main current
+
+# 4. Cut a topic branch (see naming rules below) and do the work:
+git checkout -b <type>/<issue>-<slug>
+#   ... edit, then ...
+git add -A
+git commit -m "Short imperative summary (Closes #<issue>)"
+
+# 5. Push the branch to YOUR fork and open the PR against upstream:
+git push -u origin <type>/<issue>-<slug>
+gh pr create --repo ichirio/rtfreporter --base main \
+  --head <you>:<type>/<issue>-<slug>
+#   (or use the "Compare & pull request" button GitHub shows after the push)
+```
+
+Keep `main` on your fork **pristine** (never commit to it directly) so the
+fast-forward sync in step 3 always succeeds.  If your branch falls behind
+`main` while in review, `git fetch upstream && git merge upstream/main` into
+the branch and push again.
+
+### Collaborator workflow (direct branch)
+
+With write access you skip the fork and the `upstream` remote — `origin`
+already *is* `ichirio/rtfreporter`:
+
+```bash
+git clone https://github.com/ichirio/rtfreporter.git
+cd rtfreporter
+git checkout main && git pull
+git checkout -b <type>/<issue>-<slug>
+#   ... edit / commit ...
+git push -u origin <type>/<issue>-<slug>
+gh pr create --base main               # head is the branch you just pushed
+```
+
+`main` itself currently accepts direct pushes (branch protection is off while
+the maintainer team is small), **but open a PR anyway** so CI runs and the
+change is reviewable.  Releases — minor/major version bumps, tags, GitHub
+Releases — are a Collaborator-only action (see *Versioning & releases*).
+
 ## Issue → merge lifecycle
 
 ```
@@ -111,6 +182,62 @@ trying to produce helps a lot.
    `CHANGELOG.md`.
 7. Open the pull request against `main` with a clear description and a
    reference to the related issue (e.g. `Closes #12`).
+
+## Non-code contributions: rendered-output snapshots
+
+Not every contribution is code.  Docs, tests, and **screenshots of how a
+generated `.rtf` opens in Microsoft Word** are all welcome — the showcase
+articles (`vignettes/articles/showcase-dm.Rmd`, `showcase-ae.Rmd`) display a
+real Word rendering of each example beside the code that produced it.  This is
+a great first contribution and needs no R toolchain.
+
+**How the snapshots are wired.**  Each example commits its `.rtf` to
+`inst/rtf-examples/showcase/` — these are the generated *source of truth*
+(refreshed by `data-raw/showcase_dm.R` / `showcase_ae.R`).  A matching `.png`
+sits next to it; the article's `.snapshot("<name>.png")` helper looks the PNG
+up **by exact filename** and embeds it, falling back to a "not captured yet"
+placeholder when the PNG is still a stand-in.  So a snapshot contribution is
+simply: **replace the placeholder PNG with a real Word screenshot of the same
+basename.**
+
+**To capture and contribute a snapshot:**
+
+1. Sync your fork and cut a branch (Contributor or Collaborator flow above).
+   Snapshots are part of the long-running showcase effort (tracker **#146**),
+   so reference it with **`Refs #146`** (not `Closes`) and scope the branch,
+   e.g. `docs/146-showcase-snapshots`.
+2. For each example, open its `.rtf` from `inst/rtf-examples/showcase/` in
+   **Word** and screenshot the rendered page.  Keep captures consistent:
+   - 100 % zoom, white page background, no ruler/ribbon in frame;
+   - crop to the page content (table, titles, footnotes), not the Word chrome;
+   - if a table runs across several pages (some AE examples do, with a
+     `(Cont.)` continuation), capture the page(s) the article describes.
+3. Save each screenshot as a **PNG with the identical basename** as the
+   `.rtf`, overwriting the placeholder — e.g. `dm_gtsummary.rtf` →
+   `dm_gtsummary.png`.  Do **not** rename: a mismatch silently falls back to
+   the placeholder.
+4. Commit only the PNGs and open the PR:
+
+   ```bash
+   git add inst/rtf-examples/showcase/*.png
+   git commit -m "Capture Word snapshots for showcase examples (Refs #146)"
+   git push -u origin docs/146-showcase-snapshots
+   # Contributor: gh pr create --repo ichirio/rtfreporter --base main \
+   #                --head <you>:docs/146-showcase-snapshots
+   # Collaborator: gh pr create --base main
+   ```
+
+For a **pure snapshot** contribution you do *not* regenerate the `.rtf` files
+or touch R code — they are already committed.  (Only if an example's *content*
+were wrong would you edit the article and rerun its `data-raw/` driver, which
+is a separate, code-level change.)  CI does not build the articles under
+`R-CMD-check`, but the **pkgdown** workflow does — so a corrupt or mis-named
+PNG surfaces there; check that workflow goes green on your PR.
+
+The current showcase set is **6 DM** examples (`dm_gtsummary`,
+`dm_gtsummary_ard`, `dm_rtables`, `dm_tfrmt`, `dm_tfrmt_rtfreporter`,
+`dm_tplyr`) and **7 AE** examples (`ae_tern`, `ae_gtsummary`,
+`ae_gtsummary_ard`, `ae_tplyr`, `ae_tfrmt`, `ae_flextable`, `ae_huxtable`).
 
 ## Branching & collaboration
 
