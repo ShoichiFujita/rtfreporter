@@ -172,6 +172,7 @@ reference:
       - rtf_default_format
       - generate_rtfreport
       - print.rtf_document
+      - print.rtfreport
 
   # ── 1b. Package defaults / configuration ───────────────────────────────
   - title: Package defaults
@@ -211,6 +212,8 @@ reference:
       - rtf_footnotes
       - rtftable
       - rtfplot
+      - print.rtftable
+      - print.rtfplot
 
   # ── 4. Importing external table objects ────────────────────────────────
   - title: Importing tables (gt / gtsummary / rtables → rtftable)
